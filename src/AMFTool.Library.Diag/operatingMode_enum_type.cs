@@ -1,0 +1,11 @@
+﻿namespace AMFTool.Library.Diag;
+
+public enum operatingMode_enum_type
+{
+	SYS_OPRT_MODE_FTM = 1,
+	SYS_OPRT_MODE_OFFLINE_AMPS = 3,
+	SYS_OPRT_MODE_ONLINE = 5,
+	SYS_OPRT_MODE_RESET = 7,
+	SYS_OPRT_MODE_OFFLINE_IF_NOT_FTM = 9,
+	SYS_OPRT_MODE_APQ_DIAG_ALIVE = 12
+}

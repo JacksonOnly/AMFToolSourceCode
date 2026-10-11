@@ -1,0 +1,232 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+  <PropertyGroup>
+    <AssemblyName>AMFTool</AssemblyName>
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>True</UseWindowsForms>
+    <TargetFramework>net48</TargetFramework>
+    <Prefer32Bit>True</Prefer32Bit>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <PlatformTarget>x86</PlatformTarget>
+    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
+  </PropertyGroup>
+  <PropertyGroup>
+    <LangVersion>12.0</LangVersion>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>..\resources\App\app.ico</ApplicationIcon>
+    <ApplicationManifest>..\resources\App\app.manifest</ApplicationManifest>
+    <RootNamespace />
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\resources\Embedded\costura.costura.dll.compressed" LogicalName="costura.costura.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.costura.pdb.compressed" LogicalName="costura.costura.pdb.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.devexpress.data.desktop.v25.2.dll.compressed" LogicalName="costura.devexpress.data.desktop.v25.2.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.devexpress.data.v25.2.dll.compressed" LogicalName="costura.devexpress.data.v25.2.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.devexpress.drawing.v25.2.dll.compressed" LogicalName="costura.devexpress.drawing.v25.2.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.devexpress.printing.v25.2.core.dll.compressed" LogicalName="costura.devexpress.printing.v25.2.core.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.devexpress.utils.v25.2.dll.compressed" LogicalName="costura.devexpress.utils.v25.2.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.devexpress.xtrabars.v25.2.dll.compressed" LogicalName="costura.devexpress.xtrabars.v25.2.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.devexpress.xtraeditors.v25.2.dll.compressed" LogicalName="costura.devexpress.xtraeditors.v25.2.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.devexpress.xtraprinting.v25.2.dll.compressed" LogicalName="costura.devexpress.xtraprinting.v25.2.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.downloader.dll.compressed" LogicalName="costura.downloader.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.file.dll.compressed" LogicalName="costura.file.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.libusbdotnet.libusbdotnet.dll.compressed" LogicalName="costura.libusbdotnet.libusbdotnet.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.libusbdotnet.libusbdotnet.pdb.compressed" LogicalName="costura.libusbdotnet.libusbdotnet.pdb.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.microsoft.bcl.asyncinterfaces.dll.compressed" LogicalName="costura.microsoft.bcl.asyncinterfaces.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.newtonsoft.json.dll.compressed" LogicalName="costura.newtonsoft.json.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.system.buffers.dll.compressed" LogicalName="costura.system.buffers.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.system.io.pipelines.dll.compressed" LogicalName="costura.system.io.pipelines.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.system.memory.dll.compressed" LogicalName="costura.system.memory.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.system.numerics.vectors.dll.compressed" LogicalName="costura.system.numerics.vectors.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.system.runtime.compilerservices.unsafe.dll.compressed" LogicalName="costura.system.runtime.compilerservices.unsafe.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.system.text.encodings.web.dll.compressed" LogicalName="costura.system.text.encodings.web.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.system.text.json.dll.compressed" LogicalName="costura.system.text.json.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.system.threading.tasks.extensions.dll.compressed" LogicalName="costura.system.threading.tasks.extensions.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.devexpress.pdf.v25.2.core.dll.compressed" LogicalName="costura.devexpress.pdf.v25.2.core.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.devexpress.pdf.v25.2.drawing.dll.compressed" LogicalName="costura.devexpress.pdf.v25.2.drawing.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.devexpress.sparkline.v25.2.core.dll.compressed" LogicalName="costura.devexpress.sparkline.v25.2.core.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.devexpress.xtralayout.v25.2.dll.compressed" LogicalName="costura.devexpress.xtralayout.v25.2.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.devexpress.richedit.v25.2.core.dll.compressed" LogicalName="costura.devexpress.richedit.v25.2.core.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.devexpress.xtratreelist.v25.2.dll.compressed" LogicalName="costura.devexpress.xtratreelist.v25.2.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.devexpress.office.v25.2.core.dll.compressed" LogicalName="costura.devexpress.office.v25.2.core.dll.compressed" />
+    <EmbeddedResource Include="..\resources\Embedded\costura.metadata" LogicalName="costura.metadata" />
+    <EmbeddedResource Include="..\resources\Embedded\A7596572" LogicalName="A7596572" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System.Memory">
+      <HintPath>..\lib\system.memory.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="DevExpress.Utils.v25.2">
+      <HintPath>..\lib\devexpress.utils.v25.2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="DevExpress.XtraEditors.v25.2">
+      <HintPath>..\lib\devexpress.xtraeditors.v25.2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Text.Json">
+      <HintPath>..\lib\system.text.json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Net.Http">
+      <HintPath>C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8\System.Net.Http.dll</HintPath>
+    </Reference>
+    <Reference Include="DevExpress.Data.v25.2">
+      <HintPath>..\lib\devexpress.data.v25.2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.VisualBasic" />
+    <Reference Include="System.Xml" />
+    <Reference Include="DevExpress.XtraBars.v25.2">
+      <HintPath>..\lib\devexpress.xtrabars.v25.2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.IO.Compression">
+      <HintPath>C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8\System.IO.Compression.dll</HintPath>
+    </Reference>
+    <Reference Include="Downloader">
+      <HintPath>..\lib\downloader.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Beta">
+      <HintPath>..\lib\beta.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Management" />
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\lib\newtonsoft.json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Buffers">
+      <HintPath>..\lib\system.buffers.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\resources\UI\AMFTool.Auth.resources">
+      <LogicalName>AMFTool.Auth.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\resources\UI\AMFTool.Main.resources">
+      <LogicalName>AMFTool.Main.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\resources\UI\AMFTool.Properties.Resources.resources">
+      <LogicalName>AMFTool.Properties.Resources.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\resources\UI\AMFTool.QCNeditoIMEI.resources">
+      <LogicalName>AMFTool.QCNeditoIMEI.resources</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="devexpress.data.desktop.v25.2">
+      <HintPath>..\lib\devexpress.data.desktop.v25.2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="devexpress.drawing.v25.2">
+      <HintPath>..\lib\devexpress.drawing.v25.2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="devexpress.office.v25.2.core">
+      <HintPath>..\lib\devexpress.office.v25.2.core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="devexpress.pdf.v25.2.core">
+      <HintPath>..\lib\devexpress.pdf.v25.2.core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="devexpress.pdf.v25.2.drawing">
+      <HintPath>..\lib\devexpress.pdf.v25.2.drawing.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="devexpress.printing.v25.2.core">
+      <HintPath>..\lib\devexpress.printing.v25.2.core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="devexpress.richedit.v25.2.core">
+      <HintPath>..\lib\devexpress.richedit.v25.2.core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="devexpress.sparkline.v25.2.core">
+      <HintPath>..\lib\devexpress.sparkline.v25.2.core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="devexpress.xtralayout.v25.2">
+      <HintPath>..\lib\devexpress.xtralayout.v25.2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="devexpress.xtraprinting.v25.2">
+      <HintPath>..\lib\devexpress.xtraprinting.v25.2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="devexpress.xtratreelist.v25.2">
+      <HintPath>..\lib\devexpress.xtratreelist.v25.2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="libusbdotnet.libusbdotnet">
+      <HintPath>..\lib\libusbdotnet.libusbdotnet.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="microsoft.bcl.asyncinterfaces">
+      <HintPath>..\lib\microsoft.bcl.asyncinterfaces.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="system.io.pipelines">
+      <HintPath>..\lib\system.io.pipelines.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="system.numerics.vectors">
+      <HintPath>..\lib\system.numerics.vectors.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="system.runtime.compilerservices.unsafe">
+      <HintPath>..\lib\system.runtime.compilerservices.unsafe.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="system.text.encodings.web">
+      <HintPath>..\lib\system.text.encodings.web.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="system.threading.tasks.extensions">
+      <HintPath>..\lib\system.threading.tasks.extensions.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <EmbeddedResource Include="..\resources\UI\AMFTool.IMEI.resources">
+      <LogicalName>AMFTool.IMEI.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\resources\UI\AMFTool.Library.Mediatek.ReadDump.resources">
+      <LogicalName>AMFTool.Library.Mediatek.ReadDump.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\resources\UI\AMFTool.Load.resources">
+      <LogicalName>AMFTool.Load.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\resources\UI\AMFTool.SerialNumber.resources">
+      <LogicalName>AMFTool.SerialNumber.resources</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+  <PropertyGroup>
+    <StartupObject>Restored.Namespace1.Class26</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\lib\beta.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>beta.dll</Link>
+    </None>
+    <None Include="..\lib\Downloader.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Downloader.dll</Link>
+    </None>
+    <None Include="..\lib\libusb0.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>libusb0.dll</Link>
+    </None>
+  </ItemGroup>
+</Project>

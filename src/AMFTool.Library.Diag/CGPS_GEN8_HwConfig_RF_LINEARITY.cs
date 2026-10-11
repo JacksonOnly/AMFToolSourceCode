@@ -1,0 +1,7 @@
+﻿namespace AMFTool.Library.Diag;
+
+public enum CGPS_GEN8_HwConfig_RF_LINEARITY
+{
+	CGPS_GEN8_HW_CONFIG_RF_LINEARITY_LOW = 1,
+	CGPS_GEN8_HW_CONFIG_RF_LINEARITY_AUTO = 3
+}

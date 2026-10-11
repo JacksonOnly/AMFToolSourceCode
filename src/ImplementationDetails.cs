@@ -1,0 +1,1 @@
+﻿internal static class ImplementationDetails { internal static uint method_01(string value) { uint hash=0; if(value != null) { hash=2166136261u; foreach(char c in value) hash=unchecked((hash^c)*16777619u); } return hash; } }

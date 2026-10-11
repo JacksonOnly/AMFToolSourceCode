@@ -1,0 +1,23883 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading;
+using System.Xml;
+using Restored.Namespace6;
+using Restored.Namespace7;
+
+namespace AMFTool.Library.Diag;
+
+public class Phone : IDisposable
+{
+	public enum NFC_Type_Enum
+	{
+		TypeA,
+		TypeB,
+		TypeF,
+		AnyType
+	}
+
+	public struct WigigRxReport
+	{
+		public uint inaSyncCounterDp;
+
+		public uint sfdSyncCounterSc;
+
+		public uint sdfTimeoutCounterDp;
+
+		public uint CrcOkCounterSc;
+
+		public uint CrcErrorCounterSc;
+
+		public uint BerLastZeroCounterSc;
+
+		public uint BerLastNonZeroCounterSc;
+
+		public uint inaSyncCounterCp;
+
+		public uint sfdSyncCounterCp;
+
+		public uint sdfTimeoutCounterCp;
+
+		public uint CrcOkCounterCp;
+
+		public uint CrcErrorCounterCp;
+
+		public uint BerLastZeroCounterCp;
+
+		public uint BerLastNonZeroCounterCp;
+	}
+
+	public enum WPAN_15p4_FlagOptions
+	{
+		PHR_NO_CRC,
+		NO_PHR_NO_CRC,
+		PHR_CRC,
+		CRC_NO_PHR
+	}
+
+	public enum WPAN_15p4_TxRxMode
+	{
+		CONT_CARRIER_ONLY,
+		CONT_MOD_DATA,
+		BURST_MOD_DATA
+	}
+
+	public enum WPAN_15p4_PacketType
+	{
+		PRBS16 = 1,
+		ALL_1,
+		ALL_0,
+		ALT_0101,
+		ALL_1010
+	}
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	public delegate void asyncMessageCB(ushort iMessageSize, IntPtr iMessageBuffer, uint contextID);
+
+	private struct contextInfo
+	{
+		public uint phoneHandle;
+
+		public IntPtr hUserhandle;
+	}
+
+	public enum TargetType
+	{
+		QLIB_TARGET_TYPE_MSM_MDM,
+		QLIB_TARGET_TYPE_APQ,
+		QLIB_TARGET_TYPE_MAX_INVALID
+	}
+
+	public enum DiagType
+	{
+		QLIB_DIAG_TYPE_STANDARD,
+		QLIB_DIAG_TYPE_LITE,
+		QLIB_DIAG_TYPE_MAX_INVALID
+	}
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	private delegate int OpenUserDefinedDelegate(string resourceId);
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	private delegate void CloseUserDefinedDelegate(string resourceId);
+
+	public delegate void QMSLTextLogCB(uint timeInMS, ushort logLevel, string message);
+
+	private class LoggingFlags
+	{
+		public bool LogMsgs;
+
+		public bool F3Msgs;
+
+		public bool EventMsgs;
+
+		public LoggingFlags()
+		{
+			EventMsgs = false;
+			F3Msgs = false;
+			LogMsgs = false;
+		}
+
+		public bool flags()
+		{
+			return LogMsgs | F3Msgs | EventMsgs;
+		}
+
+		public static int method_01(int arg_01, int arg_02)
+		{
+			return arg_01 ^ arg_02;
+		}
+	}
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	private delegate void asyncHandlerCallBack(ushort msgSize, IntPtr msgPtr, uint contextID);
+
+	public enum ANT_TestStatus
+	{
+		Completed,
+		Running
+	}
+
+	public enum BlueTooth_TransmitType
+	{
+		BT_1_CARRIER = 4,
+		BT_1_PRBS9,
+		BT_1_PRBS15,
+		BT_1_PATTERN,
+		BT_2_PRBS9,
+		BT_2_PRBS15,
+		BT_2_PATTERN,
+		BT_3_PRBS9,
+		BT_3_PRBS15,
+		BT_3_PATTERN
+	}
+
+	public enum BLE_TransmitType_QCA402x
+	{
+		CW = 4,
+		LE_1M_PHY = 7,
+		LE_2M_PHY = 10
+	}
+
+	public enum BLE_TransmitType
+	{
+		LE_1M_PHY = 0,
+		LE_2M_PHY = 8
+	}
+
+	public enum BlueTooth_TransmittPatternPayload
+	{
+		ALL_ZEROES,
+		ALL_ONES,
+		ALTERNATING_BIT,
+		ALTERNATING_NIBBLE,
+		PSEUDO_RANDOM
+	}
+
+	public enum BT_LE_TransmittPatternPayload
+	{
+		PN_9,
+		Alternating_Nibbles_11110000,
+		Alternating_Bits_10101010,
+		PN_15,
+		ALL_ONES,
+		ALL_ZEROS,
+		Alternating_Nibbles_00001111,
+		Alternating_Bits_01010101
+	}
+
+	public enum BlueTooth_PacketType
+	{
+		BT_NULL = 0,
+		BT_POLL = 1,
+		BT_FHS = 2,
+		BT_DM1 = 3,
+		BT_DH1 = 4,
+		BT_AUX1 = 9,
+		BT_DM3 = 10,
+		BT_DH3 = 11,
+		BT_DM5 = 14,
+		BT_DH5 = 15,
+		BT_2_DH1 = 36,
+		BT_2_DH3 = 42,
+		BT_2_DH5 = 46,
+		BT_3_DH1 = 40,
+		BT_3_DH3 = 43,
+		BT_3_DH5 = 47,
+		BT_HV1 = 5,
+		BT_HV2 = 6,
+		BT_HV3 = 7,
+		BT_DV = 8,
+		BT_EV3 = 23,
+		BT_EV4 = 28,
+		BT_EV5 = 29,
+		BT_2_EV3 = 54,
+		BT_2_EV5 = 60,
+		BT_3_EV3 = 55,
+		BT_3_EV5 = 61
+	}
+
+	public enum BlueTooth_PacketTypeAR3002PER
+	{
+		BT_ALL,
+		BT_ALL_ExceptDM1_DM3_DM5,
+		BT_DM1,
+		BT_DM3,
+		BT_DM5,
+		BT_DH1,
+		BT_DH3,
+		BT_DH5,
+		BT_2_DH1,
+		BT_2_DH3,
+		BT_2_DH5,
+		BT_3_DH1,
+		BT_3_DH3,
+		BT_3_DH5
+	}
+
+	public struct BTModuleVersion
+	{
+		public byte HCI_Version;
+
+		public byte LMP_Version;
+
+		public short Manufacturer_Version;
+
+		public short LMP_Sub_Version;
+	}
+
+	public struct BTRxStatsChannel
+	{
+		public uint packetReceived;
+
+		public uint packetAccessError;
+
+		public uint hecError;
+
+		public uint crcError;
+
+		public uint totalPacketBitErrors;
+
+		public uint firstHalfBitErrors;
+
+		public uint lastHalfBitErrors;
+
+		public int rssiReading;
+	}
+
+	public struct BTListModeStat
+	{
+		public uint totalReceivePackets;
+
+		public uint uint_0;
+
+		public uint totalHECOKPackets;
+
+		public uint uint_1;
+
+		public uint totalCrcOKPackets;
+
+		public uint totalPayloadOKPackets;
+
+		public uint totalBitError;
+	}
+
+	public struct LEListModeStat
+	{
+		public uint totalReceivePackets;
+
+		public uint uint_0;
+
+		public uint totalHECOKPackets;
+
+		public uint uint_1;
+
+		public uint totalCrcOKPackets;
+
+		public uint totalPayloadOKPackets;
+	}
+
+	public struct GStruct0
+	{
+		public uint packetCRCErrors;
+
+		public uint packetReceived;
+	}
+
+	public enum FM_Bands
+	{
+		FM_US_EUROPE_BAND,
+		FM_JAPAN_STANDARD_BAND,
+		FM_JAPAN_WIDE_BAND,
+		FM_USER_DEFINED_BAND
+	}
+
+	public enum FM_Emphasis
+	{
+		FM_DE_EMP75,
+		FM_DE_EMP50
+	}
+
+	public enum FM_ChanSpacing
+	{
+		FM_CHSPACE_200_KHZ,
+		FM_CHSPACE_100_KHZ,
+		FM_CHSPACE_50_KHZ
+	}
+
+	public enum FM_RdsStd
+	{
+		FM_RDS_STD_RBDS,
+		FM_RDS_STD_RDS,
+		FM_RDS_STD_NONE
+	}
+
+	public enum FM_RxMute
+	{
+		FM_RX_NOMUTE,
+		FM_RX_MUTELEFT,
+		FM_RX_MUTERIGHT,
+		FM_RX_MUTEBOTH
+	}
+
+	public enum FM_RxStereoMode
+	{
+		FM_RX_AUTO_MONO_STEREO_MODE,
+		FM_RX_FORCE_MONO_ONLY_MODE
+	}
+
+	public enum FM_RxStereoProgram
+	{
+		FM_RX_MONO_PROGRAM,
+		FM_RX_STEREO_PROGRAM
+	}
+
+	public enum FM_RxRdsChangeFilter
+	{
+		FTM_FM_RX_RDS_CHANGE_FILTER_DISABLED,
+		FTM_FM_RX_RDS_CHANGE_FILTER_ENABLED
+	}
+
+	public enum FM_RxRdsSync
+	{
+		FM_RX_NO_RDS_SYNC,
+		FM_RX_RDS_SYNC
+	}
+
+	public enum FM_RxServAvble
+	{
+		FM_RX_SERVICE_NOT_AVAILABLE,
+		FM_RX_SERVICE_AVAILABLE
+	}
+
+	public enum FM_AudioRoute
+	{
+		FM_API_AUDIO_OFF,
+		FM_API_AUDIO_OUT_ANALOG,
+		FM_API_AUDIO_OUT_DIGITAL_M,
+		FM_API_AUDIO_OUT_DIGITAL_S,
+		FM_API_AUDIO_OUT_ANALOG_DIGITAL_M,
+		FM_API_AUDIO_OUT_ANALOG_DIGITAL_S,
+		FM_API_AUDIO_IN_DIGITAL_M,
+		FM_API_AUDIO_IN_DIGITAL_S,
+		FM_API_AUDIO_MAX
+	}
+
+	public enum FM_AudioOutput
+	{
+		FM_AUDIO_HEADSET,
+		FM_AUDIO_SPEAKER
+	}
+
+	public enum FM_CurrentFmState
+	{
+		FM_WAN_FM_MODE_OFF,
+		FM_WAN_FM_MODE_RECEIVER_ACTIVE
+	}
+
+	public enum FM_Hlsi
+	{
+		FM_HLSI_AUTO,
+		FM_HLSI_LOWSIDE,
+		FM_HLSI_HIGHSIDE
+	}
+
+	public enum FM_SoftMute
+	{
+		FM_RX_SOFTMUTE_DISABLED,
+		FM_RX_SOFTMUTE_ENABLED
+	}
+
+	public enum FM_Antenna
+	{
+		FM_ANTENNA_WIRED_HEADSET,
+		FM_ANTENNA_PWB
+	}
+
+	public enum FM_NotchFilter
+	{
+		FM_DISABLE_NOTCH_FILTERS,
+		FM_ENABLE_LOW_PASS_NOTCH_FILTER,
+		FM_ENABLE_HIGH_PASS_NOTCH_FILTER
+	}
+
+	public enum FM_TxAudioTone
+	{
+		FM_TX_AUDIO_TONE_NOTONE,
+		FM_TX_AUDIO_TONE_1KHZ_0DBFS_LR,
+		FM_TX_AUDIO_TONE_1KHZ_0DBFS_LEFT,
+		FM_TX_AUDIO_TONE_1KHZ_0DBFS_RIGHT,
+		FM_TX_AUDIO_TONE_1KHZ_N18DBFS_LR,
+		FM_TX_AUDIO_TONE_15KHZ_N18DBFS_LR
+	}
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	public delegate bool asyncHandlerGenMeasureCB(uint measureType, uint freq, uint bw, int dataRate, double powerLevel, uint numAvg, IntPtr oPower, IntPtr oFreq);
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	public delegate bool asyncHandlerQmslMsgCallBack(uint type, string msg);
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	public delegate bool asyncHandlerDbgCallBack(string msg);
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	public delegate double asyncHandlerPMCallBack(uint gain, uint freq, double powerLevel, uint numAvg, uint iTriggerType, int iTriggerLevel);
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	public delegate bool asyncHandlerPMCallBack2(uint gain, uint freq, uint chainMask, IntPtr powerLevel, uint numAvg, uint iTriggerType, int iTriggerLevel, IntPtr oPower);
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	public delegate bool asyncHandlerRFSCallBack(WLAN_CHAIN_MASK chainMask);
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	public delegate bool asyncHandlerSetChainCallBack(WLAN_CHAIN_MASK chainMask);
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	public delegate double asyncHandlerCWFreqErrCallBack(uint capValue, uint freq, double powerLevel, uint numAvg);
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	public delegate double asyncHandlerCWFreqErrCallBack2(uint capInValue, uint capOutValue, uint freq, double powerLevel, uint numAvg);
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	public delegate bool asyncHandlerRxGainCalDoneCallBack(uint status);
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	public delegate uint asyncHandlerSigGenCallBack(int inputSignalStrength_dBm, uint freq, uint rate, uint numPackets, uint chain);
+
+	public struct WLANGen6XLNA
+	{
+		public byte lna;
+
+		public byte gm;
+	}
+
+	public enum WLAN_TLV_OPCODE
+	{
+		_OP_TEST_CONFIG = 255,
+		_OP_SYNC = 0,
+		_OP_TX = 1,
+		_OP_RX = 2,
+		_OP_CAL = 3,
+		_OP_CAL_DONE = 4,
+		_OP_PM = 5,
+		_OP_GENERIC_RSP = 6,
+		_OP_SUBMIT_REPORT_RSP = 7,
+		_OP_GENERIC_NART_CMD = 8,
+		_OP_GENERIC_NART_RSP = 9,
+		_OP_TX_STATUS = 10,
+		_OP_RX_STATUS = 11,
+		_OP_CAL_RESULT_RSP = 12,
+		_OP_TESTSCRIPT_LAST = 13,
+		_OP_REMAINING = 13,
+		_OP_SLEEP = 14,
+		_OP_RESET = 15,
+		_OP_OTP = 16,
+		_OP_EEPROM = 17,
+		_OP_READ_REG = 18,
+		_OP_WRITE_REG = 19,
+		_OP_READ_MEM = 20,
+		_OP_WRITE_MEM = 21,
+		_OP_DUT_LOAD = 22,
+		_OP_CAL_INIT = 23,
+		_OP_READ_FIELD = 24,
+		_OP_WRITE_FIELD = 25,
+		_OP_DEVLIB_LAST = 26,
+		_OP_QMSL = 200,
+		_OP_DUMP_REG = 201,
+		_OP_GAINTBL_SWEEP_FILE = 202,
+		_OP_GAINTBL_SWEEP = 203,
+		_OP_READ_REG2 = 204,
+		_OP_WRITE_REG2 = 205,
+		_OP_OTP2 = 206,
+		_OP_MAX = 207
+	}
+
+	public enum WLAN_TLV2_OPCODE
+	{
+		_OP2_SYNC = 100,
+		_OP2_TPCCAL = 101,
+		_OP2_TPCCALRSP = 102,
+		_OP2_TPCCALPWR = 103,
+		_OP2_TPCCALDATA = 104,
+		_OP2_RXGAINCAL = 105,
+		_OP2_RXGAINCALRSP = 106,
+		_OP2_RXGAINCAL_SIGL_DONE = 107,
+		_OP2_RXGAINCALRSP_DONE = 108,
+		_OP2_REGREAD = 109,
+		_OP2_REGREADRSP = 110,
+		_OP2_REGWRITE = 111,
+		_OP2_REGWRITERSP = 112,
+		_OP2_BASICRSP = 113,
+		_OP2_TX = 114,
+		_OP2_TXSTATUS = 115,
+		_OP2_TXSTATUSRSP = 116,
+		_OP2_RX = 117,
+		_OP2_RXSTATUS = 118,
+		_OP2_RXSTATUSRSP = 119,
+		_OP2_RXRSP = 121,
+		_OP2_XTALCALPROC = 122,
+		_OP2_XTALCALPROCRSP = 123,
+		_OP2_READCUSTOTPSPACE = 124,
+		_OP2_READCUSTOTPSPACERSP = 125,
+		_OP2_WRITECUSTOTPSPACE = 126,
+		_OP2_WRITECUSTOTPSPACERSP = 127,
+		_OP2_GETCUSTOTPSIZE = 128,
+		_OP2_GETCUSTOTPSIZERSP = 129,
+		_OP2_GETDPDCOMPLETE = 130,
+		_OP2_GETDPDCOMPLETERSP = 131,
+		_OP2_GETTGTPWR = 132,
+		_OP2_GETTGTPWRRSP = 133,
+		_OP2_SETPCIECONFIGPARAMS = 134,
+		_OP2_SETPCIECONFIGPARAMSRSP = 135,
+		_OP2_COMMITOTPSTREAM = 136,
+		_OP2_COMMITOTPSTREAMRSP = 137,
+		_OP2_SETREGDMN = 138,
+		_OP2_SETREGDMNRSP = 139,
+		_OP2_MEMWRITE = 140,
+		_OP2_MEMWRITERSP = 141,
+		_OP2_MEMREAD = 142,
+		_OP2_MEMREADRSP = 143,
+		_OP2_CONFIG = 144,
+		_OP2_DPDTUNE_LOOPBACKTIMING = 145,
+		_OP2_DPDTUNE_LOOPBACKTIMINGRSP = 146,
+		_OP2_DPDTUNE_LOOPBACKATTEN = 147,
+		_OP2_DPDTUNE_LOOPBACKATTENRSP = 148,
+		_OP2_DPDTUNE_TRAININGQUALITY = 149,
+		_OP2_DPDTUNE_TRAININGQUALITYRSP = 150,
+		_OP2_DPDTUNE_AGC2PWR = 151,
+		_OP2_DPDTUNE_AGC2PWRRSP = 152,
+		_OP2_LMHWCAL = 153,
+		_OP2_LMHWCALRSP = 154,
+		_OP2_LMTX = 155,
+		_OP2_MORESEGMENT = 156,
+		_OP2_MORESEGMENTRSP = 157,
+		_OP2_LMRX = 158,
+		_OP2_ADCCAPTURE = 159,
+		_OP2_ADCCAPTURERSP = 160,
+		_OP2_GENWAVEFORM = 161,
+		_OP2_GENWAVEFORMRSP = 162,
+		_OP2_ENABLEDFE = 163,
+		_OP2_ENABLEDFERSP = 164,
+		_OP2_CALCALTIME = 165,
+		_OP2_CALCALTIMERSP = 166,
+		_OP2_RXDCOGROUP = 167,
+		_OP2_RXDCOGROUPRSP = 168,
+		_OP2_SETPHYRFMODE = 169,
+		_OP2_LMCHANNELLIST = 170,
+		_OP2_LMCHANNELLISTRSP = 171,
+		_OP2_LMTXINIT = 172,
+		_OP2_LMTXINITRSP = 173,
+		_OP2_LMGO = 174,
+		_OP2_LMGORSP = 175,
+		_OP2_LMQUERY = 176,
+		_OP2_LMQUERYRSP = 177,
+		_OP2_GENERICUTFCMD = 178,
+		_OP2_GENERICUTFRSP = 179,
+		_OP2_LMRXINIT = 180,
+		_OP2_LMRXINITRSP = 181,
+		_OP2_PHYDBGDUMP = 182,
+		_OP2_PHYDBGDUMPRSP = 183,
+		_OP2_DACPLYBCK = 184,
+		_OP2_DACPLYBCKRSP = 185,
+		_OP2_COMBCALGROUP = 186,
+		_OP2_COMBCALGROUPRSP = 187,
+		_OP2_NFCALGROUP = 188,
+		_OP2_NFCALGROUPRSP = 189,
+		_OP2_AGCHISTORYCONFIG = 190,
+		_OP2_AGCHISTORYCONFIGRSP = 191,
+		_OP2_AGCHISTORYDUMP = 192,
+		_OP2_AGCHISTORYDUMPRSP = 193,
+		_OP2_RXGAINCTRL = 194,
+		_OP2_RXGAINCTRLRSP = 195,
+		_OP2_EFUSEREAD = 196,
+		_OP2_EFUSEREADRSP = 197,
+		_OP2_EFUSEWRITE = 198,
+		_OP2_EFUSEWRITERSP = 199,
+		_OP2_NOISEFLOORREAD = 202,
+		_OP2_NOISEFLOORREADRSP = 203,
+		_OP2_STICKY = 204,
+		_OP2_BDGETSIZE = 205,
+		_OP2_BDGETSIZERSP = 206,
+		_OP2_BDREAD = 207,
+		_OP2_BDREADRSP = 208,
+		_OP2_GETRSSI = 209,
+		_OP2_GETRSSIRSP = 210,
+		_OP2_SAR = 211,
+		_OP2_SARRSP = 212,
+		_OP2_TXGAINCTRL = 213,
+		_OP2_TXGAINCTRLRSP = 214,
+		_OP2_TONEPLAN = 215,
+		_OP2_LMRXSTATUS = 216,
+		_OP2_LMRXSTATUSRSP = 217,
+		_OP2_TPCLOGSENABLE = 218,
+		_OP2_TPCLOGSENABLERSP = 219,
+		_OP2_NEWXTALCALPROCRSP = 220,
+		_OP2_NEWXTALCALPROC = 221,
+		_OP2_NOISEFLOORCALSAVE = 222,
+		_OP2_NOISEFLOORCALSAVERSP = 223,
+		_OP2_OFDMATONEPLAN = 224,
+		_OP2_OFDMATONEPLANRSP = 225,
+		_OP2_SETLOCALMAC = 226,
+		_OP2_SETLOCALMACRSP = 227,
+		_OP2_SETBOARDMCN = 228,
+		_OP2_SETBOARDMCNRSP = 229,
+		_OP2_GETPOWERTABLE = 230,
+		_OP2_GETPOWERTABLERSP = 231,
+		_OP2_RADARDETECT = 232,
+		_OP2_RADARDETECTRSP = 233,
+		_OP2_COEXREQ = 234,
+		_OP2_COEXREQRSP = 235,
+		_OP2_CONFIGURESPECTRALSCAN = 236,
+		_OP2_CONFIGURESPECTRALSCANRSP = 237,
+		_OP2_CAPTUREFFTREPORTS = 238,
+		_OP2_CAPTUREFFTREPORTSRSP = 239,
+		_OP2_CAPTUREDFSREPORTS = 240,
+		_OP2_CAPTUREDFSREPORTSRSP = 241,
+		_OP2_WRITECALDATATOOTP = 247,
+		_OP2_WRITECALDATATOOTPRSP = 248,
+		_OP2_TPCGENTOOL = 251,
+		_OP2_TPCGENTOOLRSP = 252,
+		_OP2_INVALIDATECALDATAOTPSECTION = 253,
+		_OP2_INVALIDATECALDATAOTPSECTIONRSP = 254,
+		_OP2_SETPERCHAINPWRLIMITREG = 255,
+		_OP2_SETPERCHAINPWRLIMITREGRSP = 256,
+		_OP2_VERIFYCALDB = 257,
+		_OP2_VERIFYCALDBRSP = 258,
+		_OP2_TPC1PTSETCHANPWR = 259,
+		_OP2_TPC1PTSETCHANPWRRSP = 260,
+		_OP2_CALDBSAVETOHOST = 261,
+		_OP2_CALDBSAVETOHOSTRSP = 262,
+		_OP2_TPC1PTSETPRECALDATA = 263,
+		_OP2_TPC1PTSETPRECALDATARSP = 264,
+		_OP2_TPCFULLPTSETPRECALDATA = 265,
+		_OP2_TPCFULLPTSETPRECALDATARSP = 266,
+		_OP2_TPCSETCALCHAINMASKS = 267,
+		_OP2_TPCSETCALCHAINMASKSRSP = 268,
+		_OP2_BDWRITE = 269,
+		_OP2_MODIFYBDFOTPFLAGS = 270,
+		_OP2_OFDMAULTXPOSTINFO = 271,
+		_OP2_OFDMAULTXPOSTINFORSP = 272,
+		_OP2_BDGETIBFCALINFO = 273,
+		_OP2_BDGETIBFCALINFORSP = 274,
+		_OP2_LOWPOWER = 275,
+		_OP2_EEPROMWRITE = 276,
+		_OP2_EEPROMREAD = 277,
+		_OP2_EEPOMREADSP = 278,
+		_OP2_EEPROMGETSIZE = 279,
+		_OP2_EEPROMGETSIZERSP = 280,
+		_OP2_ADCCAPTURECONFIG = 281,
+		_OP2_EVENTCAPTURECONFIG = 282,
+		_OP2_DACPLAYBACK2 = 283,
+		_OP2_PHYDBGDUMP2 = 284,
+		_OP2_PHYDBGDUMP2RSP = 285,
+		_OP2_RST = 286,
+		_OP2_RSTRSP = 287,
+		_OP2_READ_FIELD = 500,
+		_OP2_WRITE_FIELD = 501
+	}
+
+	public enum PHY_MODE
+	{
+		MODE_11A,
+		MODE_11G,
+		MODE_11B,
+		MODE_11GONLY,
+		MODE_11NA_HT20,
+		MODE_11NG_HT20,
+		MODE_11NA_HT40,
+		MODE_11NG_HT40,
+		MODE_11AC_VHT20,
+		MODE_11AC_VHT40,
+		MODE_11AC_VHT80,
+		MODE_11AC_VHT20_2G,
+		MODE_11AC_VHT40_2G,
+		MODE_11AC_VHT80_2G
+	}
+
+	public enum CTLRD
+	{
+		FCC = 1,
+		ETSI = 3,
+		MKK = 4
+	}
+
+	public enum BEAMFORMING
+	{
+		disable,
+		enable
+	}
+
+	public enum SAR_Index
+	{
+		SAR_Index_0,
+		SAR_Index_1,
+		SAR_Index_2,
+		SAR_Index_3,
+		SAR_Index_4,
+		SAR_Index_5,
+		SAR_Index_6,
+		SAR_Index_7,
+		SAR_Index_8,
+		SAR_Index_9,
+		SAR_Index_10,
+		SAR_Index_11,
+		SAR_Index_Disabled
+	}
+
+	public enum WLAN_TX_Mode
+	{
+		DisablingContinuousMode,
+		EnablingContinuousUnmodulatedTX,
+		EnablingContinuousModulatedTX,
+		ContTx99,
+		const_4,
+		EnablingOffsetTone,
+		EnablingPSATCal,
+		EnablingCWTone,
+		const_8,
+		EnablingSCPC
+	}
+
+	public enum WLAN_CHAIN_MASK
+	{
+		WLAN_CHAIN_1 = 1,
+		WLAN_CHAIN_2 = 2,
+		WLAN_CHAIN_3 = 4,
+		WLAN_CHAIN_4 = 8,
+		WLAN_CHAIN_12 = 3,
+		WLAN_CHAIN_123 = 7,
+		WLAN_CHAIN_124 = 11,
+		WLAN_CHAIN_1234 = 15,
+		WLAN_CHAIN_13 = 5,
+		WLAN_CHAIN_134 = 13,
+		WLAN_CHAIN_14 = 9,
+		WLAN_CHAIN_23 = 6,
+		WLAN_CHAIN_234 = 14,
+		WLAN_CHAIN_24 = 10,
+		WLAN_CHAIN_34 = 12
+	}
+
+	public enum WLAN_SINGLE_CHAIN_MASK
+	{
+		WLAN_CHAIN_1 = 1,
+		WLAN_CHAIN_2 = 2,
+		WLAN_CHAIN_3 = 4,
+		WLAN_CHAIN_4 = 8,
+		WLAN_CHAIN_5 = 0x10,
+		WLAN_CHAIN_6 = 0x20,
+		WLAN_CHAIN_7 = 0x40,
+		WLAN_CHAIN_8 = 0x80
+	}
+
+	public enum WLAN_CHAIN_MASK2
+	{
+		WLAN_CHAIN_NONE = 0,
+		WLAN_CHAIN_1 = 1,
+		WLAN_CHAIN_2 = 2,
+		WLAN_CHAIN_3 = 4,
+		WLAN_CHAIN_4 = 8,
+		WLAN_CHAIN_12 = 3,
+		WLAN_CHAIN_123 = 7,
+		WLAN_CHAIN_124 = 11,
+		WLAN_CHAIN_1234 = 15,
+		WLAN_CHAIN_13 = 5,
+		WLAN_CHAIN_134 = 13,
+		WLAN_CHAIN_14 = 9,
+		WLAN_CHAIN_23 = 6,
+		WLAN_CHAIN_234 = 14,
+		WLAN_CHAIN_24 = 10,
+		WLAN_CHAIN_34 = 12
+	}
+
+	public enum WLAN_TRIGGER_TYPE
+	{
+		WLAN_FREE_RUN,
+		WLAN_TRIGGER
+	}
+
+	public enum TCMD_WLAN_MODE
+	{
+		TCMD_WLAN_MODE_NOHT = 0,
+		TCMD_WLAN_MODE_HT20 = 1,
+		TCMD_WLAN_MODE_HT40PLUS = 2,
+		TCMD_WLAN_MODE_HT40MINUS = 3,
+		TCMD_WLAN_MODE_CCK = 4,
+		TCMD_WLAN_MODE_VHT20 = 5,
+		TCMD_WLAN_MODE_VHT40PLUS = 6,
+		TCMD_WLAN_MODE_VHT40MINUS = 7,
+		TCMD_WLAN_MODE_VHT80_0 = 8,
+		TCMD_WLAN_MODE_VHT80_1 = 9,
+		TCMD_WLAN_MODE_VHT80_2 = 10,
+		TCMD_WLAN_MODE_VHT80_3 = 11,
+		TCMD_WLAN_MODE_VHT80p80 = 12,
+		TCMD_WLAN_MODE_VHT160 = 13,
+		TCMD_WLAN_MODE_VHT80P80_20_0 = 21,
+		TCMD_WLAN_MODE_VHT80P80_20_1 = 22,
+		TCMD_WLAN_MODE_VHT80P80_20_2 = 23,
+		TCMD_WLAN_MODE_VHT80P80_20_3 = 24,
+		TCMD_WLAN_MODE_VHT80P80_20_4 = 25,
+		TCMD_WLAN_MODE_VHT80P80_20_5 = 26,
+		TCMD_WLAN_MODE_VHT80P80_20_6 = 27,
+		TCMD_WLAN_MODE_VHT80P80_20_7 = 28,
+		TCMD_WLAN_MODE_VHT160_20_0 = 29,
+		TCMD_WLAN_MODE_VHT160_20_1 = 30,
+		TCMD_WLAN_MODE_VHT160_20_2 = 31,
+		TCMD_WLAN_MODE_VHT160_20_3 = 32,
+		TCMD_WLAN_MODE_VHT160_20_4 = 33,
+		TCMD_WLAN_MODE_VHT160_20_5 = 34,
+		TCMD_WLAN_MODE_VHT160_20_6 = 35,
+		TCMD_WLAN_MODE_VHT160_20_7 = 36
+	}
+
+	public enum WLAN_CAL_SCHEME
+	{
+		CAL_1PBIN,
+		CAL_INITGainIndex,
+		CAL_OLPC2P,
+		CAL_CLPC_PDETI,
+		CAL_CLPC_PDETX,
+		CAL_SCPC,
+		CAL_SCPC_PSATADJUST
+	}
+
+	public enum TCMD_TPC_TYPE
+	{
+		TPC_TX_PWR,
+		TPC_FORCED_GAIN,
+		TPC_TGT_PWR,
+		TPC_TX_FORCED_GAIN,
+		TPC_FORCED_GAINIDX,
+		TPC_FORCED_TGTPWR,
+		TPC_FORCED_GLUT_INDEX,
+		TPC_FORCED_PER_CHAIN
+	}
+
+	public enum WLAN_XTAL_STORAGE_OTP
+	{
+		XTAL_OTP_DISABLE,
+		XTAL_OTP_ENABLE
+	}
+
+	public enum WLAN_XTAL_CTRL_TYPE
+	{
+		XTAL_CTRL_R_RAM_BUF = 1,
+		XTAL_CTRL_W_RAM_BUF = 2,
+		XTAL_CTRL_W_OTP = 3,
+		XTAL_CTRL_R_OTP = 5
+	}
+
+	public enum TPC_UTF_TYPE
+	{
+		TPC_UTF_TxGain,
+		TPC_UTF_TxPower,
+		TPC_UTF_TargetPower,
+		TPC_UTF_TxGainIndex,
+		TPC_UTF_DACGain,
+		TPC_UTF_ForcedTargetPower,
+		TPC_UTF_ForcedGlutIndex
+	}
+
+	public enum WLAN_RST_TYPE
+	{
+		RST_CHAIN0_TO_CHAIN1,
+		RST_CHAIN1_TO_CHAIN0
+	}
+
+	public enum WLAN_DataRate
+	{
+		RATE_1Mbps = 0,
+		RATE_2Mbps = 1,
+		RATE_5_5Mbps = 2,
+		RATE_11Mbps = 3,
+		RATE_6Mbps = 4,
+		RATE_9Mbps = 5,
+		RATE_12Mbps = 6,
+		RATE_18Mbps = 7,
+		RATE_24Mbps = 8,
+		RATE_36Mbps = 9,
+		RATE_48Mbps = 10,
+		RATE_54Mbps = 11,
+		RATE_MCS_0_20 = 12,
+		RATE_MCS_1_20 = 13,
+		RATE_MCS_2_20 = 14,
+		RATE_MCS_3_20 = 15,
+		RATE_MCS_4_20 = 16,
+		RATE_MCS_5_20 = 17,
+		RATE_MCS_6_20 = 18,
+		RATE_MCS_7_20 = 19,
+		RATE_MCS_0_40 = 20,
+		RATE_MCS_1_40 = 21,
+		RATE_MCS_2_40 = 22,
+		RATE_MCS_3_40 = 23,
+		RATE_MCS_4_40 = 24,
+		RATE_MCS_5_40 = 25,
+		RATE_MCS_6_40 = 26,
+		RATE_MCS_7_40 = 27,
+		RATE_AC_MCS_0_20 = 28,
+		RATE_AC_MCS_1_20 = 29,
+		RATE_AC_MCS_2_20 = 30,
+		RATE_AC_MCS_3_20 = 31,
+		RATE_AC_MCS_4_20 = 32,
+		RATE_AC_MCS_5_20 = 33,
+		RATE_AC_MCS_6_20 = 34,
+		RATE_AC_MCS_7_20 = 35,
+		RATE_AC_MCS_8_20 = 36,
+		RATE_AC_MCS_9_20 = 37,
+		RATE_AC_MCS_0_40 = 38,
+		RATE_AC_MCS_1_40 = 39,
+		RATE_AC_MCS_2_40 = 40,
+		RATE_AC_MCS_3_40 = 41,
+		RATE_AC_MCS_4_40 = 42,
+		RATE_AC_MCS_5_40 = 43,
+		RATE_AC_MCS_6_40 = 44,
+		RATE_AC_MCS_7_40 = 45,
+		RATE_AC_MCS_8_40 = 46,
+		RATE_AC_MCS_9_40 = 47,
+		RATE_AC_MCS_0_80 = 48,
+		RATE_AC_MCS_1_80 = 49,
+		RATE_AC_MCS_2_80 = 50,
+		RATE_AC_MCS_3_80 = 51,
+		RATE_AC_MCS_4_80 = 52,
+		RATE_AC_MCS_5_80 = 53,
+		RATE_AC_MCS_6_80 = 54,
+		RATE_AC_MCS_7_80 = 55,
+		RATE_AC_MCS_8_80 = 56,
+		RATE_AC_MCS_9_80 = 57,
+		RATE_MCS_8_20 = 58,
+		RATE_MCS_9_20 = 59,
+		RATE_MCS_10_20 = 60,
+		RATE_MCS_11_20 = 61,
+		RATE_MCS_12_20 = 62,
+		RATE_MCS_13_20 = 63,
+		RATE_MCS_14_20 = 64,
+		RATE_MCS_15_20 = 65,
+		RATE_MCS_8_40 = 66,
+		RATE_MCS_9_40 = 67,
+		RATE_MCS_10_40 = 68,
+		RATE_MCS_11_40 = 69,
+		RATE_MCS_12_40 = 70,
+		RATE_MCS_13_40 = 71,
+		RATE_MCS_14_40 = 72,
+		RATE_MCS_15_40 = 73,
+		RATE_AC_MCS_10_20 = 74,
+		RATE_AC_MCS_11_20 = 75,
+		RATE_AC_MCS_12_20 = 76,
+		RATE_AC_MCS_13_20 = 77,
+		RATE_AC_MCS_14_20 = 78,
+		RATE_AC_MCS_15_20 = 79,
+		RATE_AC_MCS_16_20 = 80,
+		RATE_AC_MCS_17_20 = 81,
+		RATE_AC_MCS_18_20 = 82,
+		RATE_AC_MCS_19_20 = 83,
+		RATE_AC_MCS_10_40 = 84,
+		RATE_AC_MCS_11_40 = 85,
+		RATE_AC_MCS_12_40 = 86,
+		RATE_AC_MCS_13_40 = 87,
+		RATE_AC_MCS_14_40 = 88,
+		RATE_AC_MCS_15_40 = 89,
+		RATE_AC_MCS_16_40 = 90,
+		RATE_AC_MCS_17_40 = 91,
+		RATE_AC_MCS_18_40 = 92,
+		RATE_AC_MCS_19_40 = 93,
+		RATE_AC_MCS_10_80 = 94,
+		RATE_AC_MCS_11_80 = 95,
+		RATE_AC_MCS_12_80 = 96,
+		RATE_AC_MCS_13_80 = 97,
+		RATE_AC_MCS_14_80 = 98,
+		RATE_AC_MCS_15_80 = 99,
+		RATE_AC_MCS_16_80 = 100,
+		RATE_AC_MCS_17_80 = 101,
+		RATE_AC_MCS_18_80 = 102,
+		RATE_AC_MCS_19_80 = 103,
+		RATE_MCS_16_20 = 104,
+		RATE_MCS_17_20 = 105,
+		RATE_MCS_18_20 = 106,
+		RATE_MCS_19_20 = 107,
+		RATE_MCS_20_20 = 108,
+		RATE_MCS_21_20 = 109,
+		RATE_MCS_22_20 = 110,
+		RATE_MCS_23_20 = 111,
+		RATE_MCS_16_40 = 112,
+		RATE_MCS_17_40 = 113,
+		RATE_MCS_18_40 = 114,
+		RATE_MCS_19_40 = 115,
+		RATE_MCS_20_40 = 116,
+		RATE_MCS_21_40 = 117,
+		RATE_MCS_22_40 = 118,
+		RATE_MCS_23_40 = 119,
+		RATE_AC_MCS_20_20 = 120,
+		RATE_AC_MCS_21_20 = 121,
+		RATE_AC_MCS_22_20 = 122,
+		RATE_AC_MCS_23_20 = 123,
+		RATE_AC_MCS_24_20 = 124,
+		RATE_AC_MCS_25_20 = 125,
+		RATE_AC_MCS_26_20 = 126,
+		RATE_AC_MCS_27_20 = 127,
+		RATE_AC_MCS_28_20 = 128,
+		RATE_AC_MCS_29_20 = 129,
+		RATE_AC_MCS_20_40 = 130,
+		RATE_AC_MCS_21_40 = 131,
+		RATE_AC_MCS_22_40 = 132,
+		RATE_AC_MCS_23_40 = 133,
+		RATE_AC_MCS_24_40 = 134,
+		RATE_AC_MCS_25_40 = 135,
+		RATE_AC_MCS_26_40 = 136,
+		RATE_AC_MCS_27_40 = 137,
+		RATE_AC_MCS_28_40 = 138,
+		RATE_AC_MCS_29_40 = 139,
+		RATE_AC_MCS_20_80 = 140,
+		RATE_AC_MCS_21_80 = 141,
+		RATE_AC_MCS_22_80 = 142,
+		RATE_AC_MCS_23_80 = 143,
+		RATE_AC_MCS_24_80 = 144,
+		RATE_AC_MCS_25_80 = 145,
+		RATE_AC_MCS_26_80 = 146,
+		RATE_AC_MCS_27_80 = 147,
+		RATE_AC_MCS_28_80 = 148,
+		RATE_AC_MCS_29_80 = 149,
+		RATE_AC_MCS_30_20 = 150,
+		RATE_AC_MCS_31_20 = 151,
+		RATE_AC_MCS_32_20 = 152,
+		RATE_AC_MCS_33_20 = 153,
+		RATE_AC_MCS_34_20 = 154,
+		RATE_AC_MCS_35_20 = 155,
+		RATE_AC_MCS_36_20 = 156,
+		RATE_AC_MCS_37_20 = 157,
+		RATE_AC_MCS_38_20 = 158,
+		RATE_AC_MCS_39_20 = 159,
+		RATE_AC_MCS_30_40 = 160,
+		RATE_AC_MCS_31_40 = 161,
+		RATE_AC_MCS_32_40 = 162,
+		RATE_AC_MCS_33_40 = 163,
+		RATE_AC_MCS_34_40 = 164,
+		RATE_AC_MCS_35_40 = 165,
+		RATE_AC_MCS_36_40 = 166,
+		RATE_AC_MCS_37_40 = 167,
+		RATE_AC_MCS_38_40 = 168,
+		RATE_AC_MCS_39_40 = 169,
+		RATE_AC_MCS_30_80 = 170,
+		RATE_AC_MCS_31_80 = 171,
+		RATE_AC_MCS_32_80 = 172,
+		RATE_AC_MCS_33_80 = 173,
+		RATE_AC_MCS_34_80 = 174,
+		RATE_AC_MCS_35_80 = 175,
+		RATE_AC_MCS_36_80 = 176,
+		RATE_AC_MCS_37_80 = 177,
+		RATE_AC_MCS_38_80 = 178,
+		RATE_AC_MCS_39_80 = 179,
+		RATE_AC_MCS_0_160 = 180,
+		RATE_AC_MCS_1_160 = 181,
+		RATE_AC_MCS_2_160 = 182,
+		RATE_AC_MCS_3_160 = 183,
+		RATE_AC_MCS_4_160 = 184,
+		RATE_AC_MCS_5_160 = 185,
+		RATE_AC_MCS_6_160 = 186,
+		RATE_AC_MCS_7_160 = 187,
+		RATE_AC_MCS_8_160 = 188,
+		RATE_AC_MCS_9_160 = 189,
+		RATE_AC_MCS_10_160 = 190,
+		RATE_AC_MCS_11_160 = 191,
+		RATE_AC_MCS_12_160 = 192,
+		RATE_AC_MCS_13_160 = 193,
+		RATE_AC_MCS_14_160 = 194,
+		RATE_AC_MCS_15_160 = 195,
+		RATE_AC_MCS_16_160 = 196,
+		RATE_AC_MCS_17_160 = 197,
+		RATE_AC_MCS_18_160 = 198,
+		RATE_AC_MCS_19_160 = 199,
+		RATE_MCS_24_20 = 220,
+		RATE_MCS_25_20 = 221,
+		RATE_MCS_26_20 = 222,
+		RATE_MCS_27_20 = 223,
+		RATE_MCS_28_20 = 224,
+		RATE_MCS_29_20 = 225,
+		RATE_MCS_30_20 = 226,
+		RATE_MCS_31_20 = 227,
+		RATE_MCS_24_40 = 228,
+		RATE_MCS_25_40 = 229,
+		RATE_MCS_26_40 = 230,
+		RATE_MCS_27_40 = 231,
+		RATE_MCS_28_40 = 232,
+		RATE_MCS_29_40 = 233,
+		RATE_MCS_30_40 = 234,
+		RATE_MCS_31_40 = 235,
+		RATE_P_1p5Mbps_5 = 1004,
+		RATE_P_2Mbps_5 = 1005,
+		RATE_P_3Mbps_5 = 1006,
+		RATE_P_4p5Mbps_5 = 1007,
+		RATE_P_6Mbps_5 = 1008,
+		RATE_P_9Mbps_5 = 1009,
+		RATE_P_12Mbps_5 = 1010,
+		RATE_P_13p5Mbps_5 = 1011,
+		RATE_P_3Mbps_10 = 1104,
+		RATE_P_4p5Mbps_10 = 1105,
+		RATE_P_6Mbps_10 = 1106,
+		RATE_P_9Mbps_10 = 1107,
+		RATE_P_12Mbps_10 = 1108,
+		RATE_P_18Mbps_10 = 1109,
+		RATE_P_24Mbps_10 = 1110,
+		RATE_P_27Mbps_10 = 1111,
+		RATE_P_6Mbps_20 = 1204,
+		RATE_P_9Mbps_20 = 1205,
+		RATE_P_12Mbps_20 = 1206,
+		RATE_P_18Mbps_20 = 1207,
+		RATE_P_24Mbps_20 = 1208,
+		RATE_P_36Mbps_20 = 1209,
+		RATE_P_48Mbps_20 = 1210,
+		RATE_P_54Mbps_20 = 1211
+	}
+
+	public enum WLAN_tlvDataRate
+	{
+		tlvRATE_1Mbps = 0,
+		tlvRATE_2Mbps_L = 1,
+		tlvRATE_2Mbps_S = 2,
+		tlvRATE_5_5Mbps_L = 3,
+		tlvRATE_5_5Mbps_S = 4,
+		tlvRATE_11Mbps_L = 5,
+		tlvRATE_11Mbps_S = 6,
+		tlvRATE_6Mbps = 8,
+		tlvRATE_9Mbps = 9,
+		tlvRATE_12Mbps = 10,
+		tlvRATE_18Mbps = 11,
+		tlvRATE_24Mbps = 12,
+		tlvRATE_36Mbps = 13,
+		tlvRATE_48Mbps = 14,
+		tlvRATE_54Mbps = 15,
+		tlvRATE_MCS_0_20 = 16,
+		tlvRATE_MCS_1_20 = 17,
+		tlvRATE_MCS_2_20 = 18,
+		tlvRATE_MCS_3_20 = 19,
+		tlvRATE_MCS_4_20 = 20,
+		tlvRATE_MCS_5_20 = 21,
+		tlvRATE_MCS_6_20 = 22,
+		tlvRATE_MCS_7_20 = 23,
+		tlvRATE_MCS_0_40 = 24,
+		tlvRATE_MCS_1_40 = 25,
+		tlvRATE_MCS_2_40 = 26,
+		tlvRATE_MCS_3_40 = 27,
+		tlvRATE_MCS_4_40 = 28,
+		tlvRATE_MCS_5_40 = 29,
+		tlvRATE_MCS_6_40 = 30,
+		tlvRATE_MCS_7_40 = 31,
+		tlvRATE_MCS_8_20 = 32,
+		tlvRATE_MCS_9_20 = 33,
+		tlvRATE_MCS_10_20 = 34,
+		tlvRATE_MCS_11_20 = 35,
+		tlvRATE_MCS_12_20 = 36,
+		tlvRATE_MCS_13_20 = 37,
+		tlvRATE_MCS_14_20 = 38,
+		tlvRATE_MCS_15_20 = 39,
+		tlvRATE_MCS_8_40 = 40,
+		tlvRATE_MCS_9_40 = 41,
+		tlvRATE_MCS_10_40 = 42,
+		tlvRATE_MCS_11_40 = 43,
+		tlvRATE_MCS_12_40 = 44,
+		tlvRATE_MCS_13_40 = 45,
+		tlvRATE_MCS_14_40 = 46,
+		tlvRATE_MCS_15_40 = 47,
+		tlvRATE_MCS_16_20 = 48,
+		tlvRATE_MCS_17_20 = 49,
+		tlvRATE_MCS_18_20 = 50,
+		tlvRATE_MCS_19_20 = 51,
+		tlvRATE_MCS_20_20 = 52,
+		tlvRATE_MCS_21_20 = 53,
+		tlvRATE_MCS_22_20 = 54,
+		tlvRATE_MCS_23_20 = 55,
+		tlvRATE_MCS_16_40 = 56,
+		tlvRATE_MCS_17_40 = 57,
+		tlvRATE_MCS_18_40 = 58,
+		tlvRATE_MCS_19_40 = 59,
+		tlvRATE_MCS_20_40 = 60,
+		tlvRATE_MCS_21_40 = 61,
+		tlvRATE_MCS_22_40 = 62,
+		tlvRATE_MCS_23_40 = 63,
+		tlvRATE_AC_MCS_0_20 = 64,
+		tlvRATE_AC_MCS_1_20 = 65,
+		tlvRATE_AC_MCS_2_20 = 66,
+		tlvRATE_AC_MCS_3_20 = 67,
+		tlvRATE_AC_MCS_4_20 = 68,
+		tlvRATE_AC_MCS_5_20 = 69,
+		tlvRATE_AC_MCS_6_20 = 70,
+		tlvRATE_AC_MCS_7_20 = 71,
+		tlvRATE_AC_MCS_8_20 = 72,
+		tlvRATE_AC_MCS_9_20 = 73,
+		tlvRATE_AC_MCS_0_40 = 76,
+		tlvRATE_AC_MCS_1_40 = 77,
+		tlvRATE_AC_MCS_2_40 = 78,
+		tlvRATE_AC_MCS_3_40 = 79,
+		tlvRATE_AC_MCS_4_40 = 80,
+		tlvRATE_AC_MCS_5_40 = 81,
+		tlvRATE_AC_MCS_6_40 = 82,
+		tlvRATE_AC_MCS_7_40 = 83,
+		tlvRATE_AC_MCS_8_40 = 84,
+		tlvRATE_AC_MCS_9_40 = 85,
+		tlvRATE_AC_MCS_0_80 = 88,
+		tlvRATE_AC_MCS_1_80 = 89,
+		tlvRATE_AC_MCS_2_80 = 90,
+		tlvRATE_AC_MCS_3_80 = 91,
+		tlvRATE_AC_MCS_4_80 = 92,
+		tlvRATE_AC_MCS_5_80 = 93,
+		tlvRATE_AC_MCS_6_80 = 94,
+		tlvRATE_AC_MCS_7_80 = 95,
+		tlvRATE_AC_MCS_8_80 = 96,
+		tlvRATE_AC_MCS_9_80 = 97,
+		tlvRATE_AC_MCS_0_20_2S = 100,
+		tlvRATE_AC_MCS_1_20_2S = 101,
+		tlvRATE_AC_MCS_2_20_2S = 102,
+		tlvRATE_AC_MCS_3_20_2S = 103,
+		tlvRATE_AC_MCS_4_20_2S = 104,
+		tlvRATE_AC_MCS_5_20_2S = 105,
+		tlvRATE_AC_MCS_6_20_2S = 106,
+		tlvRATE_AC_MCS_7_20_2S = 107,
+		tlvRATE_AC_MCS_8_20_2S = 108,
+		tlvRATE_AC_MCS_9_20_2S = 109,
+		tlvRATE_AC_MCS_0_40_2S = 112,
+		tlvRATE_AC_MCS_1_40_2S = 113,
+		tlvRATE_AC_MCS_2_40_2S = 114,
+		tlvRATE_AC_MCS_3_40_2S = 115,
+		tlvRATE_AC_MCS_4_40_2S = 116,
+		tlvRATE_AC_MCS_5_40_2S = 117,
+		tlvRATE_AC_MCS_6_40_2S = 118,
+		tlvRATE_AC_MCS_7_40_2S = 119,
+		tlvRATE_AC_MCS_8_40_2S = 120,
+		tlvRATE_AC_MCS_9_40_2S = 121,
+		tlvRATE_AC_MCS_0_80_2S = 124,
+		tlvRATE_AC_MCS_1_80_2S = 125,
+		tlvRATE_AC_MCS_2_80_2S = 126,
+		tlvRATE_AC_MCS_3_80_2S = 127,
+		tlvRATE_AC_MCS_4_80_2S = 128,
+		tlvRATE_AC_MCS_5_80_2S = 129,
+		tlvRATE_AC_MCS_6_80_2S = 130,
+		tlvRATE_AC_MCS_7_80_2S = 131,
+		tlvRATE_AC_MCS_8_80_2S = 132,
+		tlvRATE_AC_MCS_9_80_2S = 133,
+		tlvRATE_AC_MCS_0_20_3S = 136,
+		tlvRATE_AC_MCS_1_20_3S = 137,
+		tlvRATE_AC_MCS_2_20_3S = 138,
+		tlvRATE_AC_MCS_3_20_3S = 139,
+		tlvRATE_AC_MCS_4_20_3S = 140,
+		tlvRATE_AC_MCS_5_20_3S = 141,
+		tlvRATE_AC_MCS_6_20_3S = 142,
+		tlvRATE_AC_MCS_7_20_3S = 143,
+		tlvRATE_AC_MCS_8_20_3S = 144,
+		tlvRATE_AC_MCS_9_20_3S = 145,
+		tlvRATE_AC_MCS_0_40_3S = 148,
+		tlvRATE_AC_MCS_1_40_3S = 149,
+		tlvRATE_AC_MCS_2_40_3S = 150,
+		tlvRATE_AC_MCS_3_40_3S = 151,
+		tlvRATE_AC_MCS_4_40_3S = 152,
+		tlvRATE_AC_MCS_5_40_3S = 153,
+		tlvRATE_AC_MCS_6_40_3S = 154,
+		tlvRATE_AC_MCS_7_40_3S = 155,
+		tlvRATE_AC_MCS_8_40_3S = 156,
+		tlvRATE_AC_MCS_9_40_3S = 157,
+		tlvRATE_AC_MCS_0_80_3S = 160,
+		tlvRATE_AC_MCS_1_80_3S = 161,
+		tlvRATE_AC_MCS_2_80_3S = 162,
+		tlvRATE_AC_MCS_3_80_3S = 163,
+		tlvRATE_AC_MCS_4_80_3S = 164,
+		tlvRATE_AC_MCS_5_80_3S = 165,
+		tlvRATE_AC_MCS_6_80_3S = 166,
+		tlvRATE_AC_MCS_7_80_3S = 167,
+		tlvRATE_AC_MCS_8_80_3S = 168,
+		tlvRATE_AC_MCS_9_80_3S = 169,
+		tlvRATE_AC_MCS_0_20_4S = 192,
+		tlvRATE_AC_MCS_1_20_4S = 193,
+		tlvRATE_AC_MCS_2_20_4S = 194,
+		tlvRATE_AC_MCS_3_20_4S = 195,
+		tlvRATE_AC_MCS_4_20_4S = 196,
+		tlvRATE_AC_MCS_5_20_4S = 197,
+		tlvRATE_AC_MCS_6_20_4S = 198,
+		tlvRATE_AC_MCS_7_20_4S = 199,
+		tlvRATE_AC_MCS_8_20_4S = 200,
+		tlvRATE_AC_MCS_9_20_4S = 201,
+		tlvRATE_AC_MCS_0_40_4S = 202,
+		tlvRATE_AC_MCS_1_40_4S = 203,
+		tlvRATE_AC_MCS_2_40_4S = 204,
+		tlvRATE_AC_MCS_3_40_4S = 205,
+		tlvRATE_AC_MCS_4_40_4S = 206,
+		tlvRATE_AC_MCS_5_40_4S = 207,
+		tlvRATE_AC_MCS_6_40_4S = 208,
+		tlvRATE_AC_MCS_7_40_4S = 209,
+		tlvRATE_AC_MCS_8_40_4S = 210,
+		tlvRATE_AC_MCS_9_40_4S = 211,
+		tlvRATE_AC_MCS_0_80_4S = 212,
+		tlvRATE_AC_MCS_1_80_4S = 213,
+		tlvRATE_AC_MCS_2_80_4S = 214,
+		tlvRATE_AC_MCS_3_80_4S = 215,
+		tlvRATE_AC_MCS_4_80_4S = 216,
+		tlvRATE_AC_MCS_5_80_4S = 217,
+		tlvRATE_AC_MCS_6_80_4S = 218,
+		tlvRATE_AC_MCS_7_80_4S = 219,
+		tlvRATE_AC_MCS_8_80_4S = 220,
+		tlvRATE_AC_MCS_9_80_4S = 221,
+		tlvRATE_AC_MCS_0_160_1S = 224,
+		tlvRATE_AC_MCS_1_160_1S = 225,
+		tlvRATE_AC_MCS_2_160_1S = 226,
+		tlvRATE_AC_MCS_3_160_1S = 227,
+		tlvRATE_AC_MCS_4_160_1S = 228,
+		tlvRATE_AC_MCS_5_160_1S = 229,
+		tlvRATE_AC_MCS_6_160_1S = 230,
+		tlvRATE_AC_MCS_7_160_1S = 231,
+		tlvRATE_AC_MCS_8_160_1S = 232,
+		tlvRATE_AC_MCS_9_160_1S = 233,
+		tlvRATE_AC_MCS_0_160_2S = 234,
+		tlvRATE_AC_MCS_1_160_2S = 235,
+		tlvRATE_AC_MCS_2_160_2S = 236,
+		tlvRATE_AC_MCS_3_160_2S = 237,
+		tlvRATE_AC_MCS_4_160_2S = 238,
+		tlvRATE_AC_MCS_5_160_2S = 239,
+		tlvRATE_AC_MCS_6_160_2S = 240,
+		tlvRATE_AC_MCS_7_160_2S = 241,
+		tlvRATE_AC_MCS_8_160_2S = 242,
+		tlvRATE_AC_MCS_9_160_2S = 243,
+		tlvRATE_MCS_24_20 = 256,
+		tlvRATE_MCS_25_20 = 257,
+		tlvRATE_MCS_26_20 = 258,
+		tlvRATE_MCS_27_20 = 259,
+		tlvRATE_MCS_28_20 = 260,
+		tlvRATE_MCS_29_20 = 261,
+		tlvRATE_MCS_30_20 = 262,
+		tlvRATE_MCS_31_20 = 263,
+		tlvRATE_MCS_24_40 = 264,
+		tlvRATE_MCS_25_40 = 265,
+		tlvRATE_MCS_26_40 = 266,
+		tlvRATE_MCS_27_40 = 267,
+		tlvRATE_MCS_28_40 = 268,
+		tlvRATE_MCS_29_40 = 269,
+		tlvRATE_MCS_30_40 = 270,
+		tlvRATE_MCS_31_40 = 271,
+		tlvRATE_P_1p5Mbps_5 = 1008,
+		tlvRATE_P_2Mbps_5 = 1009,
+		tlvRATE_P_3Mbps_5 = 1010,
+		tlvRATE_P_4p5Mbps_5 = 1011,
+		tlvRATE_P_6Mbps_5 = 1012,
+		tlvRATE_P_9Mbps_5 = 1013,
+		tlvRATE_P_12Mbps_5 = 1014,
+		tlvRATE_P_13p5Mbps_5 = 1015,
+		tlvRATE_P_3Mbps_10 = 1108,
+		tlvRATE_P_4p5Mbps_10 = 1109,
+		tlvRATE_P_6Mbps_10 = 1110,
+		tlvRATE_P_9Mbps_10 = 1111,
+		tlvRATE_P_12Mbps_10 = 1112,
+		tlvRATE_P_18Mbps_10 = 1113,
+		tlvRATE_P_24Mbps_10 = 1114,
+		tlvRATE_P_27Mbps_10 = 1115,
+		tlvRATE_P_6Mbps_20 = 1208,
+		tlvRATE_P_9Mbps_20 = 1209,
+		tlvRATE_P_12Mbps_20 = 1210,
+		tlvRATE_P_18Mbps_20 = 1211,
+		tlvRATE_P_24Mbps_20 = 1212,
+		tlvRATE_P_36Mbps_20 = 1213,
+		tlvRATE_P_48Mbps_20 = 1214,
+		tlvRATE_P_54Mbps_20 = 1215
+	}
+
+	public enum WLAN_UniversalBW
+	{
+		none = 0,
+		primaryLow = 1,
+		const_2 = 2,
+		primaryHigh = 3,
+		BW80_20_40Low_40_80Center = 4,
+		BW80_20_40Center_40_80Center = 5,
+		BW80_20_40High_40_80Center = 6,
+		BW80_20_40Low_40_80Low = 7,
+		BW80_20_40High_40_80Low = 8,
+		BW80_20_40Low_40_80High = 9,
+		BW80_20_40GHigh_40_80High = 10,
+		BW80p80 = 12,
+		BW160 = 13,
+		BW165 = 14,
+		Primary_1st_20_in_BW80p80 = 21,
+		Primary_2nd_20_in_BW80p80 = 22,
+		Primary_3rd_20_in_BW80p80 = 23,
+		Primary_4th_20_in_BW80p80 = 24,
+		Primary_5th_20_in_BW80p80 = 25,
+		Primary_6th_20_in_BW80p80 = 26,
+		Primary_7th_20_in_BW80p80 = 27,
+		Primary_8th_20_in_BW80p80 = 28,
+		Primary_1st_20_in_BW160 = 29,
+		Primary_2nd_20_in_BW160 = 30,
+		Primary_3rd_20_in_BW160 = 31,
+		Primary_4th_20_in_BW160 = 32,
+		Primary_5th_20_in_BW160 = 33,
+		Primary_6th_20_in_BW160 = 34,
+		Primary_7th_20_in_BW160 = 35,
+		Primary_8th_20_in_BW160 = 36,
+		Primary_1st_20_in_BW165 = 37,
+		Primary_2nd_20_in_BW165 = 38,
+		Primary_3rd_20_in_BW165 = 39,
+		Primary_4th_20_in_BW165 = 40,
+		Primary_5th_20_in_BW165 = 41,
+		Primary_6th_20_in_BW165 = 42,
+		Primary_7th_20_in_BW165 = 43,
+		Primary_8th_20_in_BW165 = 44,
+		Half_Rate = 50,
+		Quarter_Rate = 51
+	}
+
+	public enum WLAN_UniversalWiFtStandard
+	{
+		WiFiStandard_Legacy,
+		WiFiStandard_Legacy11AC,
+		WiFiStandard_Legacy11AX,
+		WiFiStandard_OFDMA
+	}
+
+	public enum WLAN_UniversalPhyID
+	{
+		PHY_A0,
+		PHY_B,
+		PHY_A1
+	}
+
+	public enum WLAN_UniversalRateBW
+	{
+		RateBW_CW = -1,
+		RateBW_CCK,
+		RateBW_LegacyOFDM,
+		RateBW_11N_HT20,
+		RateBW_11N_HT40,
+		RateBW_11AC_VHT20,
+		RateBW_11AC_VHT40,
+		RateBW_11AC_VHT80,
+		RateBW_11AC_VHT80P80,
+		RateBW_11AX_HE20,
+		RateBW_11AX_HE40,
+		RateBW_11AX_HE80,
+		RateBW_11AX_HE80P80,
+		RateBW_11AX_OFDMA_HE20,
+		RateBW_11AX_OFDMA_HE40,
+		RateBW_11AX_OFDMA_HE80,
+		RateBW_11AX_OFDMA_HE80P80,
+		RateBW_11AX_HE160,
+		RateBW_11AX_OFDMA_HE160,
+		RateBW_11AX_HE165,
+		RateBW_11AX_OFDMA_HE165,
+		RateBW_11AC_VHT160,
+		RateBW_11AC_VHT165
+	}
+
+	public enum WLAN_UniversalNSS
+	{
+		_1Stream = 1,
+		_2Streams,
+		_3Streams,
+		_4Streams,
+		_5Streams,
+		_6Streams,
+		_7Streams,
+		_8Streams
+	}
+
+	public enum WLAN_UniversalDataRate
+	{
+		CW = -1,
+		RATE_Long_1Mbps = 0,
+		RATE_Long_2Mbps = 1,
+		RATE_Long_5_5Mbps = 2,
+		RATE_Long_11Mbps = 3,
+		RATE_Short_2Mbps = 4,
+		RATE_Short_5_5Mbps = 5,
+		RATE_Short_11Mbps = 6,
+		RATE_6Mbps = 10,
+		RATE_9Mbps = 11,
+		RATE_12Mbps = 12,
+		RATE_18Mbps = 13,
+		RATE_24Mbps = 14,
+		RATE_36Mbps = 15,
+		RATE_48Mbps = 16,
+		RATE_54Mbps = 17,
+		RATE_MCS_0 = 20,
+		RATE_MCS_1 = 21,
+		RATE_MCS_2 = 22,
+		RATE_MCS_3 = 23,
+		RATE_MCS_4 = 24,
+		RATE_MCS_5 = 25,
+		RATE_MCS_6 = 26,
+		RATE_MCS_7 = 27,
+		RATE_MCS_8 = 28,
+		RATE_MCS_9 = 29,
+		RATE_MCS_10 = 30,
+		RATE_MCS_11 = 31,
+		RATE_MCS_12 = 32,
+		RATE_MCS_13 = 33
+	}
+
+	public enum WLAN_UniversalGuardInterval
+	{
+		GI_0 = 0,
+		LTF_Mode0_GI_400 = 1,
+		LTF_Mode0_GI_800 = 2,
+		LTF_Mode0_GI_1600 = 3,
+		LTF_Mode0_GI_3200 = 4,
+		LTF_Mode1_GI_400 = 17,
+		LTF_Mode1_GI_800 = 18,
+		LTF_Mode1_GI_1600 = 19,
+		LTF_Mode1_GI_3200 = 20,
+		LTF_Mode2_GI_400 = 33,
+		LTF_Mode2_GI_800 = 34,
+		LTF_Mode2_GI_1600 = 35,
+		LTF_Mode2_GI_3200 = 36,
+		LTF_Mode4_GI_400 = 49,
+		LTF_Mode4_GI_800 = 50,
+		LTF_Mode4_GI_1600 = 51,
+		LTF_Mode4_GI_3200 = 52
+	}
+
+	public enum WLAN_TLV2Q5_OPCODE
+	{
+		_OP2_PHYVI_SYSCMD_CLRCFGPARM = 20001,
+		_OP2_PHYVI_SYSCMD_CLRCFGPARM_RSP,
+		_OP2_PHYVI_SYSCMD_DCM,
+		_OP2_PHYVI_SYSCMD_DCM_RSP,
+		_OP2_PHYVI_SYSCMD_DFS,
+		_OP2_PHYVI_SYSCMD_DFS_RSP,
+		_OP2_PHYVI_SYSCMD_EVENTCAPTURE,
+		_OP2_PHYVI_SYSCMD_EVENTCAPTURE_RSP,
+		_OP2_PHYVI_SYSCMD_FIXRXGAIN,
+		_OP2_PHYVI_SYSCMD_FIXRXGAIN_RSP,
+		_OP2_PHYVI_SYSCMD_GENERICHDLR4,
+		_OP2_PHYVI_SYSCMD_GENERICHDLR4_RSP,
+		_OP2_PHYVI_SYSCMD_INITCHANMEMO,
+		_OP2_PHYVI_SYSCMD_INITCHANMEMO_RSP,
+		_OP2_PHYVI_SYSCMD_QUERYCFGPARM,
+		_OP2_PHYVI_SYSCMD_QUERYCFGPARM_RSP,
+		_OP2_PHYVI_SYSCMD_SETCFGPARM,
+		_OP2_PHYVI_SYSCMD_SETCFGPARM_RSP,
+		_OP2_PHYVI_SYSCMD_TLVCAPTURE,
+		_OP2_PHYVI_SYSCMD_TLVCAPTURE_RSP,
+		_OP2_PHYVI_SYSCMD_PROGADCOSR,
+		_OP2_PHYVI_SYSCMD_PROGADCOSR_RSP,
+		_OP2_PHYVI_SYSCMD_ALLCAL,
+		_OP2_PHYVI_SYSCMD_ALLCAL_RSP,
+		_OP2_PHYVI_SYSCMD_CFGTESTSETUP,
+		_OP2_PHYVI_SYSCMD_CFGTESTSETUP_RSP,
+		_OP2_PHYVI_SYSCMD_COMB_CAL,
+		_OP2_PHYVI_SYSCMD_COMB_CAL_RSP,
+		_OP2_PHYVI_SYSCMD_PROGDACOSR,
+		_OP2_PHYVI_SYSCMD_PROGDACOSR_RSP,
+		_OP2_PHYVI_SYSCMD_DBG,
+		_OP2_PHYVI_SYSCMD_DBG_RSP,
+		_OP2_PHYVI_SYSCMD_DPDCAL,
+		_OP2_PHYVI_SYSCMD_DPDCAL_RSP,
+		_OP2_PHYVI_SYSCMD_FTPGRX,
+		_OP2_PHYVI_SYSCMD_FTPGRX_RSP,
+		_OP2_PHYVI_SYSCMD_FTPGTX,
+		_OP2_PHYVI_SYSCMD_FTPGTX_RSP,
+		_OP2_PHYVI_SYSCMD_GETCFR,
+		_OP2_PHYVI_SYSCMD_GETCFR_RSP,
+		_OP2_PHYVI_SYSCMD_GETCIR,
+		_OP2_PHYVI_SYSCMD_GETCIR_RSP,
+		_OP2_PHYVI_SYSCMD_GETRTT,
+		_OP2_PHYVI_SYSCMD_GETRTT_RSP,
+		_OP2_PHYVI_SYSCMD_INITMAC,
+		_OP2_PHYVI_SYSCMD_INITMAC_RSP,
+		_OP2_PHYVI_SYSCMD_INITMAC2,
+		_OP2_PHYVI_SYSCMD_INITMAC2_RSP,
+		_OP2_PHYVI_SYSCMD_INITRF,
+		_OP2_PHYVI_SYSCMD_INITRF_RSP,
+		_OP2_PHYVI_SYSCMD_ITER_CAL_MULTITONE,
+		_OP2_PHYVI_SYSCMD_ITER_CAL_MULTITONE_RSP,
+		_OP2_PHYVI_SYSCMD_ITER_COMB_CAL,
+		_OP2_PHYVI_SYSCMD_ITER_COMB_CAL_RSP,
+		_OP2_PHYVI_SYSCMD_LOADBDF,
+		_OP2_PHYVI_SYSCMD_LOADBDF_RSP,
+		_OP2_PHYVI_SYSCMD_PKDETCAL,
+		_OP2_PHYVI_SYSCMD_PKDETCAL_RSP,
+		_OP2_PHYVI_SYSCMD_PROGAGC,
+		_OP2_PHYVI_SYSCMD_PROGAGC_RSP,
+		_OP2_PHYVI_SYSCMD_PROGCHMASK,
+		_OP2_PHYVI_SYSCMD_PROGCHMASK_RSP,
+		_OP2_PHYVI_SYSCMD_PROGDELTASLOPE,
+		_OP2_PHYVI_SYSCMD_PROGDELTASLOPE_RSP,
+		_OP2_PHYVI_SYSCMD_PROGFEM,
+		_OP2_PHYVI_SYSCMD_PROGFEM_RSP,
+		_OP2_PHYVI_SYSCMD_PROGFREQDEPINI,
+		_OP2_PHYVI_SYSCMD_PROGFREQDEPINI_RSP,
+		_OP2_PHYVI_SYSCMD_PROGINI,
+		_OP2_PHYVI_SYSCMD_PROGINIRSP,
+		_OP2_PHYVI_SYSCMD_PROGPARTINI,
+		_OP2_PHYVI_SYSCMD_PROGPARTINIRSP,
+		_OP2_PHYVI_SYSCMD_PROGRFA,
+		_OP2_PHYVI_SYSCMD_PROGRFA_RSP,
+		_OP2_PHYVI_SYSCMD_PROGXBAR,
+		_OP2_PHYVI_SYSCMD_PROGXBAR_RSP,
+		_OP2_PHYVI_SYSCMD_RESET,
+		_OP2_PHYVI_SYSCMD_RESET_RSP,
+		_OP2_PHYVI_SYSCMD_RESETHW,
+		_OP2_PHYVI_SYSCMD_RESETHW_RSP,
+		_OP2_PHYVI_SYSCMD_RXDCOCAL,
+		_OP2_PHYVI_SYSCMD_RXDCOCAL_RSP,
+		_OP2_PHYVI_SYSCMD_RXDCO_HWCAL,
+		_OP2_PHYVI_SYSCMD_RXDCO_HWCAL_RSP,
+		_OP2_PHYVI_SYSCMD_RXFLTCAL,
+		_OP2_PHYVI_SYSCMD_RXFLTCAL_RSP,
+		_OP2_PHYVI_SYSCMD_RXIQCAL,
+		_OP2_PHYVI_SYSCMD_RXIQCAL_RSP,
+		_OP2_PHYVI_SYSCMD_SAMPLE_CAL,
+		_OP2_PHYVI_SYSCMD_SAMPLE_CAL_RSP,
+		_OP2_PHYVI_SYSCMD_SET_BW,
+		_OP2_PHYVI_SYSCMD_SET_BW_RSP,
+		_OP2_PHYVI_SYSCMD_SET_CHANNEL,
+		_OP2_PHYVI_SYSCMD_SET_CHANNEL_RSP,
+		_OP2_PHYVI_SYSCMD_SETCNTRLS,
+		_OP2_PHYVI_SYSCMD_SETCNTRLS_RSP,
+		_OP2_PHYVI_SYSCMD_SET_MODE,
+		_OP2_PHYVI_SYSCMD_SET_MODE_RSP,
+		_OP2_PHYVI_SYSCMD_SETPHYCLK,
+		_OP2_PHYVI_SYSCMD_SETPHYCLK_RSP,
+		_OP2_PHYVI_SYSCMD_SETTPC,
+		_OP2_PHYVI_SYSCMD_SETTPC_RSP,
+		_OP2_PHYVI_SYSCMD_TXCLCAL,
+		_OP2_PHYVI_SYSCMD_TXCLCAL_RSP,
+		_OP2_PHYVI_SYSCMD_TXIQCAL,
+		_OP2_PHYVI_SYSCMD_TXIQCAL_RSP,
+		_OP2_PHYVI_SYSCMD_WARMRESET,
+		_OP2_PHYVI_SYSCMD_WARMRESET_RSP,
+		_OP2_PHYVI_SYSCMD_TPC_CAL,
+		_OP2_PHYVI_SYSCMD_TPC_CAL_RSP,
+		_OP2_PHYVI_SYSCMD_NFCAL,
+		_OP2_PHYVI_SYSCMD_NFCAL_RSP,
+		_OP2_PHYVI_SYSCMD_COMBINEDCAL,
+		_OP2_PHYVI_SYSCMD_COMBINEDCAL_RSP,
+		_OP2_PHYVI_SYSCMD_CALINFODUMP,
+		_OP2_PHYVI_SYSCMD_CALINFODUMP_RSP,
+		_OP2_PHYVI_SYSCMD_FORCEDGAINMODE,
+		_OP2_PHYVI_SYSCMD_FORCEDGAINMODE_RSP,
+		_OP2_PHYVI_SYSCMD_ALUTREADWRITE,
+		_OP2_PHYVI_SYSCMD_ALUTREADWRITE_RSP,
+		_OP2_PHYVI_SYSCMD_PLUTREADWRITE,
+		_OP2_PHYVI_SYSCMD_PLUTREADWRITE_RSP,
+		_OP2_PHYVI_SYSCMD_GLUTREADWRITE,
+		_OP2_PHYVI_SYSCMD_GLUTREADWRITE_RSP,
+		_OP2_PHYVI_SYSCMD_CHANNEL_SWITCH,
+		_OP2_PHYVI_SYSCMD_CHANNEL_SWITCH_RSP,
+		_OP2_PHYVI_SYSCMD_PHY_DBGDUMP,
+		_OP2_PHYVI_SYSCMD_PHY_DBGDUMP_RSP,
+		_OP2_PHYVI_SYSCMD_SEND_IPC,
+		_OP2_PHYVI_SYSCMD_SEND_IPC_RSP,
+		_OP2_PHYVI_SYSCMD_SPURMITIGATION,
+		_OP2_PHYVI_SYSCMD_SPURMITIGATION_RSP,
+		_OP2_PHYVI_SYSCMD_MEMDUMP,
+		_OP2_PHYVI_SYSCMD_MEMDUMP_RSP,
+		_OP2_PHYVI_SYSCMD_GETRSSI,
+		_OP2_PHYVI_SYSCMD_GETRSSI_RSP,
+		_OP2_PHYVI_SYSCMD_ADCCAPTINMEM,
+		_OP2_PHYVI_SYSCMD_ADCCAPTINMEM_RSP,
+		_OP2_PHYVI_SYSCMD_Q5REGREAD,
+		_OP2_PHYVI_SYSCMD_Q5REGREAD_RSP,
+		_OP2_PHYVI_SYSCMD_Q5REGWRITE,
+		_OP2_PHYVI_SYSCMD_Q5REGWRITE_RSP,
+		_OP2_PHYVI_SYSCMD_CLKSWITCH,
+		_OP2_PHYVI_SYSCMD_CLKSWITCH_RSP,
+		_OP2_PHYVI_SYSCMD_BOOTSEQ,
+		_OP2_PHYVI_SYSCMD_BOOTSEQ_RSP,
+		_OP2_PHYVI_SYSCMD_PHYADCCAPTURE,
+		_OP2_PHYVI_SYSCMD_PHYADCCAPTURE_RSP,
+		_OP2_PHYVI_SYSCMD_GENERIC1,
+		_OP2_PHYVI_SYSCMD_DEBUGPHYRF,
+		_OP2_PHYVI_SYSCMD_DEBUGPHYRF_RSP,
+		_OP2_PHYVI_SYSCMD_SYSTX,
+		_OP2_PHYVI_SYSCMD_SYSTX_RSP,
+		_OP2_PHYVI_SYSCMD_GENERIC3,
+		_OP2_PHYVI_SYSCMD_GENERIC2,
+		_OP2_PHYVI_SYSCMD_SYSRX,
+		_OP2_PHYVI_SYSCMD_SYSRX_RSP,
+		_OP2_PHYVI_SYSCMD_PING,
+		_OP2_PHYVI_SYSCMD_PING_RSP,
+		_OP2_PHYVI_SYSCMD_RSSIDBTODBMOFFSET,
+		_OP2_PHYVI_SYSCMD_RSSIDBTODBMOFFSET_RSP,
+		_OP2_PHYVI_SYSCMD_PING2,
+		_OP2_PHYVI_SYSCMD_PING2_RSP,
+		_OP2_PHYVI_SYSCMD_LOADM3,
+		_OP2_PHYVI_SYSCMD_LOADM3_RSP,
+		_OP2_PHYVI_SYSCMD_PDCCAL,
+		_OP2_PHYVI_SYSCMD_PDCCAL_RSP,
+		_OP2_PHYVI_SYSCMD_RD_BENCH,
+		_OP2_PHYVI_SYSCMD_RD_BENCH_RSP,
+		_OP2_PHYVI_SYSCMD_IBFCAL,
+		_OP2_PHYVI_SYSCMD_IBFCAL_RSP
+	}
+
+	public enum WLAN_Antenna
+	{
+		Antenna1 = 1,
+		Antenna2
+	}
+
+	public enum WLAN_Action
+	{
+		PromiscuousMode,
+		FilterMode
+	}
+
+	public enum WLAN_SleepMode
+	{
+		WakeUp = 1,
+		ForceToSleep,
+		DeepSleep
+	}
+
+	public enum WLAN_EnANI
+	{
+		DisableAntiNoiseImmunity,
+		EnableAntiNoiseImmunity
+	}
+
+	public enum WLAN_ScramblerState
+	{
+		Enabled,
+		Disabled
+	}
+
+	public enum WLAN_TxPattern
+	{
+		Zeros,
+		Ones,
+		repeating_10,
+		PN7,
+		PN9,
+		PN15
+	}
+
+	public enum WLAN_moduleType
+	{
+		Philips,
+		Atheros
+	}
+
+	public enum WLAN_Gen6_HAL_PHY_Rate
+	{
+		RATE_11B_LONG_1_MBPS,
+		RATE_11B_LONG_2_MBPS,
+		RATE_11B_LONG_5_5_MBPS,
+		RATE_11B_LONG_11_MBPS,
+		RATE_11B_SHORT_2_MBPS,
+		RATE_11B_SHORT_5_5_MBPS,
+		RATE_11B_SHORT_11_MBPS,
+		RATE_SLR_0_25_MBPS,
+		RATE_SLR_0_5_MBPS,
+		RATE_11A_6_MBPS,
+		RATE_11A_9_MBPS,
+		RATE_11A_12_MBPS,
+		RATE_11A_18_MBPS,
+		RATE_11A_24_MBPS,
+		RATE_11A_36_MBPS,
+		RATE_11A_48_MBPS,
+		RATE_11A_54_MBPS,
+		RATE_MCS_1NSS_6_5_MBPS,
+		RATE_MCS_1NSS_13_MBPS,
+		RATE_MCS_1NSS_19_5_MBPS,
+		RATE_MCS_1NSS_26_MBPS,
+		RATE_MCS_1NSS_39_MBPS,
+		RATE_MCS_1NSS_52_MBPS,
+		RATE_MCS_1NSS_58_5_MBPS,
+		RATE_MCS_1NSS_65_MBPS,
+		RATE_MCS_1NSS_MM_SG_7_2_MBPS,
+		RATE_MCS_1NSS_MM_SG_14_4_MBPS,
+		RATE_MCS_1NSS_MM_SG_21_7_MBPS,
+		RATE_MCS_1NSS_MM_SG_28_9_MBPS,
+		RATE_MCS_1NSS_MM_SG_43_3_MBPS,
+		RATE_MCS_1NSS_MM_SG_57_8_MBPS,
+		RATE_MCS_1NSS_MM_SG_65_MBPS,
+		RATE_MCS_1NSS_MM_SG_72_2_MBPS,
+		RATE_MCS_1NSS_CB_13_5_MBPS,
+		RATE_MCS_1NSS_CB_27_MBPS,
+		RATE_MCS_1NSS_CB_40_5_MBPS,
+		RATE_MCS_1NSS_CB_54_MBPS,
+		RATE_MCS_1NSS_CB_81_MBPS,
+		RATE_MCS_1NSS_CB_108_MBPS,
+		RATE_MCS_1NSS_CB_121_5_MBPS,
+		RATE_MCS_1NSS_CB_135_MBPS,
+		RATE_MCS_1NSS_MM_SG_CB_15_MBPS,
+		RATE_MCS_1NSS_MM_SG_CB_30_MBPS,
+		RATE_MCS_1NSS_MM_SG_CB_45_MBPS,
+		RATE_MCS_1NSS_MM_SG_CB_60_MBPS,
+		RATE_MCS_1NSS_MM_SG_CB_90_MBPS,
+		RATE_MCS_1NSS_MM_SG_CB_120_MBPS,
+		RATE_MCS_1NSS_MM_SG_CB_135_MBPS,
+		RATE_MCS_1NSS_MM_SG_CB_150_MBPS,
+		NUMRATES
+	}
+
+	private enum WLAN_Gen6_HAL_PHY_Rate_1314
+	{
+		RATE_11B_LONG_1_MBPS,
+		RATE_11B_LONG_2_MBPS,
+		RATE_11B_LONG_5_5_MBPS,
+		RATE_11B_LONG_11_MBPS,
+		RATE_11B_SHORT_2_MBPS,
+		RATE_11B_SHORT_5_5_MBPS,
+		RATE_11B_SHORT_11_MBPS,
+		RATE_SLR_0_25_MBPS,
+		RATE_SLR_5_MBPS,
+		RATE_11G_6_MBPS,
+		RATE_11G_9_MBPS,
+		RATE_11G_12_MBPS,
+		RATE_11G_18_MBPS,
+		RATE_11G_24_MBPS,
+		RATE_11G_36_MBPS,
+		RATE_11G_48_MBPS,
+		RATE_11G_54_MBPS,
+		RATE_11N_6_5_MBPS,
+		RATE_11N_13_MBPS,
+		RATE_11N_19_5_MBPS,
+		RATE_11N_26_MBPS,
+		RATE_11N_39_MBPS,
+		RATE_11N_52_MBPS,
+		RATE_11N_58_5_MBPS,
+		RATE_11N_65_MBPS1,
+		RATE_11N_7_2_MBPS,
+		RATE_11N_14_4_MBPS,
+		RATE_11N_21_7_MBPS,
+		RATE_11N_28_9_MBPS,
+		RATE_11N_43_3_MBPS,
+		RATE_11N_57_8_MBPS,
+		RATE_11N_65_MBPS2,
+		RATE_11N_72_2_MBPS,
+		max
+	}
+
+	private enum WLAN_Gen6_HAL_PHY_Rate_Prima_V1
+	{
+		RATE_11B_LONG_1_MBPS_PRIMA_V1 = 0,
+		RATE_11B_LONG_2_MBPS_PRIMA_V1 = 1,
+		RATE_11B_LONG_5_5_MBPS_PRIMA_V1 = 2,
+		RATE_11B_LONG_11_MBPS_PRIMA_V1 = 3,
+		RATE_11B_SHORT_2_MBPS_PRIMA_V1 = 4,
+		RATE_11B_SHORT_5_5_MBPS_PRIMA_V1 = 5,
+		RATE_11B_SHORT_11_MBPS_PRIMA_V1 = 6,
+		RATE_11A_6_MBPS_PRIMA_V1 = 7,
+		RATE_11A_9_MBPS_PRIMA_V1 = 8,
+		RATE_11A_12_MBPS_PRIMA_V1 = 9,
+		RATE_11A_18_MBPS_PRIMA_V1 = 10,
+		RATE_11A_24_MBPS_PRIMA_V1 = 11,
+		RATE_11A_36_MBPS_PRIMA_V1 = 12,
+		RATE_11A_48_MBPS_PRIMA_V1 = 13,
+		RATE_11A_54_MBPS_PRIMA_V1 = 14,
+		RATE_MCS_1NSS_6_5_MBPS_PRIMA_V1 = 23,
+		RATE_MCS_1NSS_13_MBPS_PRIMA_V1 = 24,
+		RATE_MCS_1NSS_19_5_MBPS_PRIMA_V1 = 25,
+		RATE_MCS_1NSS_26_MBPS_PRIMA_V1 = 26,
+		RATE_MCS_1NSS_39_MBPS_PRIMA_V1 = 27,
+		RATE_MCS_1NSS_52_MBPS_PRIMA_V1 = 28,
+		RATE_MCS_1NSS_58_5_MBPS_PRIMA_V1 = 29,
+		RATE_MCS_1NSS_65_MBPS_PRIMA_V1 = 30,
+		RATE_MCS_1NSS_MM_SG_7_2_MBPS_PRIMA_V1 = 31,
+		RATE_MCS_1NSS_MM_SG_14_4_MBPS_PRIMA_V1 = 32,
+		RATE_MCS_1NSS_MM_SG_21_7_MBPS_PRIMA_V1 = 33,
+		RATE_MCS_1NSS_MM_SG_28_9_MBPS_PRIMA_V1 = 34,
+		RATE_MCS_1NSS_MM_SG_43_3_MBPS_PRIMA_V1 = 35,
+		RATE_MCS_1NSS_MM_SG_57_8_MBPS_PRIMA_V1 = 36,
+		RATE_MCS_1NSS_MM_SG_65_MBPS_PRIMA_V1 = 37,
+		RATE_MCS_1NSS_MM_SG_72_2_MBPS_PRIMA_V1 = 38,
+		RATE_MCS_1NSS_CB_13_5_MBPS_PRIMA_V1 = 39,
+		RATE_MCS_1NSS_CB_27_MBPS_PRIMA_V1 = 40,
+		RATE_MCS_1NSS_CB_40_5_MBPS_PRIMA_V1 = 41,
+		RATE_MCS_1NSS_CB_54_MBPS_PRIMA_V1 = 42,
+		RATE_MCS_1NSS_CB_81_MBPS_PRIMA_V1 = 43,
+		RATE_MCS_1NSS_CB_108_MBPS_PRIMA_V1 = 44,
+		RATE_MCS_1NSS_CB_121_5_MBPS_PRIMA_V1 = 45,
+		RATE_MCS_1NSS_CB_135_MBPS_PRIMA_V1 = 46,
+		RATE_MCS_1NSS_MM_SG_CB_15_MBPS_PRIMA_V1 = 47,
+		RATE_MCS_1NSS_MM_SG_CB_30_MBPS_PRIMA_V1 = 48,
+		RATE_MCS_1NSS_MM_SG_CB_45_MBPS_PRIMA_V1 = 49,
+		RATE_MCS_1NSS_MM_SG_CB_60_MBPS_PRIMA_V1 = 50,
+		RATE_MCS_1NSS_MM_SG_CB_90_MBPS_PRIMA_V1 = 51,
+		RATE_MCS_1NSS_MM_SG_CB_120_MBPS_PRIMA_V1 = 52,
+		RATE_MCS_1NSS_MM_SG_CB_135_MBPS_PRIMA_V1 = 53,
+		RATE_MCS_1NSS_MM_SG_CB_150_MBPS_PRIMA_V1 = 54,
+		RATE_VHT_20MHZ_MCS_1NSS_NGI_6_5_MBPS_PRIMA_V1 = 63,
+		RATE_VHT_20MHZ_MCS_1NSS_NGI_13_MBPS_PRIMA_V1 = 64,
+		RATE_VHT_20MHZ_MCS_1NSS_NGI_19_5_MBPS_PRIMA_V1 = 65,
+		RATE_VHT_20MHZ_MCS_1NSS_NGI_26_MBPS_PRIMA_V1 = 66,
+		RATE_VHT_20MHZ_MCS_1NSS_NGI_39_MBPS_PRIMA_V1 = 67,
+		RATE_VHT_20MHZ_MCS_1NSS_NGI_52_MBPS_PRIMA_V1 = 68,
+		RATE_VHT_20MHZ_MCS_1NSS_NGI_58_5_MBPS_PRIMA_V1 = 69,
+		RATE_VHT_20MHZ_MCS_1NSS_NGI_65_MBPS_PRIMA_V1 = 70,
+		RATE_VHT_20MHZ_MCS_1NSS_NGI_78_MBPS_PRIMA_V1 = 71,
+		RATE_VHT_20MHZ_MCS_1NSS_SGI_7_2_MBPS_PRIMA_V1 = 72,
+		RATE_VHT_20MHZ_MCS_1NSS_SGI_14_4_MBPS_PRIMA_V1 = 73,
+		RATE_VHT_20MHZ_MCS_1NSS_SGI_21_6_MBPS_PRIMA_V1 = 74,
+		RATE_VHT_20MHZ_MCS_1NSS_SGI_28_8_MBPS_PRIMA_V1 = 75,
+		RATE_VHT_20MHZ_MCS_1NSS_SGI_43_3_MBPS_PRIMA_V1 = 76,
+		RATE_VHT_20MHZ_MCS_1NSS_SGI_57_7_MBPS_PRIMA_V1 = 77,
+		RATE_VHT_20MHZ_MCS_1NSS_SGI_65_MBPS_PRIMA_V1 = 78,
+		RATE_VHT_20MHZ_MCS_1NSS_SGI_72_2_MBPS_PRIMA_V1 = 79,
+		RATE_VHT_20MHZ_MCS_1NSS_SGI_86_6_MBPS_PRIMA_V1 = 80,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_NGI_13_5_MBPS_PRIMA_V1 = 81,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_NGI_27_MBPS_PRIMA_V1 = 82,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_NGI_40_5_MBPS_PRIMA_V1 = 83,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_NGI_54_MBPS_PRIMA_V1 = 84,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_NGI_81_MBPS_PRIMA_V1 = 85,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_NGI_108_MBPS_PRIMA_V1 = 86,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_NGI_121_5_MBPS_PRIMA_V1 = 87,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_NGI_135_MBPS_PRIMA_V1 = 88,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_NGI_162_MBPS_PRIMA_V1 = 89,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_NGI_180_MBPS_PRIMA_V1 = 90,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_SGI_15_MBPS_PRIMA_V1 = 91,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_SGI_30_MBPS_PRIMA_V1 = 92,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_SGI_45_MBPS_PRIMA_V1 = 93,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_SGI_60_MBPS_PRIMA_V1 = 94,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_SGI_90_MBPS_PRIMA_V1 = 95,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_SGI_120_MBPS_PRIMA_V1 = 96,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_SGI_135_MBPS_PRIMA_V1 = 97,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_SGI_150_MBPS_PRIMA_V1 = 98,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_SGI_180_MBPS_PRIMA_V1 = 99,
+		RATE_VHT_40MHZ_MCS_1NSS_CB_SGI_200_MBPS_PRIMA_V1 = 100,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_NGI_29_3_MBPS_PRIMA_V1 = 101,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_NGI_58_5_MBPS_PRIMA_V1 = 102,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_NGI_87_8_MBPS_PRIMA_V1 = 103,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_NGI_117_MBPS_PRIMA_V1 = 104,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_NGI_175_5_MBPS_PRIMA_V1 = 105,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_NGI_234_MBPS_PRIMA_V1 = 106,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_NGI_263_3_MBPS_PRIMA_V1 = 107,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_NGI_292_5_MBPS_PRIMA_V1 = 108,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_NGI_351_MBPS_PRIMA_V1 = 109,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_NGI_390_MBPS_PRIMA_V1 = 110,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_SGI_32_5_MBPS_PRIMA_V1 = 111,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_SGI_65_MBPS_PRIMA_V1 = 112,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_SGI_97_5_MBPS_PRIMA_V1 = 113,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_SGI_130_MBPS_PRIMA_V1 = 114,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_SGI_195_MBPS_PRIMA_V1 = 115,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_SGI_260_MBPS_PRIMA_V1 = 116,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_SGI_292_5_MBPS_PRIMA_V1 = 117,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_SGI_325_MBPS_PRIMA_V1 = 118,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_SGI_390_MBPS_PRIMA_V1 = 119,
+		RATE_VHT_80MHZ_MCS_1NSS_CB_SGI_433_3_MBPS_PRIMA_V1 = 120,
+		NUM_RATES_PRIMA_V1 = 121
+	}
+
+	private enum WLAN_Gen6_HAL_PHY_Rate_PRONTO_V1
+	{
+		RATE_11B_LONG_1_MBPS_PRONTO_V1,
+		RATE_11B_LONG_2_MBPS_PRONTO_V1,
+		RATE_11B_LONG_5_5_MBPS_PRONTO_V1,
+		RATE_11B_LONG_11_MBPS_PRONTO_V1,
+		RATE_11B_SHORT_2_MBPS_PRONTO_V1,
+		RATE_11B_SHORT_5_5_MBPS_PRONTO_V1,
+		RATE_11B_SHORT_11_MBPS_PRONTO_V1,
+		RATE_11A_6_MBPS_PRONTO_V1,
+		RATE_11A_9_MBPS_PRONTO_V1,
+		RATE_11A_12_MBPS_PRONTO_V1,
+		RATE_11A_18_MBPS_PRONTO_V1,
+		RATE_11A_24_MBPS_PRONTO_V1,
+		RATE_11A_36_MBPS_PRONTO_V1,
+		RATE_11A_48_MBPS_PRONTO_V1,
+		RATE_11A_54_MBPS_PRONTO_V1,
+		RATE_11A_DUP_6_MBPS_PRONTO_V1,
+		RATE_11A_DUP_9_MBPS_PRONTO_V1,
+		RATE_11A_DUP_12_MBPS_PRONTO_V1,
+		RATE_11A_DUP_18_MBPS_PRONTO_V1,
+		RATE_11A_DUP_24_MBPS_PRONTO_V1,
+		RATE_11A_DUP_36_MBPS_PRONTO_V1,
+		RATE_11A_DUP_48_MBPS_PRONTO_V1,
+		RATE_11A_DUP_54_MBPS_PRONTO_V1,
+		RATE_MCS0_1NSS_6_5_MBPS_PRONTO_V1,
+		RATE_MCS1_1NSS_13_MBPS_PRONTO_V1,
+		RATE_MCS2_1NSS_19_5_MBPS_PRONTO_V1,
+		RATE_MCS3_1NSS_26_MBPS_PRONTO_V1,
+		RATE_MCS4_1NSS_39_MBPS_PRONTO_V1,
+		RATE_MCS5_1NSS_52_MBPS_PRONTO_V1,
+		RATE_MCS6_1NSS_58_5_MBPS_PRONTO_V1,
+		RATE_MCS7_1NSS_65_MBPS_PRONTO_V1,
+		RATE_MCS0_1NSS_MM_SG_7_2_MBPS_PRONTO_V1,
+		RATE_MCS1_1NSS_MM_SG_14_4_MBPS_PRONTO_V1,
+		RATE_MCS2_1NSS_MM_SG_21_7_MBPS_PRONTO_V1,
+		RATE_MCS3_1NSS_MM_SG_28_9_MBPS_PRONTO_V1,
+		RATE_MCS4_1NSS_MM_SG_43_3_MBPS_PRONTO_V1,
+		RATE_MCS5_1NSS_MM_SG_57_8_MBPS_PRONTO_V1,
+		RATE_MCS6_1NSS_MM_SG_65_MBPS_PRONTO_V1,
+		RATE_MCS7_1NSS_MM_SG_72_2_MBPS_PRONTO_V1,
+		RATE_MCS0_1NSS_CB_13_5_MBPS_PRONTO_V1,
+		RATE_MCS1_1NSS_CB_27_MBPS_PRONTO_V1,
+		RATE_MCS2_1NSS_CB_40_5_MBPS_PRONTO_V1,
+		RATE_MCS3_1NSS_CB_54_MBPS_PRONTO_V1,
+		RATE_MCS4_1NSS_CB_81_MBPS_PRONTO_V1,
+		RATE_MCS5_1NSS_CB_108_MBPS_PRONTO_V1,
+		RATE_MCS6_1NSS_CB_121_5_MBPS_PRONTO_V1,
+		RATE_MCS7_1NSS_CB_135_MBPS_PRONTO_V1,
+		RATE_MCS0_1NSS_MM_SG_CB_15_MBPS_PRONTO_V1,
+		RATE_MCS1_1NSS_MM_SG_CB_30_MBPS_PRONTO_V1,
+		RATE_MCS2_1NSS_MM_SG_CB_45_MBPS_PRONTO_V1,
+		RATE_MCS3_1NSS_MM_SG_CB_60_MBPS_PRONTO_V1,
+		RATE_MCS4_1NSS_MM_SG_CB_90_MBPS_PRONTO_V1,
+		RATE_MCS5_1NSS_MM_SG_CB_120_MBPS_PRONTO_V1,
+		RATE_MCS6_1NSS_MM_SG_CB_135_MBPS_PRONTO_V1,
+		RATE_MCS7_1NSS_MM_SG_CB_150_MBPS_PRONTO_V1,
+		RATE_11AC_DUP_6_MBPS_PRONTO_V1,
+		RATE_11AC_DUP_9_MBPS_PRONTO_V1,
+		RATE_11AC_DUP_12_MBPS_PRONTO_V1,
+		RATE_11AC_DUP_18_MBPS_PRONTO_V1,
+		RATE_11AC_DUP_24_MBPS_PRONTO_V1,
+		RATE_11AC_DUP_36_MBPS_PRONTO_V1,
+		RATE_11AC_DUP_48_MBPS_PRONTO_V1,
+		RATE_11AC_DUP_54_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS0_1NSS_NGI_6_5_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS1_1NSS_NGI_13_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS2_1NSS_NGI_19_5_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS3_1NSS_NGI_26_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS4_1NSS_NGI_39_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS5_1NSS_NGI_52_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS6_1NSS_NGI_58_5_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS7_1NSS_NGI_65_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS8_1NSS_NGI_78_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS9_1NSS_NGI_86_5_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS0_1NSS_SGI_7_2_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS1_1NSS_SGI_14_4_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS2_1NSS_SGI_21_6_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS3_1NSS_SGI_28_8_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS4_1NSS_SGI_43_3_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS5_1NSS_SGI_57_7_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS6_1NSS_SGI_65_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS7_1NSS_SGI_72_2_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS8_1NSS_SGI_86_6_MBPS_PRONTO_V1,
+		RATE_VHT_20MHZ_MCS9_1NSS_SGI_96_1_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS0_1NSS_CB_NGI_13_5_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS1_1NSS_CB_NGI_27_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS2_1NSS_CB_NGI_40_5_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS3_1NSS_CB_NGI_54_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS4_1NSS_CB_NGI_81_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS5_1NSS_CB_NGI_108_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS6_1NSS_CB_NGI_121_5_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS7_1NSS_CB_NGI_135_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS8_1NSS_CB_NGI_162_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS9_1NSS_CB_NGI_180_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS0_1NSS_CB_SGI_15_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS1_1NSS_CB_SGI_30_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS2_1NSS_CB_SGI_45_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS3_1NSS_CB_SGI_60_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS4_1NSS_CB_SGI_90_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS5_1NSS_CB_SGI_120_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS6_1NSS_CB_SGI_135_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS7_1NSS_CB_SGI_150_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS8_1NSS_CB_SGI_180_MBPS_PRONTO_V1,
+		RATE_VHT_40MHZ_MCS9_1NSS_CB_SGI_200_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS0_1NSS_CB_NGI_29_3_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS1_1NSS_CB_NGI_58_5_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS2_1NSS_CB_NGI_87_8_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS3_1NSS_CB_NGI_117_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS4_1NSS_CB_NGI_175_5_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS5_1NSS_CB_NGI_234_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS6_1NSS_CB_NGI_263_3_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS7_1NSS_CB_NGI_292_5_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS8_1NSS_CB_NGI_351_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS9_1NSS_CB_NGI_390_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS0_1NSS_CB_SGI_32_5_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS1_1NSS_CB_SGI_65_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS2_1NSS_CB_SGI_97_5_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS3_1NSS_CB_SGI_130_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS4_1NSS_CB_SGI_195_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS5_1NSS_CB_SGI_260_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS6_1NSS_CB_SGI_292_5_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS7_1NSS_CB_SGI_325_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS8_1NSS_CB_SGI_390_MBPS_PRONTO_V1,
+		RATE_VHT_80MHZ_MCS9_1NSS_CB_SGI_433_3_MBPS_PRONTO_V1,
+		NUM_RATES_PRONTO_V1
+	}
+
+	public enum WLAN_Gen6_PHYDBG_PreambleRate
+	{
+		PREAMBLE_OFDM_11G,
+		PREAMBLE_GREENFIELD_11N,
+		PREAMBLE_MIXED_11N,
+		PREAMBLE_SHORTB_11B,
+		PREAMBLE_LONGB_11B,
+		max
+	}
+
+	public enum WLAN_Gen6_PHY_ChainSelect
+	{
+		PHY_CHAIN_SEL_T0_R0_ON = 4,
+		PHY_CHAIN_SEL_T0_R0R1_ON,
+		PHY_CHAIN_SEL_T0_ON,
+		PHY_CHAIN_SEL_T0R1_ON,
+		PHY_CHAIN_SEL_T0_R1_ON,
+		PHY_CHAIN_SEL_NO_RX_TX
+	}
+
+	public enum WLAN_Gen6_Bandwidth
+	{
+		BW_20,
+		BW_40,
+		BW_80,
+		BW_160,
+		BW_80P80
+	}
+
+	public enum WLAN_Gen6_Dfs_Region
+	{
+		DFS_UNINIT_REGION,
+		DFS_FCC_REGION,
+		DFS_ETSI_REGION,
+		DFS_MKK_REGION
+	}
+
+	public enum WLAN_Gen6_ChannelBondingState
+	{
+		none = 0,
+		primaryLow = 1,
+		const_2 = 2,
+		primaryHigh = 3,
+		BW80_20_40Low_40_80Center = 4,
+		BW80_20_40Center_40_80Center = 5,
+		BW80_20_40High_40_80Center = 6,
+		BW80_20_40Low_40_80Low = 7,
+		BW80_20_40High_40_80Low = 8,
+		BW80_20_40Low_40_80High = 9,
+		BW80_20_40GHigh_40_80High = 10,
+		BW80p80 = 12,
+		BW160 = 13,
+		BW165 = 14,
+		Primary_1st_20_in_BW80p80 = 21,
+		Primary_2nd_20_in_BW80p80 = 22,
+		Primary_3rd_20_in_BW80p80 = 23,
+		Primary_4th_20_in_BW80p80 = 24,
+		Primary_5th_20_in_BW80p80 = 25,
+		Primary_6th_20_in_BW80p80 = 26,
+		Primary_7th_20_in_BW80p80 = 27,
+		Primary_8th_20_in_BW80p80 = 28,
+		Primary_1st_20_in_BW160 = 29,
+		Primary_2nd_20_in_BW160 = 30,
+		Primary_3rd_20_in_BW160 = 31,
+		Primary_4th_20_in_BW160 = 32,
+		Primary_5th_20_in_BW160 = 33,
+		Primary_6th_20_in_BW160 = 34,
+		Primary_7th_20_in_BW160 = 35,
+		Primary_8th_20_in_BW160 = 36,
+		Primary_1st_20_in_BW165 = 37,
+		Primary_2nd_20_in_BW165 = 38,
+		Primary_3rd_20_in_BW165 = 39,
+		Primary_4th_20_in_BW165 = 40,
+		Primary_5th_20_in_BW165 = 41,
+		Primary_6th_20_in_BW165 = 42,
+		Primary_7th_20_in_BW165 = 43,
+		Primary_8th_20_in_BW165 = 44,
+		Half_Rate = 50,
+		Quarter_Rate = 51
+	}
+
+	public struct WLANGen6TxReport
+	{
+		public WLAN_Gen6_HAL_PHY_Rate rate;
+
+		public uint cbState;
+
+		public byte channelID;
+
+		public uint pwrTemplateIndex;
+
+		public byte gain;
+
+		public byte adc;
+
+		public ushort rawAdc;
+
+		public byte indexMinMatchLut;
+
+		public double indexMinMatchAbs;
+
+		public byte indexMaxMatchLut;
+
+		public double indexMaxMatchAbs;
+
+		public byte outputLut;
+
+		public double outputAbs;
+	}
+
+	public struct WLANGen6TxStatus
+	{
+		public uint legacy;
+
+		public uint gfSimo20;
+
+		public uint gfMimo20;
+
+		public uint mmSimo20;
+
+		public uint mmMimo20;
+
+		public uint txbShort;
+
+		public uint txbLong;
+
+		public uint txbSlr;
+
+		public uint total;
+
+		public byte txStatus;
+	}
+
+	public struct WLANGen6HdetDco
+	{
+		public ushort hdetDcoCode;
+
+		public ushort hdetDcoOffset;
+	}
+
+	private enum fileStates
+	{
+		init,
+		plut,
+		done
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 1, Size = 16)]
+	public struct LogMeasurementHdrType
+	{
+		public byte cmdCode;
+
+		public byte more;
+
+		public ushort length;
+
+		public ushort length2;
+
+		public ushort logCode;
+
+		public ulong timeStamp;
+	}
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	private delegate byte EFS_CB_TYPE(string name, byte isFile, ushort iAttributeMask, byte iBufferingOption, byte iCleanupOption, uint iCreateDate, uint iFileSize, uint handle);
+
+	private class dirInfo
+	{
+		public int level;
+
+		public string path;
+
+		public dirInfo(int lev, string p)
+		{
+			level = lev;
+			path = p;
+		}
+
+		public static int method_01(int arg_01, int arg_02)
+		{
+			return arg_01 ^ arg_02;
+		}
+	}
+
+	public class EfsEntry
+	{
+		public string path;
+
+		public bool isFile;
+
+		public static int method_01(int arg_01, int arg_02)
+		{
+			return arg_01 ^ arg_02;
+		}
+	}
+
+	public enum QMSL_NV_RESULT_CODE
+	{
+		ERROR_FREE,
+		MSXML_FAILED_TO_INSTANTIATE,
+		MSXML_FAILED_TO_LOAD_SRC,
+		MSXML_FAILED_TO_SAVE_SRC,
+		MSXML_FAILED_TO_LOAD_DEF,
+		SOURCE_XML_VALIDATION_FAILED,
+		DEF_XML_VALIDATION_FAILED,
+		FAILED_TO_OPEN_QCN,
+		INDEX_OUT_OF_BOUND,
+		NV_ITEM_NOT_DEFINED,
+		NV_ITEM_NO_VALUE,
+		NV_ITEM_FAILED_TO_SET_VALUE,
+		NV_ITEM_FAILED_TO_GET_VALUE,
+		NV_ITEM_REDEFINED,
+		FAILED_TO_OPEN_SRC,
+		FAILED_TO_OPEN_QDF,
+		FAILED_TO_CONNECT_TO_MOBILE,
+		FAILED_TO_OPEN_HTML,
+		FAILED_TO_OPEN_QCN_STORAGE,
+		NVTool_UNKNOWN
+	}
+
+	public delegate void NvEventHandler(object sender, string information);
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	private delegate void QPHONE_NVToolCallBackHandler(uint handle, byte iSubscriptioniD, string iNViD, ushort iNVToolFuncEnum, ushort iEvent, ushort iProgress);
+
+	private enum QMSL_NVTool_CallBack_Source_Enum
+	{
+		NV_Tool_LoadNVsFromSource,
+		NV_Tool_LoadNVsFromQCN,
+		NV_Tool_LoadNVsFromMobile,
+		NV_Tool_WriteNVsToSource,
+		NV_Tool_WriteNVsToQCN,
+		NV_Tool_WriteNVsToMobile,
+		NV_Tool_ReadSingleNVFromMobile,
+		NV_Tool_WriteNVsToTAR,
+		NV_Tool_LoadNVsFromBDF,
+		NV_Tool_WriteNVsToBDF,
+		BackupNV_LoadNVsFromMobile,
+		BackupNV_WriteNVsToQCN
+	}
+
+	public enum UIMSIMLockPersoFeatureType
+	{
+		MMGSDI_PERSO_NW = 0,
+		MMGSDI_PERSO_NS = 1,
+		MMGSDI_PERSO_SP = 2,
+		MMGSDI_PERSO_CP = 3,
+		MMGSDI_PERSO_SIM = 4,
+		MMGSDI_PERSO_RUIM_NW1 = 5,
+		MMGSDI_PERSO_RUIM_NW2 = 6,
+		MMGSDI_PERSO_RUIM_HRPD = 7,
+		MMGSDI_PERSO_RUIM_SP = 8,
+		MMGSDI_PERSO_RUIM_CP = 9,
+		MMGSDI_PERSO_RUIM_RUIM = 16
+	}
+
+	public class DLmsg
+	{
+		public void getMsg(uint msgID, out string msg)
+		{
+			string text = "";
+			string text2 = "Resetting phone... ";
+			string text3 = "Download Completed";
+			string text4 = "Changing the Phone to Download Mode... ";
+			string text5 = "Download aborted.";
+			string text6 = "Descrambling image... ";
+			string text7 = "Decoding Hex32 Phone Image... ";
+			string text8 = "Hex32 Armprog decoding status... ";
+			string text9 = "Disk IO Error";
+			string text10 = "Sending SPC... ";
+			string text11 = "NV Backup completed successfully.";
+			string text12 = "Trying to communicate with Phone... ";
+			string text13 = "Zeroing Model Number... ";
+			string text14 = "Starting FLASH programming... ";
+			string text15 = "NV operation failed.";
+			string text16 = "Requesting parameters from the Phone... ";
+			string text17 = "Sending Secure Mode... ";
+			string text18 = "Decoding partition file... ";
+			string text19 = "Error opening partition table";
+			string text20 = "Sending partition table... ";
+			string text21 = "Partition use override... ";
+			string text22 = "Partition table bad";
+			string text23 = "Partition ers fail... ";
+			string text24 = "Decoding PBL file... ";
+			string text25 = "Error opening PBL file";
+			string text26 = "Opening PBL mode";
+			string text27 = "Sending PBL file... ";
+			string text28 = "Decoding QCSBL file... ";
+			string text29 = "Error opening QCSBL file... ";
+			string text30 = "Opening QCSBL mode... ";
+			string text31 = "Error opening QCSBL file";
+			string text32 = "Sending QCSBL file... ";
+			string text33 = "Decoding QCSBL header file... ";
+			string text34 = "Error opening QCSBL header file";
+			string text35 = "Opening QCSBL header file... ";
+			string text36 = "QCSBL header open failed";
+			string text37 = "Sending QCSBL header file... ";
+			string text38 = "Decoding OEMSBL file... ";
+			string text39 = "Error opening OEMSBL file";
+			string text40 = "Opening OEMSBL file... ";
+			string text41 = "OEMSBL open failed";
+			string text42 = "Sending OEMSBL file... ";
+			string text43 = "Decoding OEMSBL header file... ";
+			string text44 = "OEMSBL header file open error";
+			string text45 = "Opening OEMSBL header file... ";
+			string text46 = "Sending OEMSBL header... ";
+			string text47 = "Decoding modem file... ";
+			string text48 = "Error opening modem file..";
+			string text49 = "Opening modem file..";
+			string text50 = "Modem file open failed";
+			string text51 = "Sending modem file... ";
+			string text52 = "Decoding modem header file..";
+			string text53 = "Error opening modem header file";
+			string text54 = "Opening modem header file... ";
+			string text55 = "Modem header open failed";
+			string text56 = "Sending modem header file... ";
+			string text57 = "App file open failed";
+			string text58 = "Error opening app file";
+			string text59 = "Decoding app file... ";
+			string text60 = "Modem write failed";
+			string text61 = "Modem file close failed";
+			string text62 = "OEMSBL write failed";
+			string text63 = "OEMSBL close failed";
+			string text64 = "QCSBL write failed";
+			string text65 = "QCSBL close failed";
+			string text66 = "QCSBL header write failed";
+			string text67 = "QCSBL header close failed";
+			string text68 = "PBL write failed";
+			string text69 = "PBL close failed";
+			string text70 = "Use standard download for NOR";
+			string text71 = "Use standard download for NAND";
+			string text72 = "Decoding OBL file... ";
+			string text73 = "Error opening OBL file";
+			string text74 = "Opening OBL file... ";
+			string text75 = "Sending OBL file... ";
+			string text76 = "OBL write failed";
+			string text77 = "OBL file close failed";
+			string text78 = "OBL open file failed";
+			string text79 = "OBL file protected";
+			string text80 = "Retrieving FLASH Device name... ";
+			string text81 = "Verifying Phone Image... ";
+			msg = text;
+			switch (msgID)
+			{
+			case 242u:
+				msg = text80;
+				break;
+			case 144u:
+				msg = text13;
+				break;
+			case 215u:
+				msg = text14;
+				break;
+			case 182u:
+				msg = text16;
+				break;
+			case 617u:
+				msg = text17;
+				break;
+			case 618u:
+				msg = text;
+				break;
+			case 619u:
+				msg = text;
+				break;
+			case 620u:
+				msg = text18;
+				break;
+			case 621u:
+				msg = text19;
+				break;
+			case 622u:
+				msg = text20;
+				break;
+			case 623u:
+				msg = text21;
+				break;
+			case 624u:
+				msg = text22;
+				break;
+			case 625u:
+				msg = text23;
+				break;
+			case 626u:
+				msg = text24;
+				break;
+			case 627u:
+				msg = text25;
+				break;
+			case 628u:
+				msg = text26;
+				break;
+			case 629u:
+				msg = text25;
+				break;
+			case 630u:
+				msg = text27;
+				break;
+			case 631u:
+				msg = text28;
+				break;
+			case 632u:
+				msg = text29;
+				break;
+			case 633u:
+				msg = text30;
+				break;
+			case 634u:
+				msg = text31;
+				break;
+			case 635u:
+				msg = text32;
+				break;
+			case 636u:
+				msg = text33;
+				break;
+			case 637u:
+				msg = text34;
+				break;
+			case 638u:
+				msg = text35;
+				break;
+			case 639u:
+				msg = text36;
+				break;
+			case 640u:
+				msg = text37;
+				break;
+			case 641u:
+				msg = text38;
+				break;
+			case 642u:
+				msg = text39;
+				break;
+			case 643u:
+				msg = text40;
+				break;
+			case 644u:
+				msg = text41;
+				break;
+			case 645u:
+				msg = text42;
+				break;
+			case 646u:
+				msg = text43;
+				break;
+			case 647u:
+				msg = text44;
+				break;
+			case 648u:
+				msg = text45;
+				break;
+			case 649u:
+				msg = text45;
+				break;
+			case 650u:
+				msg = text46;
+				break;
+			case 651u:
+				msg = text47;
+				break;
+			case 652u:
+				msg = text48;
+				break;
+			case 653u:
+				msg = text49;
+				break;
+			case 654u:
+				msg = text50;
+				break;
+			case 655u:
+				msg = text51;
+				break;
+			case 656u:
+				msg = text52;
+				break;
+			case 657u:
+				msg = text53;
+				break;
+			case 658u:
+				msg = text54;
+				break;
+			case 659u:
+				msg = text55;
+				break;
+			case 660u:
+				msg = text56;
+				break;
+			case 661u:
+				msg = text57;
+				break;
+			case 662u:
+				msg = text58;
+				break;
+			case 663u:
+				msg = text59;
+				break;
+			case 664u:
+				msg = text57;
+				break;
+			case 665u:
+				msg = text60;
+				break;
+			case 666u:
+				msg = text61;
+				break;
+			case 667u:
+				msg = text62;
+				break;
+			case 668u:
+				msg = text63;
+				break;
+			case 669u:
+				msg = text64;
+				break;
+			case 670u:
+				msg = text65;
+				break;
+			case 671u:
+				msg = text66;
+				break;
+			case 672u:
+				msg = text67;
+				break;
+			case 673u:
+				msg = text68;
+				break;
+			case 674u:
+				msg = text69;
+				break;
+			case 675u:
+				msg = text70;
+				break;
+			case 676u:
+				msg = text71;
+				break;
+			case 677u:
+				msg = text72;
+				break;
+			case 678u:
+				msg = text73;
+				break;
+			case 679u:
+				msg = text74;
+				break;
+			case 680u:
+				msg = text75;
+				break;
+			case 681u:
+				msg = text76;
+				break;
+			case 682u:
+				msg = text77;
+				break;
+			case 683u:
+				msg = text78;
+				break;
+			case 684u:
+				msg = text79;
+				break;
+			case 103u:
+				msg = text5;
+				break;
+			case 106u:
+				msg = text6;
+				break;
+			case 107u:
+				msg = text7;
+				break;
+			case 109u:
+				msg = text8;
+				break;
+			case 137u:
+				msg = text2;
+				break;
+			case 155u:
+				msg = text11;
+				break;
+			case 154u:
+				msg = text10;
+				break;
+			case 222u:
+				msg = text81;
+				break;
+			case 185u:
+				msg = text15;
+				break;
+			case 113u:
+				msg = text3;
+				break;
+			case 142u:
+				msg = text12;
+				break;
+			case 168u:
+				msg = text9;
+				break;
+			case 114u:
+				msg = text4;
+				break;
+			}
+		}
+
+		public static int method_01(int arg_01, int arg_02)
+		{
+			return arg_01 ^ arg_02;
+		}
+	}
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	private delegate void GeneralSWDownloadHandlerCallBackType(IntPtr msgPtr);
+
+	public delegate void SwDownloadEventHandler(object sender, string information);
+
+	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+	private delegate void QPHONEMSCBSWDownloadHandlerCallBack(uint handle, IntPtr msgPtr, ushort iMsgSize);
+
+	public enum SW_DOWNLOAD_SIZE
+	{
+		SWD_StringMaxSize = 100
+	}
+
+	public enum SWD_miFileTypeBitmask_enum
+	{
+		miType_None = 0,
+		miTypePrtnFile = 1,
+		miTypePblFile = 2,
+		miTypeQcSblFile = 4,
+		miTypeQcSblHdFile = 8,
+		miTypeOemSblFile = 16,
+		miTypeOemSblHdFile = 32,
+		miTypeAmssFile = 64,
+		miTypeAmssHdFile = 128,
+		miTypeAppsFile = 256,
+		miTypeAppsHdFile = 512,
+		miTypeOblFile = 1024,
+		miTypeAppsBlFile = 2048,
+		miTypeAppsBlHdFile = 4096,
+		miType_All = 8191,
+		miTypeWinMobile = 8192,
+		miTypeDsp1 = 16384,
+		miTypeDsp2 = 32768,
+		miType_AllExApps = 1279
+	}
+
+	public enum SwDownload_EventTypes
+	{
+		SWD_downloadEvent,
+		SWD_nvBackupEvent,
+		SWD_doAutoRestore,
+		SWD_reportLoaderStatus,
+		SWD_bootDownloadStart,
+		SWD_bootReportLoaderStatus,
+		SWD_bootDownloadStatus,
+		SWD_bootDownloadProgress,
+		SWD_bootDownloadComplete,
+		SWD_MIReportLoaderStatus,
+		SWD_MIReportFlashStatus,
+		SWD_MIStartDownload,
+		SWD_MIDownloadProgress,
+		SWD_MIDownloadComplete,
+		SWD_MIDownloadStatus,
+		SWD_Event_None
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 4, Size = 116)]
+	public struct downloadEvent_struct
+	{
+		public uint status;
+
+		public ushort error;
+
+		public ushort percentCompleted;
+
+		public ushort block;
+
+		public uint address;
+
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 100)]
+		public byte[] dataString;
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 4, Size = 110)]
+	public struct nvBackupEvent_struct
+	{
+		public uint status;
+
+		public ushort error;
+
+		public ushort percentCompleted;
+
+		public ushort nvItem;
+
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 100)]
+		public byte[] dataString;
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 4, Size = 104)]
+	public struct bootDownloadStart_struct
+	{
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 100)]
+		public byte[] flashName;
+
+		public uint loaderSize;
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 4, Size = 8)]
+	public struct bootDownloadStatus_struct
+	{
+		public uint statusCode;
+
+		public uint detailCode;
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 4, Size = 108)]
+	public struct reportLoaderStatus_struct
+	{
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 100)]
+		public byte[] bsLoaderName;
+
+		public uint customLoader;
+
+		public uint localFile;
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 4, Size = 108)]
+	public struct bootReportLoaderStatus_struct
+	{
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 100)]
+		public byte[] bsLoaderName;
+
+		public uint customLoader;
+
+		public uint localFile;
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 4, Size = 4)]
+	public struct bootDownloadProgress_struct
+	{
+		public uint bytesWritten;
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 4, Size = 108)]
+	public struct MIReportLoaderStatus_struct
+	{
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 100)]
+		public byte[] bsLoaderName;
+
+		public int customLoader;
+
+		public int localFile;
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 4, Size = 100)]
+	public struct MIReportFlashStatus_struct
+	{
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 100)]
+		public byte[] flashName;
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 4, Size = 8)]
+	public struct MIStartDownload_struct
+	{
+		public uint imageSize;
+
+		public uint imageType;
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 4, Size = 4)]
+	public struct MIDownloadProgress_struct
+	{
+		public uint bytesWritten;
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 4, Size = 8)]
+	public struct MIDownloadStatus_struct
+	{
+		public uint statusCode;
+
+		public uint detailCode;
+	}
+
+	public enum FireHoseLibSrc
+	{
+		FIREHOSE_LIB_QMSL,
+		FIREHOSE_LIB_EMMCDL
+	}
+
+	public enum SwDownload_Msg
+	{
+		IDS_DOWNLOADABORTEDSTATUS = 103,
+		IDS_IMAGEDESCRAMBLINGSTATUS = 106,
+		IDS_HEX32IMAGEDECODINGSTATUS = 107,
+		IDS_HEX32ARMPRGDECODINGSTATUS = 109,
+		IDS_DOWNLOADSUCCESSSTATUS = 113,
+		IDS_JUMPINGTODOWNLOADMODESTATUS = 114,
+		IDS_WRITINGBLOCKSTATUS = 117,
+		IDS_RESETINGPHONESTATUS = 137,
+		IDS_TRYINGTOCOMMUNICATESTATUS = 142,
+		IDS_ZEROINGMODELNUMBERSTATUS = 144,
+		IDS_RESTOREFAILSTATUS = 149,
+		IDS_SENDINGSPCSTATUS = 154,
+		IDS_BACKUPSUCCESSSTATUS = 155,
+		IDS_BACKINGUPNVSTATUS = 167,
+		IDS_DISKIOERR = 168,
+		IDS_PARAMREQUESTSTATUS = 182,
+		IDS_STARTINGFLASHPRGSTATUS = 215,
+		IDS_VERIFYINGPHONEIMAGESTATUS = 222,
+		IDS_FLASHDEVICENAMESTATUS = 242,
+		IDS_SENDINGSECMODE = 617,
+		IDS_INVSECMODE = 618,
+		IDS_INVSECSUPPORT = 619,
+		IDS_PRTNTBLDECODINGSTATUS = 620,
+		IDS_PRTNTBLOPENERR = 621,
+		IDS_SENDINGPRTNTBL = 622,
+		IDS_PRTNUSEOVERIDE = 623,
+		IDS_PRTNTBLBAD = 624,
+		IDS_PRTNERSFAIL = 625,
+		IDS_PBLDECODINGSTATUS = 626,
+		IDS_PBLOPENERR = 627,
+		IDS_PBLDLOPEN = 628,
+		IDS_PBLDLOPENFAIL = 629,
+		IDS_SENDINGPBL = 630,
+		IDS_QCSBLDECODINGSTATUS = 631,
+		IDS_QCSBLOPENERR = 632,
+		IDS_QCSBLDLOPEN = 633,
+		IDS_QCSBLDLOPENFAIL = 634,
+		IDS_SENDINGQCSBL = 635,
+		IDS_QCSBLHDRDECODINGSTATUS = 636,
+		IDS_QCSBLHDROPENERR = 637,
+		IDS_QCSBLHDRDLOPEN = 638,
+		IDS_QCSBLHDRDLOPENFAIL = 639,
+		IDS_SENDINGQCSBLHDR = 640,
+		IDS_OEMSBLDECODINGSTATUS = 641,
+		IDS_OEMSBLOPENERR = 642,
+		IDS_OEMSBLDLOPEN = 643,
+		IDS_OEMSBLDLOPENFAIL = 644,
+		IDS_SENDINGOEMSBL = 645,
+		IDS_OEMSBLHDRDECODINGSTATUS = 646,
+		IDS_OEMSBLHDROPENERR = 647,
+		IDS_OEMSBLHDRDLOPEN = 648,
+		IDS_OEMSBLHDRDLOPENFAIL = 649,
+		IDS_SENDINGOEMSBLHDR = 650,
+		IDS_MIMODEMDECODINGSTATUS = 651,
+		IDS_MIMODEMOPENERR = 652,
+		IDS_MIMODEMDLOPEN = 653,
+		IDS_MIMODEMDLOPENFAIL = 654,
+		IDS_SENDINGMIMODEM = 655,
+		IDS_MIMODEMHDRDECODINGSTATUS = 656,
+		IDS_MIMODEMHDROPENERR = 657,
+		IDS_MIMODEMHDRDLOPEN = 658,
+		IDS_MIMODEMHDRDLOPENFAIL = 659,
+		IDS_SENDINGMIMODEMHDR = 660,
+		IDS_MIAPPSDECODINGSTATUS = 661,
+		IDS_MIAPPSOPENERR = 662,
+		IDS_MIAPPSHDRDECODINGSTATUS = 663,
+		IDS_MIAPPSHDROPENERR = 664,
+		IDS_MIMODEMWRFAIL = 665,
+		IDS_MIMODEMCLOSEFAIL = 666,
+		IDS_OEMSBLWRFAIL = 667,
+		IDS_OEMSBLCLOSEFAIL = 668,
+		IDS_QCSBLWRFAIL = 669,
+		IDS_QCSBLCLOSEFAIL = 670,
+		IDS_QCSBLHDRWRFAIL = 671,
+		IDS_QCSBLHDRCLOSEFAIL = 672,
+		IDS_PBLWRFAIL = 673,
+		IDS_PBLCLOSEFAIL = 674,
+		IDS_USESTDDOWNLOADFORNOR = 675,
+		IDS_USEMIDOWNLOADFORNAND = 676,
+		IDS_OBLDECODINGSTATUS = 677,
+		IDS_OBLOPENERR = 678,
+		IDS_OBLDLOPEN = 679,
+		IDS_SENDINGOBL = 680,
+		IDS_OBLWRFAIL = 681,
+		IDS_OBLCLOSEFAIL = 682,
+		IDS_OBLDLOPENFAIL = 683,
+		IDS_OBLPROTECTED = 684
+	}
+
+	public struct SWDL_UserPartitionEntry
+	{
+		[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 129)]
+		public string sPartitionName;
+
+		[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+		public string sPartitionMBNPath;
+	}
+
+	public struct SWDL_UserPartitionList
+	{
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 15)]
+		public SWDL_UserPartitionEntry[] swdl_userpartitionentry;
+
+		public int iNumOfPartitionEntry;
+	}
+
+	public struct SWDL_UserPartitionHash
+	{
+		[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+		public string ImageFileName;
+
+		[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 129)]
+		public string string_0;
+	}
+
+	public struct SWDL_UserPartitionHashList
+	{
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)]
+		public SWDL_UserPartitionHash[] pFileHashList;
+
+		public int iNumOfFileHashEntry;
+	}
+
+	public struct SWDL_eMMC_UserPartitionList
+	{
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 10)]
+		public SWDL_eMMC_UserPartitionEntry[] swdl_eMMC_userpartitionentry;
+
+		public int iNumOfPartitionEntry;
+	}
+
+	public struct SWDL_eMMC_UserPartitionEntry
+	{
+		[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+		public string sRawProgramFileName;
+
+		[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+		public string sPatchFileName;
+	}
+
+	public struct SWDL_eMMC_MetaBuild_SearchFileEntry
+	{
+		[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+		public string sSearchFileName;
+	}
+
+	public struct SWDL_eMMC_MetaBuild_SearchFileList
+	{
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 200)]
+		public SWDL_eMMC_MetaBuild_SearchFileEntry[] swdl_searchfileentry;
+
+		public int iNumOfSearchFileEntry;
+	}
+
+	public struct SWDL_eMMC_MetaBuild_ContentFileList
+	{
+		public SWDL_eMMC_MetaBuild_SearchFileList pSearchFileList;
+
+		public SWDL_eMMC_UserPartitionList pUserPartitionFileList;
+	}
+
+	private struct ftm_rffe_chan_list
+	{
+		private byte pCellChan;
+
+		private byte sCellChan;
+	}
+
+	private struct ftm_rffe_transaction
+	{
+		private byte address;
+
+		private byte data;
+	}
+
+	public class MultiByteSweepSettings
+	{
+		public int ap_scenario;
+
+		public int imp_scenario;
+
+		public ulong tunecode;
+
+		public byte tunecodeSize;
+
+		public byte[] tunecodeBytes = new byte[8];
+
+		public byte[] impTunecodeBytes = new byte[8];
+
+		public byte[] apTunecodeBytes = new byte[8];
+
+		public static int method_01(int arg_01, int arg_02)
+		{
+			return arg_01 ^ arg_02;
+		}
+	}
+
+	public class MultiByteSweepStatus
+	{
+		public int ap_scenario;
+
+		public int imp_scenario;
+
+		public ulong tunecode;
+
+		public byte tunecodeSize;
+
+		public byte[] tunecodeBytes = new byte[8];
+
+		public byte[] impTunecodeBytes = new byte[8];
+
+		public byte[] apTunecodeBytes = new byte[8];
+
+		public byte[] tunecodeMapping = new byte[8];
+
+		public byte deviceState;
+
+		public byte chargePumpStatus;
+
+		public static int method_01(int arg_01, int arg_02)
+		{
+			return arg_01 ^ arg_02;
+		}
+	}
+
+	public class structTunerStatus
+	{
+		public byte ant_num;
+
+		public byte tuner_mgr_type;
+
+		public byte impedance_tx_algo_type;
+
+		public byte tune_code_size;
+
+		public byte[] tune_code_data = new byte[8];
+
+		public byte device_state;
+
+		public byte aperture_tx_algo_type;
+
+		public byte rx_algo_type;
+
+		public byte charge_pump_status;
+
+		public byte[] tune_code_mapping = new byte[8];
+
+		public byte impedance_scenario;
+
+		public byte aperture_scenario;
+
+		public byte asdiv_position;
+	}
+
+	public class structProgramTuner
+	{
+		public byte ant_id;
+
+		public byte update_type;
+
+		public byte tunecode_size;
+
+		public byte[] tunecode = new byte[8];
+
+		public byte impScenario;
+
+		public byte aptScenario;
+	}
+
+	public class structTunerStatusA
+	{
+		public byte ant_num;
+
+		public byte tuner_mgr_type;
+
+		public byte impedance_tx_algo_type;
+
+		public byte tune_code_size;
+
+		public byte device_state;
+
+		public byte aperture_tx_algo_type;
+
+		public byte rx_algo_type;
+
+		public byte charge_pump_status;
+
+		public static int method_01(int arg_01, int arg_02)
+		{
+			return arg_01 ^ arg_02;
+		}
+	}
+
+	public class structRFCardInfo
+	{
+		public string[] tech;
+
+		public string[] band;
+
+		public string[] device;
+
+		private string tunecodesize;
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 1)]
+	public struct structGetTunerStatusInfo
+	{
+		public byte ant_num;
+
+		public byte tuner_mgr_type;
+
+		public byte impedance_tx_algo_type;
+
+		public byte tune_code_size;
+
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+		public byte[] tune_code_data;
+
+		public byte device_state;
+
+		public byte aperture_tx_algo_type;
+
+		public byte rx_algo_type;
+
+		public byte charge_pump_status;
+
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+		public byte[] tune_code_mapping;
+
+		public byte impedance_scenario;
+
+		public byte aperture_scenario;
+
+		public byte asdiv_position;
+
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+		public byte[] reserved;
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 1)]
+	public struct StructGetTunerStatusInfoArray
+	{
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
+		public structGetTunerStatusInfo[] TunerStatusInfoDataArray;
+	}
+
+	public struct AntennaBCConfig
+	{
+		public int antNum;
+
+		public int tunecodeSize;
+
+		public List<ushort> bandList;
+	}
+
+	public class structRFPathInformationRequest
+	{
+		public byte technology;
+
+		public ushort band;
+
+		public byte subBand;
+
+		public byte version;
+
+		public static int method_01(int arg_01, int arg_02)
+		{
+			return arg_01 ^ arg_02;
+		}
+	}
+
+	public struct structRFPathInformationPacketVersion0
+	{
+		public ushort band;
+
+		public byte subBand;
+
+		public uint signalPath;
+
+		public ushort rfmDevice;
+
+		public ushort antennaPath;
+
+		public ushort reserved;
+
+		public uint associatedSignalPath;
+
+		public ushort ushort_0;
+
+		public ushort associatedantennaPath;
+
+		public ushort associatedreserved;
+
+		public byte nvcontainer;
+
+		public byte rfmPathType;
+
+		public byte actionType;
+	}
+
+	public struct structRFPathInformationPacketVersion1
+	{
+		public ushort band;
+
+		public byte subBand;
+
+		public uint signalPath;
+
+		public ushort rfmDevice;
+
+		public ushort antennaPath;
+
+		public ushort reserved;
+
+		public uint associatedRxSignalPath;
+
+		public ushort associatedRxRFMDevice;
+
+		public ushort associatedRxAntennaPath;
+
+		public ushort associatedRxreserved;
+
+		public byte nvcontainer;
+
+		public byte rfmPathType;
+
+		public byte txrxcalaction;
+
+		public uint calibrationreferenceSignalPath;
+
+		public uint associatedTxSignalPath;
+
+		public ushort associatedTxRFMDevice;
+
+		public ushort associatedTxAntennaPath;
+
+		public ushort uniquePathNumber;
+
+		public byte antennaConfigState;
+
+		public byte rxrsbcalaction;
+
+		public byte antennaNumber;
+	}
+
+	public struct structRFPathInformationPacketVersion1_UtilizeReservedField
+	{
+		public ushort band;
+
+		public byte subBand;
+
+		public uint signalPath;
+
+		public ushort rfmDevice;
+
+		public ushort antennaPath;
+
+		public ushort ip2cal_cfg_bitmask;
+
+		public uint associatedRxSignalPath;
+
+		public ushort associatedRxRFMDevice;
+
+		public ushort associatedRxAntennaPath;
+
+		public ushort sigpathcapability;
+
+		public byte nvcontainer;
+
+		public byte rfmPathType;
+
+		public byte txrxcalaction;
+
+		public uint calibrationreferenceSignalPath;
+
+		public uint associatedTxSignalPath;
+
+		public ushort associatedTxRFMDevice;
+
+		public ushort associatedTxAntennaPath;
+
+		public ushort uniquePathNumber;
+
+		public byte antennaConfigState;
+
+		public byte rxrsbcalaction;
+
+		public byte antennaNumber;
+	}
+
+	public struct structRFPathInformationResponseHeader
+	{
+		public byte isLastPacket;
+
+		public byte compressionStatus;
+
+		public byte errorStatus;
+	}
+
+	[StructLayout(LayoutKind.Explicit)]
+	public struct structRFPathInformationPacket
+	{
+		[FieldOffset(0)]
+		public structRFPathInformationPacketVersion0 version0;
+
+		[FieldOffset(0)]
+		public structRFPathInformationPacketVersion1_UtilizeReservedField version1;
+	}
+
+	public struct structRFPathInformationResponsePayload
+	{
+		public ushort packetVersion;
+
+		public ushort numberofPackets;
+
+		public structRFPathInformationPacket[] packet;
+	}
+
+	public struct structRFPathInformationResponsePayload_Expanded
+	{
+		public ushort packetVersion;
+
+		public ushort numberofPackets;
+
+		public structRFPathInformationPacketVersion0[] version0;
+
+		public structRFPathInformationPacketVersion1[] version1;
+	}
+
+	public class structRFPathInformationResponse
+	{
+		public structRFPathInformationResponseHeader responseHeader;
+
+		public structRFPathInformationResponsePayload_Expanded responsePayload;
+	}
+
+	public struct structRFPathInformationResponse_NoExpanded
+	{
+		public structRFPathInformationResponseHeader responseHeader;
+
+		public structRFPathInformationResponsePayload responsePayload;
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 1)]
+	public struct structFtmRfTestPropertyDataType
+	{
+		public uint type;
+
+		public ulong value;
+	}
+
+	public struct structFTM_RF_TEST_PROPERTY_DATA_BULK
+	{
+		public uint num_properties;
+
+		public structFtmRfTestPropertyDataType[] propertyData;
+	}
+
+	[StructLayout(LayoutKind.Sequential, Pack = 1)]
+	public struct structFTM_RF_TEST_PROPERTY_DATA_PACK
+	{
+		public uint num_properties;
+
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 512)]
+		public structFtmRfTestPropertyDataType[] propertyData;
+	}
+
+	public struct structRFm_path_type_v1
+	{
+		public ushort rfmDevice;
+
+		public ushort sigPath;
+
+		public ushort antennaSwitchPath;
+
+		public ushort beamId;
+
+		public ushort pllId;
+	}
+
+	public struct ndr_state_info
+	{
+		public ushort ndrstate;
+
+		public byte tx_rx_calaction;
+
+		public byte numberofBWtoCalibrate;
+
+		public byte[] calBW;
+
+		public uint startFreqKHz;
+
+		public uint uint_0;
+	}
+
+	public struct structFtmUnifiedTxRxPathInfoVersion0
+	{
+		public ushort pathID;
+
+		public structRFm_path_type_v1 rfmpath;
+
+		public byte numberofassociatedRxPaths;
+
+		public ushort[] associatedRxpaths;
+
+		public byte numberofassociatedTxPaths;
+
+		public ushort[] associatedTxpaths;
+
+		public byte antenna_number;
+
+		public byte antenna_config_state;
+
+		public byte tx_rx_calaction;
+
+		public byte path_type;
+
+		public uint signal_pathcapability;
+
+		public byte num_ndr_states;
+
+		public ndr_state_info[] ndrStateInfo;
+	}
+
+	public struct structFtm_unified_idc_cal_path_prop
+	{
+		public ushort rfm_path_idx;
+
+		public ushort valid_bw_cnt;
+
+		public uint bw_bitmask;
+
+		public ushort valid_xfmr_bw_cnt;
+
+		public uint xfmr_bw_bitmask;
+
+		public byte freq_arr_size;
+
+		public uint[] freq_array;
+	}
+
+	public struct structIdc_per_cal_info
+	{
+		public ushort no_of_entries;
+
+		public structFtm_unified_idc_cal_path_prop[] idc_path_entry;
+	}
+
+	public struct structidc_cal_path_info
+	{
+		public byte idc_type;
+
+		public structIdc_per_cal_info idc_cal_info;
+	}
+
+	public struct structFtmUnifiedTxRxPathInfoBandData
+	{
+		public ushort band;
+
+		public byte sub_band;
+
+		public uint startFreqKHz;
+
+		public uint uint_0;
+
+		public ushort num_of_paths;
+
+		public structFtmUnifiedTxRxPathInfoVersion0[] version0Data;
+
+		public byte num_of_idc_types;
+
+		public structidc_cal_path_info[] idc_path_info;
+	}
+
+	public struct structFtmUnifiedTxRxPathInfoResponse
+	{
+		public uint errorstatus;
+
+		public uint version;
+
+		public ushort numberofbands;
+
+		public structFtmUnifiedTxRxPathInfoBandData[] bandData;
+	}
+
+	private enum eTunerStatus
+	{
+		FTM_RF_ANT_TUNER_SC_SUCCESS,
+		FTM_RF_ANT_TUNER_SC_BAD_CMD,
+		FTM_RF_ANT_TUNER_SC_CMD_HANDLER_FAIL,
+		FTM_RF_ANT_TUNER_SC_NULL_PARAM,
+		FTM_RF_ANT_TUNER_SC_NO_RSP_FROM_HANDLER,
+		FTM_RF_ANT_TUNER_SC_NUM
+	}
+
+	public class structDeviceSettingResponse
+	{
+		private byte bus_id;
+
+		private byte slave_id;
+
+		private byte mfg_id;
+
+		private byte prd_id;
+
+		private byte rev_id;
+
+		private byte num_transactions;
+
+		private ftm_rffe_transaction[] device_transactions = new ftm_rffe_transaction[256];
+
+		public static int method_01(int arg_01, int arg_02)
+		{
+			return arg_01 ^ arg_02;
+		}
+	}
+
+	public class structDeviceSettingRequest
+	{
+		private byte iRfMode;
+
+		private byte iRfmDeviceId;
+
+		private byte iChainType;
+
+		private byte iScenario;
+
+		private byte iNumCells;
+
+		private byte iLinkType;
+
+		private byte iRffeDeviceType;
+
+		private ftm_rffe_chan_list iChanList;
+	}
+
+	public enum eTunerCmd
+	{
+		FTM_SET_TUNER_DISABLE_TUNE_CODE_OVERRIDE,
+		FTM_SET_TUNER_ENABLE_TUNE_CODE_OVERRIDE,
+		FTM_SET_TUNER_UPDATE_TUNE_CODE_ONCE,
+		FTM_SET_TUNER_TRIGGER_SCENARIO_OVERRIDE,
+		FTM_SET_TUNER_ENABLE_ACL,
+		FTM_SET_TUNER_DISABLE_ACL,
+		FTM_SET_TUNER_TUNE_CODE_UPDATE_TYPE_NUM
+	}
+
+	public enum eAllTunerCmd
+	{
+		FTM_SET_ALL_TUNER_All_Active_Tuners
+	}
+
+	private enum phoneModeEnum
+	{
+		MODE_OFFLINE_A_F,
+		MODE_OFFLINE_D_F,
+		MODE_RESET_F,
+		MODE_FTM_F,
+		MODE_ONLINE_F,
+		MODE_LPM_F,
+		MODE_POWER_OFF_F,
+		MODE_MAX_F
+	}
+
+	public enum TECHNOLOGY_FAMILY_TYPE
+	{
+		TECHNOLOGY_CDMA,
+		TECHNOLOGY_WCDMA,
+		TECHNOLOGY_GSM,
+		TECHNOLOGY_BLUETOOTH,
+		TECHNOLOGY_MEDIAFLO,
+		TECHNOLOGY_DVBH,
+		TECHNOLOGY_ANALOG,
+		TECHNOLOGY_GPS,
+		TECHNOLOGY_ISDBT,
+		TECHNOLOGY_1xEVDO,
+		TECHNOLOGY_LTE,
+		TECHNOLOGY_TDSCDMA,
+		TECHNOLOGY_WLAN,
+		TECHNOLOGY_NFC,
+		TECHNOLOGY_MULTIMEDIA,
+		TECHNOLOGY_FM_RADIO,
+		TECHNOLOGY_WIGIG,
+		TECHNOLOGY_TYPE_MAX
+	}
+
+	private class CSharpImpl
+	{
+		[Obsolete("Please refactor calling code to use normal Visual Basic assignment")]
+		public static T __Assign<T>(ref T target, T value)
+		{
+			target = value;
+			return value;
+		}
+
+		public static int method_01(int arg_01, int arg_02)
+		{
+			return arg_01 ^ arg_02;
+		}
+	}
+
+	private const int UDT_OFFSET_PORT_NUM = 1024;
+
+	protected const int FM_PT_MAX_AF_LIST_LENGTH = 25;
+
+	protected const int logHdrSize = 16;
+
+	private const int HA_SPI_LSB = 74;
+
+	private const int AAA_ENABLE = 78;
+
+	private const int AAA_SPI_MSB = 80;
+
+	private const int HOME_ADDR_0 = 84;
+
+	private const int HOME_ADDR_2 = 86;
+
+	private const int PRIM_ADDR_0 = 88;
+
+	private const int PRIM_ADDR_2 = 90;
+
+	private const int SEC_ADDR_0 = 92;
+
+	private const int SEC_ADDR_2 = 94;
+
+	private const int GSDI_ACTIVATE_FEATURE_EVENT_ID = 1037;
+
+	private const int GSDI_GET_FEATURE_IND_EVENT_ID = 1039;
+
+	private const int GSDI_UNBLOCK_FEATURE_EVENT_ID = 1041;
+
+	private const int GSDI_GET_FEATURE_DATA_EVENT_ID = 1626;
+
+	private const int SINGLE_CATEGORY_DATA_LEN = 20;
+
+	private const uint LEN_HCK = 32u;
+
+	private const int MAX_EMMC_USER_PARTITION_ENTRY = 10;
+
+	private const int FTM_RF_MAX_TUNE_STATUS_SIZE_IN_BYTES = 12;
+
+	private const int FTM_RF_MAX_NUM_ANTENNAS = 4;
+
+	private const int MAX_TUNERS_TO_PROGRAM = 5;
+
+	private const int RFFE_MAX_DEVICE_INSTANCES = 5;
+
+	private const int RFFE_MAX_DEVICE_IDS = 255;
+
+	private const int MAX_NUM_PACKETS = 12400;
+
+	private const int MAX_NUM_PATHS = 1000;
+
+	private const int IDC_MAX_NUM_FREQ = 5;
+
+	private const int SIZE_OF_STRUCT_GET_UNIFIED_RF_PATH_REQ = 64;
+
+	private const int MAX_NUM_NDR_STATES = 32;
+
+	private const int SIZE_OF_STRUCT_RF_PATH_INFORMATION_PACKET_VERSION1 = 43;
+
+	private const int SIZE_OF_STRUCT_NDR_STATE_INFO = 16;
+
+	private const int SIZE_OF_STRUCT_FTM_UNIFIED_IDC_CAL_PATH_PROP = 35;
+
+	private const int SIZE_OF_STRUCT_IDC_CAL_PATH_INFO = 35003;
+
+	private const int SIZE_OF_STRUCT_FTM_UNIFIED_TXRX_PATH_INFO_RESPONSE = 43835622;
+
+	private bool initialized;
+
+	private FTM_Mode_Id_Enum currentModeID;
+
+	private uint phoneHandle;
+
+	private IntPtr hUserHandle;
+
+	private Dictionary<string, contextInfo> resourceList = new Dictionary<string, contextInfo>();
+
+	private uint comPortNumField;
+
+	private string resourceIDField;
+
+	private LibraryModeEnum libraryMode = LibraryModeEnum.QPST;
+
+	private static Mutex phoneMutex;
+
+	private static Phone phoneInstanceField = (Phone)(object)(phoneMutex = null);
+
+	private static Dictionary<string, Phone> phoneInstanceMap = new Dictionary<string, Phone>();
+
+	public asyncMessageCB AsyncMessageCBField;
+
+	private QMSLTextLogCB qmslTextLogCBField;
+
+	private LoggingFlags logFlags = new LoggingFlags();
+
+	private AsyncMsgQueue logQueue;
+
+	private AsyncMsgQueue asyncMsgQueue_0;
+
+	private AsyncMsgQueue eventMsgQueue;
+
+	private asyncHandlerCallBack asyncHandlerCB;
+
+	private int hciResetRetryDelayMs = 800;
+
+	private int wlanIdField;
+
+	private int m_calPoints;
+
+	private List<EfsEntry> fileList;
+
+	private QPHONE_NVToolCallBackHandler qphoneNvToolHandlerCallBack_delegate;
+
+	private object lockQphoneNvItem = new object();
+
+	private string statusVal;
+
+	private byte[] bMEID;
+
+	private int[] iMEID;
+
+	private byte[] bESN;
+
+	private int[] iESN;
+
+	private byte[] byte_0 = new byte[8];
+
+	private byte[] eventPayload = new byte[33];
+
+	private EventMessage eventMsg;
+
+	private QMSL_Event_Element_Struct eventStruct = new QMSL_Event_Element_Struct();
+
+	private uint client_id_low;
+
+	private uint client_id_high;
+
+	private uint session_id_low;
+
+	private uint session_id_high;
+
+	private uint status;
+
+	private string swDirectoryName;
+
+	private string sPartitionFileName;
+
+	private string sDeviceBootLoader_FileName;
+
+	private string sQFailSafeBOotLoader_FileName;
+
+	private string sOSBootLoader_FileName;
+
+	private string sAppsBootLoaderFileHeader_FileName;
+
+	private string sAppsFileHeader_FileName;
+
+	private string sModem_FileName;
+
+	private string sModemFileHeader_FileName;
+
+	private string sApps_FileName;
+
+	private string sAppsBootLoader_FileName;
+
+	private string sWinMobile_FileName;
+
+	private string sDSP1FileName;
+
+	private string sDSP2FileName;
+
+	private string sMBR_FileName;
+
+	private string sADSP_FileName;
+
+	private string sStorageFile;
+
+	private string sPriBootLoader_FileName;
+
+	private string sQCSecBootLoader_FileName;
+
+	private string sQCSecBootLoaderHeader_FileName;
+
+	private string sOEMSecBootLoader_FileName;
+
+	private string sOEMSecBootLoaderHeader_FileName;
+
+	private string sARMPRGFileName;
+
+	private string sTrustZone;
+
+	private string sROFS1;
+
+	private string sROFS2;
+
+	private string sROFS3;
+
+	private string sCefsModem_FileName;
+
+	private FireHoseLibSrc eFireHoseLibSrc;
+
+	private Class31 massStorageDownload = new Class31();
+
+	private GeneralSWDownloadHandlerCallBackType generalSWDownloadHandlerCallBack_delegate;
+
+	private object lockObj = new object();
+
+	private QPHONEMSCBSWDownloadHandlerCallBack qphoneDwonloadHandlerCallBack_delegate;
+
+	private object lockQhoneEMSCB = new object();
+
+	private Delegate4 swdownloadEMMCloghandlerCallBack_delegate;
+
+	private AntennaBCConfig[] TunerBandClassConfig = new AntennaBCConfig[4];
+
+	private structTunerStatus m_currentSweepStatus;
+
+	private structTunerStatusA m_currentSweepStatusA;
+
+	[CompilerGenerated]
+	[DebuggerBrowsable(DebuggerBrowsableState.Never)]
+	private NvEventHandler m_OnNvEvent;
+
+	[CompilerGenerated]
+	[DebuggerBrowsable(DebuggerBrowsableState.Never)]
+	private SwDownloadEventHandler m_OnSwDownloadEvent;
+
+	private uint ComPortNum => comPortNumField;
+
+	private string ResourceID => resourceIDField;
+
+	private LibraryModeEnum QMSLLibraryMode
+	{
+		get
+		{
+			return libraryMode;
+		}
+		set
+		{
+			libraryMode = value;
+		}
+	}
+
+	public static Phone PhoneInstance
+	{
+		get
+		{
+			string name = "PHONEDOTNET_MUTEX";
+			object obj = null;
+			phoneMutex = new Mutex(initiallyOwned: false, name);
+			phoneMutex.WaitOne();
+			if (phoneInstanceField == obj)
+			{
+				phoneInstanceField = new Phone();
+				phoneMutex.ReleaseMutex();
+				return phoneInstanceField;
+			}
+			phoneMutex.ReleaseMutex();
+			return phoneInstanceField;
+		}
+	}
+
+	public int WlanId
+	{
+		get
+		{
+			return wlanIdField;
+		}
+		set
+		{
+			wlanIdField = value;
+		}
+	}
+
+	public string PacketStatus
+	{
+		get
+		{
+			return statusVal;
+		}
+		set
+		{
+			statusVal = value;
+		}
+	}
+
+	public byte[] MEIDByteArray
+	{
+		get
+		{
+			return bMEID;
+		}
+		set
+		{
+			bMEID = value;
+		}
+	}
+
+	public int[] MEIDIntArray
+	{
+		get
+		{
+			return iMEID;
+		}
+		set
+		{
+			iMEID = value;
+		}
+	}
+
+	public byte[] ESNByteArray
+	{
+		get
+		{
+			return bESN;
+		}
+		set
+		{
+			bESN = value;
+		}
+	}
+
+	public int[] Int32_0
+	{
+		get
+		{
+			return iESN;
+		}
+		set
+		{
+			iESN = value;
+		}
+	}
+
+	public structTunerStatus CurrentSweepStatus
+	{
+		get
+		{
+			return m_currentSweepStatus;
+		}
+		set
+		{
+			m_currentSweepStatus = value;
+		}
+	}
+
+	public structTunerStatusA CurrentSweepStatusA
+	{
+		get
+		{
+			return m_currentSweepStatusA;
+		}
+		set
+		{
+			m_currentSweepStatusA = value;
+		}
+	}
+
+	public event NvEventHandler OnNvEvent
+	{
+		[CompilerGenerated]
+		add
+		{
+			NvEventHandler nvEventHandler = this.m_OnNvEvent;
+			NvEventHandler nvEventHandler2 = nvEventHandler;
+			NvEventHandler value2 = (NvEventHandler)Delegate.Combine(nvEventHandler2, value);
+			nvEventHandler = Interlocked.CompareExchange(ref this.m_OnNvEvent, value2, nvEventHandler2);
+			int num = 917874536;
+			while (true)
+			{
+				_ = num ^ -1437157726;
+				if ((object)nvEventHandler == nvEventHandler2)
+				{
+					break;
+				}
+				nvEventHandler2 = nvEventHandler;
+				value2 = (NvEventHandler)Delegate.Combine(nvEventHandler2, value);
+				nvEventHandler = Interlocked.CompareExchange(ref this.m_OnNvEvent, value2, nvEventHandler2);
+				num = 917874536;
+			}
+		}
+		[CompilerGenerated]
+		remove
+		{
+			NvEventHandler nvEventHandler = this.m_OnNvEvent;
+			NvEventHandler nvEventHandler2 = nvEventHandler;
+			NvEventHandler value2 = (NvEventHandler)Delegate.Remove(nvEventHandler2, value);
+			int num = 1637402645;
+			while (true)
+			{
+				_ = num ^ -1318014199;
+				nvEventHandler = Interlocked.CompareExchange(ref this.m_OnNvEvent, value2, nvEventHandler2);
+				if ((object)nvEventHandler == nvEventHandler2)
+				{
+					break;
+				}
+				nvEventHandler2 = nvEventHandler;
+				value2 = (NvEventHandler)Delegate.Remove(nvEventHandler2, value);
+				num = 1637402645;
+			}
+		}
+	}
+
+	public event SwDownloadEventHandler OnSwDownloadEvent
+	{
+		[CompilerGenerated]
+		add
+		{
+			SwDownloadEventHandler swDownloadEventHandler = this.m_OnSwDownloadEvent;
+			SwDownloadEventHandler swDownloadEventHandler2 = swDownloadEventHandler;
+			SwDownloadEventHandler value2 = (SwDownloadEventHandler)Delegate.Combine(swDownloadEventHandler2, value);
+			swDownloadEventHandler = Interlocked.CompareExchange(ref this.m_OnSwDownloadEvent, value2, swDownloadEventHandler2);
+			int num = 1135795820;
+			while (true)
+			{
+				_ = num ^ -2143075769;
+				if ((object)swDownloadEventHandler == swDownloadEventHandler2)
+				{
+					break;
+				}
+				swDownloadEventHandler2 = swDownloadEventHandler;
+				value2 = (SwDownloadEventHandler)Delegate.Combine(swDownloadEventHandler2, value);
+				swDownloadEventHandler = Interlocked.CompareExchange(ref this.m_OnSwDownloadEvent, value2, swDownloadEventHandler2);
+				num = 1135795820;
+			}
+		}
+		[CompilerGenerated]
+		remove
+		{
+			SwDownloadEventHandler swDownloadEventHandler = this.m_OnSwDownloadEvent;
+			SwDownloadEventHandler swDownloadEventHandler2 = swDownloadEventHandler;
+			while (true)
+			{
+				SwDownloadEventHandler value2 = (SwDownloadEventHandler)Delegate.Remove(swDownloadEventHandler2, value);
+				swDownloadEventHandler = Interlocked.CompareExchange(ref this.m_OnSwDownloadEvent, value2, swDownloadEventHandler2);
+				if ((object)swDownloadEventHandler == swDownloadEventHandler2)
+				{
+					break;
+				}
+				swDownloadEventHandler2 = swDownloadEventHandler;
+			}
+		}
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern double QLIB_Band_Helper_CalculateDLFrequency(ushort iBand, uint iChannel);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern double QLIB_Band_Helper_CalculateULFrequency(ushort iBand, uint iChannel);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern uint QLIB_Band_Helper_CalculateDLChannel(ushort iBand, uint iUpLink_Channel);
+
+	public uint Band_Helper_CalculateDLChannel(ushort iBand, uint iUpLink_Channel)
+	{
+		return QLIB_Band_Helper_CalculateDLChannel(iBand, iUpLink_Channel);
+	}
+
+	public double Band_Helper_CalculateDLFrequency(ushort iBand, uint iChannel)
+	{
+		return QLIB_Band_Helper_CalculateDLFrequency(iBand, iChannel);
+	}
+
+	public double Band_Helper_CalculateULFrequency(ushort iBand, uint iChannel)
+	{
+		return QLIB_Band_Helper_CalculateULFrequency(iBand, iChannel);
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_GPS_GEN8_Get_GNSS_Engine_Revision(uint hResourceContext, ref int EngineRevision);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_GPS_SA_RF_VERIF_MODE_SWITCH_WithWait(uint hResourceContext, byte iFlag, ref byte piStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_GPS_GEN8_GNSS_NAV_SET_CONFIG(uint hResourceContext, byte Requested_Constellation_Mask, ref byte Supportted_Constellation_Mask, ref byte Actual_Constellation_Mask);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_GEN8_GET_EMBEDDED_CALCULATED_CTON(uint hResourceContext, byte iCollectMode, ushort iCaptureSize_kSamples, byte iNumberOfIntegrations, ref double double_0, ref int piFreqInHz, bool bool_0 = false);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_GNSS_GET_EMBEDDED_CALCULATED_CTON(uint hResourceContext, byte iCollectMode, ushort iCaptureSize_kSamples, byte iNumberOfIntergrations, sbyte GL0_Frequency_ID, byte GL0_HW_Channel, ref double double_0, ref int piFreqInHz, bool bool_0);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_GNSS_GET_EMBEDDED_CALCULATED_CTON_ALL_CONSTELLATIONS(uint hResourceContext, byte iCollectMode, ushort iCaptureSize_bSamples, byte iNumberOfIntegrations, sbyte GL0_FrequencyID, byte GL0_HW_Channel, bool bool_0, ref GNSS_WB_FFT_Stats_v2 poFFT_Status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_GPS_GEN8_HW_CONFIG(uint hResourceContext, ref CGPS_Gen8_HwConfig_Struct_type HwConfigParams, ref byte piStatus);
+
+	public void Configure_BDS_HW()
+	{
+		string exceptionMessage = "QLIB_DIAG_GPS_GEN8_HW_CONFIG failed";
+		string exceptionMessage2 = "QLIB_DIAG_GPS_GEN8_HW_CONFIG return status failed";
+		CGPS_Gen8_HwConfig_Struct_type HwConfigParams = new CGPS_Gen8_HwConfig_Struct_type
+		{
+			u_RfMode = 5,
+			u_RfLinearity = 0,
+			u_RfRxdOnTimeSec = 0,
+			u_RfRxdOffTimeSec = 0,
+			q_Reserved = 0
+		};
+		byte piStatus = 0;
+		if (QLIB_DIAG_GPS_GEN8_HW_CONFIG(phoneHandle, ref HwConfigParams, ref piStatus) != 0)
+		{
+			if (piStatus != 0)
+			{
+				throw new PhoneException(exceptionMessage2);
+			}
+			return;
+		}
+		throw new PhoneException(exceptionMessage);
+	}
+
+	public CGPS_GEN8_GNSS_ENGINE_Revisions Get_GNSS_Engine_Revision()
+	{
+		int EngineRevision = 51;
+		CGPS_GEN8_GNSS_ENGINE_Revisions cGPS_GEN8_GNSS_ENGINE_Revisions;
+		if (QLIB_GPS_GEN8_Get_GNSS_Engine_Revision(phoneHandle, ref EngineRevision) != 0)
+		{
+			if (!Enum.IsDefined(typeof(CGPS_GEN8_GNSS_ENGINE_Revisions), EngineRevision))
+			{
+				cGPS_GEN8_GNSS_ENGINE_Revisions = CGPS_GEN8_GNSS_ENGINE_Revisions.UNKNOWN_REVISION;
+				return CGPS_GEN8_GNSS_ENGINE_Revisions.UNKNOWN_REVISION;
+			}
+			return (CGPS_GEN8_GNSS_ENGINE_Revisions)EngineRevision;
+		}
+		cGPS_GEN8_GNSS_ENGINE_Revisions = CGPS_GEN8_GNSS_ENGINE_Revisions.UNKNOWN_REVISION;
+		return CGPS_GEN8_GNSS_ENGINE_Revisions.UNKNOWN_REVISION;
+	}
+
+	public void DIAG_GPS_SA_RF_VERIF_MODE_SWITCH_WithWait(byte iFlag, ref byte piStatus)
+	{
+		string exceptionMessage = "QLIB_DIAG_GPS_SA_RF_VERIF_MODE_SWITCH_WithWait failed";
+		string exceptionMessage2 = "QLIB_DIAG_GPS_SA_RF_VERIF_MODE_SWITCH_WithWait return status failed";
+		if (QLIB_DIAG_GPS_SA_RF_VERIF_MODE_SWITCH_WithWait(phoneHandle, iFlag, ref piStatus) != 0)
+		{
+			if (piStatus != 0)
+			{
+				throw new PhoneException(exceptionMessage2);
+			}
+			return;
+		}
+		throw new PhoneException(exceptionMessage);
+	}
+
+	public void GPS_SetRF_VerificationMode(bool enable)
+	{
+		if (enable)
+		{
+			byte iFlag = 0;
+			byte piStatus = byte.MaxValue;
+			uint num = QLIB_GetTimeOut(phoneHandle, 10u);
+			if (30000L <= (long)num)
+			{
+				DIAG_GPS_SA_RF_VERIF_MODE_SWITCH_WithWait(iFlag, ref piStatus);
+				return;
+			}
+			QLIB_ConfigureTimeOut(phoneHandle, 10u, 30000u);
+			DIAG_GPS_SA_RF_VERIF_MODE_SWITCH_WithWait(iFlag, ref piStatus);
+		}
+		else
+		{
+			byte iFlag = 1;
+			byte piStatus = byte.MaxValue;
+			uint num = QLIB_GetTimeOut(phoneHandle, 10u);
+			if (30000L <= (long)num)
+			{
+				DIAG_GPS_SA_RF_VERIF_MODE_SWITCH_WithWait(iFlag, ref piStatus);
+				return;
+			}
+			QLIB_ConfigureTimeOut(phoneHandle, 10u, 30000u);
+			DIAG_GPS_SA_RF_VERIF_MODE_SWITCH_WithWait(iFlag, ref piStatus);
+		}
+	}
+
+	public bool GPS_Get_NAV_CONFIG(ref byte Supportted_Constellation_Mask, ref byte Actual_Constellation_Mask)
+	{
+		if (QLIB_GPS_GEN8_GNSS_NAV_SET_CONFIG(phoneHandle, 0, ref Supportted_Constellation_Mask, ref Actual_Constellation_Mask) != 0)
+		{
+			return true;
+		}
+		return false;
+	}
+
+	public void DIAG_GEN8_GET_EMBEDDED_CALCULATED_CTON(byte iCollectMode, ushort iCaptureSize_kSamples, byte iNumberOfIntegrations, ref double double_0, ref int piFreqInHz, bool bool_0 = false)
+	{
+		string exceptionMessage = "QLIB_DIAG_GEN8_GET_EMBEDDED_CALCULATED_CTON failed";
+		if (QLIB_DIAG_GEN8_GET_EMBEDDED_CALCULATED_CTON(phoneHandle, iCollectMode, iCaptureSize_kSamples, iNumberOfIntegrations, ref double_0, ref piFreqInHz, bool_0) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void DIAG_GNSS_GET_EMBEDDED_CALCULATED_CTON(byte iCollectMode, ushort iCaptureSize_kSamples, byte iNumberOfIntegrations, sbyte GL0_Frequency_ID, byte GL0_HW_Channel, ref double double_0, ref int piFreqInHz, bool bool_0)
+	{
+		string exceptionMessage = "QLIB_DIAG_GNSS_GET_EMBEDDED_CALCULATED_CTON failed";
+		if (QLIB_DIAG_GNSS_GET_EMBEDDED_CALCULATED_CTON(phoneHandle, iCollectMode, iCaptureSize_kSamples, iNumberOfIntegrations, GL0_Frequency_ID, GL0_HW_Channel, ref double_0, ref piFreqInHz, bool_0) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void DIAG_GNSS_GET_EMBEDDED_CALCULATED_CTON_ALL_CONSTELLATIONS(byte iCollectMode, ushort iCaptureSize_bSamples, byte iNumberOfIntegrations, sbyte GL0_FrequencyID, byte GL0_HW_Channel, bool bool_0, ref GNSS_WB_FFT_Stats_v2 poFFT_Status)
+	{
+		string exceptionMessage = "QLIB_DIAG_GNSS_GET_EMBEDDED_CALCULATED_CTON_ALL_CONSTELLATIONS failed";
+		if (QLIB_DIAG_GNSS_GET_EMBEDDED_CALCULATED_CTON_ALL_CONSTELLATIONS(phoneHandle, iCollectMode, iCaptureSize_bSamples, iNumberOfIntegrations, GL0_FrequencyID, GL0_HW_Channel, bool_0, ref poFFT_Status) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void Retrieve_Gen8_MobileCalcuted_CNo(Mobile_CNo_Config cno_Request_Config, ref Mobile_CNo_Result cno_Result)
+	{
+		double field_ = Class38.field_543;
+		double field_2 = Class38.field_557;
+		string exceptionMessage = "QMSL function QLIB_DIAG_GNSS_GET_EMBEDDED_CALCULATED_CTON() succeeded, but with invalid collect code";
+		double field_3 = Class38.field_3213;
+		ushort iCollect_Mode = cno_Request_Config.iCollect_Mode;
+		ushort iCapture_Size = cno_Request_Config.iCapture_Size;
+		ushort iNumber_FFT_Integrations = cno_Request_Config.iNumber_FFT_Integrations;
+		sbyte b = (sbyte)cno_Request_Config.GL0_FrequencyID;
+		byte gL0_HW_Channel = (byte)cno_Request_Config.GL0_HW_Channel;
+		bool exit_Sarf_On_Completion = cno_Request_Config.Exit_Sarf_On_Completion;
+		double double_ = field_;
+		int piFreqInHz = 0;
+		if (cno_Request_Config.bCollectAllConstellations)
+		{
+			GNSS_WB_FFT_Stats_v2 poFFT_Status = default(GNSS_WB_FFT_Stats_v2);
+			DIAG_GNSS_GET_EMBEDDED_CALCULATED_CTON_ALL_CONSTELLATIONS((byte)iCollect_Mode, iCapture_Size, (byte)iNumber_FFT_Integrations, b, gL0_HW_Channel, exit_Sarf_On_Completion, ref poFFT_Status);
+			cno_Result.dMobile_reported_GPS_CNo_dB = (double)poFFT_Status.uint_0 / field_3;
+			cno_Result.dMobile_reported_GPS_Frequency_kHz = (double)poFFT_Status.iGPSFreq / field_2;
+			cno_Result.dMobile_reported_GLO_CNo_dB = (double)poFFT_Status.uint_1 / field_3;
+			cno_Result.dMobile_reported_GLO_Frequency_kHz = (double)poFFT_Status.iGLOFreq / field_2;
+			cno_Result.dMobile_reported_BDS_CNo_dB = (double)poFFT_Status.uint_2 / field_3;
+			cno_Result.dMobile_reported_BDS_Frequency_kHz = (double)poFFT_Status.iBDSFreq / field_2;
+			cno_Result.dMobile_reported_GAL_CNo_dB = (double)poFFT_Status.uint_3 / field_3;
+			cno_Result.dMobile_reported_GAL_Frequency_kHz = (double)poFFT_Status.iGALFreq / field_2;
+			cno_Result.dMobile_reported_ADC_Mean_I_mv = (double)poFFT_Status.int_0 / field_3;
+			cno_Result.dMobile_reported_ADC_Mean_q_mv = (double)poFFT_Status.int_1 / field_3;
+			cno_Result.dMobile_reported_ADC_Amp_I_mv = (double)poFFT_Status.iADCAmpI / field_3;
+			cno_Result.dMobile_reported_ADC_Amp_q_mv = (double)poFFT_Status.iADCAmpQ / field_3;
+			cno_Result.bool_0 = (poFFT_Status.iGNSSConfigMask & 1) == 1;
+			cno_Result.bool_1 = (poFFT_Status.iGNSSConfigMask & 2) == 2;
+			cno_Result.bool_2 = (poFFT_Status.iGNSSConfigMask & 0x10) == 16;
+			cno_Result.bool_3 = (poFFT_Status.iGNSSConfigMask & 0x20) == 32;
+			return;
+		}
+		DIAG_GNSS_GET_EMBEDDED_CALCULATED_CTON((byte)iCollect_Mode, iCapture_Size, (byte)iNumber_FFT_Integrations, b, gL0_HW_Channel, ref double_, ref piFreqInHz, bool_0: false);
+		if (cno_Request_Config.iCollect_Mode != 1 && cno_Request_Config.iCollect_Mode != 4)
+		{
+			if (cno_Request_Config.iCollect_Mode != 3)
+			{
+				if (cno_Request_Config.iCollect_Mode != 17)
+				{
+					if (cno_Request_Config.iCollect_Mode != 18)
+					{
+						throw new PhoneException(exceptionMessage);
+					}
+					cno_Result.dMobile_reported_GAL_CNo_dB = double_;
+					cno_Result.dMobile_reported_GAL_Frequency_kHz = (double)piFreqInHz / field_2;
+					cno_Result.bool_0 = false;
+					cno_Result.bool_1 = false;
+					cno_Result.bool_2 = false;
+					cno_Result.bool_3 = true;
+				}
+				else
+				{
+					cno_Result.dMobile_reported_BDS_CNo_dB = double_;
+					cno_Result.dMobile_reported_BDS_Frequency_kHz = (double)piFreqInHz / field_2;
+					cno_Result.bool_0 = false;
+					cno_Result.bool_1 = false;
+					cno_Result.bool_2 = true;
+					cno_Result.bool_3 = false;
+				}
+			}
+			else
+			{
+				cno_Result.dMobile_reported_GLO_CNo_dB = double_;
+				cno_Result.dMobile_reported_GLO_Frequency_kHz = (double)piFreqInHz / field_2;
+				cno_Result.bool_0 = false;
+				cno_Result.bool_1 = true;
+				cno_Result.bool_2 = false;
+				cno_Result.bool_3 = false;
+			}
+		}
+		else
+		{
+			cno_Result.dMobile_reported_GPS_CNo_dB = double_;
+			cno_Result.dMobile_reported_GPS_Frequency_kHz = (double)piFreqInHz / field_2;
+			cno_Result.bool_0 = true;
+			cno_Result.bool_1 = false;
+			cno_Result.bool_2 = false;
+			cno_Result.bool_3 = false;
+		}
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_NFCC_CMD_RSP(uint hResourceContext, ushort Nfc_nfcc_cmd_len, byte[] Nfc_nfcc_cmd, ref ushort Nfc_nfcc_rsp_len, [MarshalAs(UnmanagedType.LPArray)] byte[] Nfc_nfcc_rsp);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_SEND_DATA(uint hResourceContext, ushort Nfc_nci_pkt_len, byte[] Nfc_nci_payload);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_Turn_Tx_CW_On(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_Turn_Tx_CW_Off(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_EnableLogs(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_ClearNtfLogs(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern uint QLIB_FTM_NFC_GetNumNtfLogs(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_GetOneNtfLog(uint hResourceContext, int logIndex, ref ushort Ntf_len, [MarshalAs(UnmanagedType.LPArray)] byte[] NtfPkt);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_SetPollingMode(uint hResourceContext, ref int ErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_PollTypeA(uint hResourceContext, ref int ErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_PollTypeB(uint hResourceContext, ref int ErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_PollTypeF(uint hResourceContext, ref int ErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_SetListeningMode(uint hResourceContext, ref int ErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_ListenTypeA(uint hResourceContext, ref int ErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_ListenTypeB(uint hResourceContext, ref int ErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_ListenTypeF(uint hResourceContext, ref int ErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_DetectTag(uint hResourceContext, [MarshalAs(UnmanagedType.LPArray)] byte[] TagType, ref int ErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_DetectField(uint hResourceContext, [MarshalAs(UnmanagedType.LPArray)] byte[] FieldDetect, ref int ErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_Self_Test(uint hResourceContext, byte byte_1, byte byte_2, uint iRfOscLL, uint iRfOscUL, [MarshalAs(UnmanagedType.LPArray)] byte[] sTestResult, ref byte iErrorCodeNFCEE, ref byte iErrorCodeRfOsc, ref byte iErrorCodeCarrierDet, ref int iNFCEE, ref int iRfOsc, ref int iCarrierDet);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_SWP1_Detect(uint hResourceContext, ref int iSWP1Detected, [MarshalAs(UnmanagedType.LPArray)] byte[] byte_1, ref int piErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_I2C_SLAVE_WRITE(uint hResourceContext, byte Nfc_i2c_slave_id, byte Nfc_nb_reg_writes, byte[] Nfc_i2c_reg_addr, byte[] Nfc_i2c_reg_val, ref byte Nfc_i2c_slave_status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_I2C_SLAVE_READ(uint hResourceContext, byte Nfc_i2c_slave_id, byte Nfc_nb_reg_reads_in, byte[] Nfc_i2c_reg_addr_in, ref byte Nfc_i2c_slave_status, ref byte Nfc_nb_reg_reads_out, byte[] Nfc_i2c_reg_addr_out, byte[] Nfc_i2c_reg_val_out);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_SetChipID(uint hResourceContext, int ChipId);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_REQ_CHIP_TYPE(uint hResourceContext, ref byte ChipType);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_NFC_FWPIN_CTRL(uint hResourceContext, byte fW_PinState);
+
+	public void FTM_NFC_I2C_SLAVE_READ(byte Nfc_i2c_slave_id, byte i2c_reg_addr, out byte i2c_reg_value, out int ErrorCode)
+	{
+		string text = "Error Reading I2C.  Error Code = ";
+		string exceptionMessage = "Error FTM_NFC_I2C_SLAVE_READ";
+		string text2 = "Exception Reading I2C.  Exception = ";
+		ErrorCode = 0;
+		byte b = 0;
+		byte Nfc_i2c_slave_status = 0;
+		byte Nfc_nb_reg_reads_out = 0;
+		byte[] array = new byte[1] { i2c_reg_addr };
+		byte[] array2 = new byte[1];
+		byte[] array3 = new byte[1];
+		try
+		{
+			b = QLIB_FTM_NFC_I2C_SLAVE_READ(phoneHandle, Nfc_i2c_slave_id, 1, array, ref Nfc_i2c_slave_status, ref Nfc_nb_reg_reads_out, array2, array3);
+			ErrorCode = Nfc_i2c_slave_status;
+			i2c_reg_value = array3[0];
+			if (ErrorCode == 0)
+			{
+				if (b == 1)
+				{
+					if (Nfc_nb_reg_reads_out != 1 || array2[0] != array[0])
+					{
+						throw new PhoneException(exceptionMessage);
+					}
+					return;
+				}
+				throw new PhoneException(exceptionMessage);
+			}
+			throw new PhoneException(text + ErrorCode);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text2 + ex.Message);
+		}
+	}
+
+	public void FTM_NFC_I2C_SLAVE_READ_Multi(byte Nfc_i2c_slave_id, byte Nfc_nb_reg_reads_in, byte[] Nfc_i2c_reg_addr_in, out byte Nfc_nb_reg_reads_out, out byte[] Nfc_i2c_reg_addr_out, out byte[] Nfc_i2c_reg_val_out, out int ErrorCode)
+	{
+		string exceptionMessage = "FTM_NFC_I2C_SLAVE_READ_Multi has invalid input params. ArraySize for Nfc_i2c_reg_addr_in < Nfc_nb_reg_reads_in";
+		string text = "Error Reading I2C.  Error Code = ";
+		string exceptionMessage2 = "Error FTM_NFC_I2C_SLAVE_READ_Multi";
+		string exceptionMessage3 = "FTM_NFC_I2C_SLAVE_READ_Multi has invalid input params. Nfc_nb_reg_reads_in must be 1 to 15";
+		string text2 = "Exception Reading I2C.  Exception = ";
+		ErrorCode = 0;
+		byte b = 0;
+		byte Nfc_i2c_slave_status = 0;
+		Nfc_nb_reg_reads_out = 0;
+		Nfc_i2c_reg_addr_out = new byte[15];
+		Nfc_i2c_reg_val_out = new byte[15];
+		try
+		{
+			if (Nfc_nb_reg_reads_in >= 1 && Nfc_nb_reg_reads_in <= 15)
+			{
+				if (Nfc_i2c_reg_addr_in.Length >= Nfc_nb_reg_reads_in)
+				{
+					b = QLIB_FTM_NFC_I2C_SLAVE_READ(phoneHandle, Nfc_i2c_slave_id, Nfc_nb_reg_reads_in, Nfc_i2c_reg_addr_in, ref Nfc_i2c_slave_status, ref Nfc_nb_reg_reads_out, Nfc_i2c_reg_addr_out, Nfc_i2c_reg_val_out);
+					ErrorCode = Nfc_i2c_slave_status;
+					Array.Resize(ref Nfc_i2c_reg_addr_out, Nfc_nb_reg_reads_out);
+					Array.Resize(ref Nfc_i2c_reg_val_out, Nfc_nb_reg_reads_out);
+					if (ErrorCode != 0)
+					{
+						throw new PhoneException(text + ErrorCode);
+					}
+					if (b != 1)
+					{
+						throw new PhoneException(exceptionMessage2);
+					}
+					return;
+				}
+				throw new PhoneException(exceptionMessage);
+			}
+			throw new PhoneException(exceptionMessage3);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text2 + ex.Message);
+		}
+	}
+
+	public void FTM_NFC_I2C_SLAVE_WRITE(byte Nfc_i2c_slave_id, byte Nfc_i2c_reg_addr, byte Nfc_i2c_reg_val, out int ErrorCode)
+	{
+		string text = "Error Writing I2C.  Error Code = ";
+		string exceptionMessage = "Error FTM_NFC_I2C_SLAVE_WRITE";
+		string text2 = "Exception Writing I2C.  Exception = ";
+		ErrorCode = 0;
+		byte b = 0;
+		byte Nfc_i2c_slave_status = 0;
+		byte[] array = new byte[1];
+		byte[] array2 = new byte[1];
+		array[0] = Nfc_i2c_reg_addr;
+		array2[0] = Nfc_i2c_reg_val;
+		try
+		{
+			b = QLIB_FTM_NFC_I2C_SLAVE_WRITE(phoneHandle, Nfc_i2c_slave_id, 1, array, array2, ref Nfc_i2c_slave_status);
+			ErrorCode = Nfc_i2c_slave_status;
+			if (ErrorCode == 0)
+			{
+				if (b != 1)
+				{
+					throw new PhoneException(exceptionMessage);
+				}
+				return;
+			}
+			throw new PhoneException(text + ErrorCode);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text2 + ex.Message);
+		}
+	}
+
+	public void FTM_NFC_I2C_SLAVE_WRITE_Multi(byte Nfc_i2c_slave_id, byte Nfc_nb_reg_writes, byte[] Nfc_i2c_reg_addr, byte[] Nfc_i2c_reg_val, out int ErrorCode)
+	{
+		string exceptionMessage = "FTM_NFC_I2C_SLAVE_WRITE_Multi has invalid input params. ArraySize for Nfc_i2c_reg_addr < Nfc_nb_reg_writes";
+		string exceptionMessage2 = "FTM_NFC_I2C_SLAVE_WRITE_Multi has invalid input params. ArraySize for Nfc_i2c_reg_val < Nfc_nb_reg_writes";
+		string text = "Error Writing I2C.  Error Code = ";
+		string exceptionMessage3 = "Error FTM_NFC_I2C_SLAVE_WRITE_Multi";
+		string exceptionMessage4 = "FTM_NFC_I2C_SLAVE_WRITE_Multi has invalid input params. Nfc_nb_reg_writes must be 1 to 15";
+		string text2 = "Exception Writing I2C.  Exception = ";
+		ErrorCode = 0;
+		byte b = 0;
+		byte Nfc_i2c_slave_status = 0;
+		try
+		{
+			if (Nfc_nb_reg_writes >= 1 && Nfc_nb_reg_writes <= 15)
+			{
+				if (Nfc_i2c_reg_addr.Length >= Nfc_nb_reg_writes)
+				{
+					if (Nfc_i2c_reg_val.Length >= Nfc_nb_reg_writes)
+					{
+						b = QLIB_FTM_NFC_I2C_SLAVE_WRITE(phoneHandle, Nfc_i2c_slave_id, Nfc_nb_reg_writes, Nfc_i2c_reg_addr, Nfc_i2c_reg_val, ref Nfc_i2c_slave_status);
+						ErrorCode = Nfc_i2c_slave_status;
+						if (ErrorCode == 0)
+						{
+							if (b != 1)
+							{
+								throw new PhoneException(exceptionMessage3);
+							}
+							return;
+						}
+						throw new PhoneException(text + ErrorCode);
+					}
+					throw new PhoneException(exceptionMessage2);
+				}
+				throw new PhoneException(exceptionMessage);
+			}
+			throw new PhoneException(exceptionMessage4);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text2 + ex.Message);
+		}
+	}
+
+	public void FTM_NFC_SWP1_Detect(out int SWP1Detected, out string string_0, out int ErrorCode)
+	{
+		string text = "";
+		string exceptionMessage = "Error FTM_NFC_SWP1_Detect";
+		string text2 = "Error Detecting SWP1.  Error Code = ";
+		string text3 = "Exception Detecting SWP1.  Exception = ";
+		SWP1Detected = 0;
+		string_0 = text;
+		ErrorCode = 0;
+		byte b = 0;
+		byte[] array = new byte[16000];
+		try
+		{
+			b = QLIB_FTM_NFC_SWP1_Detect(phoneHandle, ref SWP1Detected, array, ref ErrorCode);
+			if (b == 1)
+			{
+				string_0 = Encoding.Default.GetString(array);
+				if (ErrorCode != 0)
+				{
+					throw new PhoneException(text2 + ErrorCode);
+				}
+				return;
+			}
+			throw new PhoneException(exceptionMessage);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text3 + ex.Message);
+		}
+	}
+
+	public void FTM_NFC_Self_Test(byte byte_1, byte byte_2, uint iRfOscLL, uint iRfOscUL, out byte ErrorCodeNFCEE, out byte ErrorCodeRfOsc, out byte ErrorCodeCarrierDet, out int NFCEE, out int RfOsc, out int CarrierDet, out string TestResult)
+	{
+		string text = "";
+		string source = "QLIB_FTM_NFC_Self_Test";
+		string format = "phoneHandle :{0}, CheckSWP1 :{1}, CheckSWP2 :{2}, iRfOscLL :{3}, iRfOscUL :{4}";
+		string exceptionMessage = "Error FTM_NFC_Self_Test ";
+		string format2 = "phoneHandle :{0}, ErrorCodeNFCEE :{1}, ErrorCodeRfOsc :{2}, ErrorCodeCarrierDet :{3}, NFCEE :{4}, RfOsc :{5}, CarrierDet :{6}";
+		TestResult = text;
+		ErrorCodeNFCEE = 0;
+		ErrorCodeRfOsc = 0;
+		ErrorCodeCarrierDet = 0;
+		NFCEE = 0;
+		RfOsc = 0;
+		CarrierDet = 0;
+		byte[] array = new byte[16000];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, byte_1, byte_2, iRfOscLL, iRfOscUL)));
+		if (QLIB_FTM_NFC_Self_Test(phoneHandle, byte_1, byte_2, iRfOscLL, iRfOscUL, array, ref ErrorCodeNFCEE, ref ErrorCodeRfOsc, ref ErrorCodeCarrierDet, ref NFCEE, ref RfOsc, ref CarrierDet) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		TestResult = Encoding.Default.GetString(array);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle, ErrorCodeNFCEE, ErrorCodeRfOsc, ErrorCodeCarrierDet, NFCEE, RfOsc, CarrierDet)));
+	}
+
+	public void FTM_NFC_NFCC_CMD_RSP(ushort Nfc_nfcc_cmd_len, byte[] Nfc_nfcc_cmd, out ushort Nfc_nfcc_rsp_len, out byte[] Nfc_nfcc_rsp)
+	{
+		string source = "QLIB_FTM_NFC_NFCC_CMD_RSP";
+		string format = "phoneHandle :{0}, Nfc_nfcc_cmd_len :{1}, Nfc_nfcc_cmd :{2}";
+		string exceptionMessage = "Error FTM_NFC_NFCC_CMD_RSP ";
+		string format2 = "phoneHandle :{0}, Nfc_nfcc_rsp_len :{1}, Nfc_nfcc_rsp :{2}";
+		Nfc_nfcc_rsp_len = 0;
+		byte b = 0;
+		Nfc_nfcc_rsp = new byte[258];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Nfc_nfcc_cmd_len, BitConverter.ToString(Nfc_nfcc_cmd, 0, Nfc_nfcc_cmd.Length))));
+		b = QLIB_FTM_NFC_NFCC_CMD_RSP(phoneHandle, Nfc_nfcc_cmd_len, Nfc_nfcc_cmd, ref Nfc_nfcc_rsp_len, Nfc_nfcc_rsp);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle, Nfc_nfcc_rsp_len, BitConverter.ToString(Nfc_nfcc_rsp, 0, Nfc_nfcc_rsp.Length))));
+	}
+
+	public void FTM_NFC_SEND_DATA(ushort Nfc_nci_pkt_len, byte[] Nfc_nci_payload)
+	{
+		string source = "QLIB_FTM_NFC_SEND_DATA";
+		string format = "phoneHandle :{0}, Nfc_nci_pkt_len :{1}, Nfc_nci_payload :{2}";
+		string exceptionMessage = "Error FTM_NFC_SEND_DATA ";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Nfc_nci_pkt_len, BitConverter.ToString(Nfc_nci_payload, 0, Nfc_nci_payload.Length))));
+		b = QLIB_FTM_NFC_SEND_DATA(phoneHandle, Nfc_nci_pkt_len, Nfc_nci_payload);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_NFC_Turn_Tx_CW_On()
+	{
+		string source = "QLIB_FTM_NFC_Turn_Tx_CW_On";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "Error FTM_NFC_Turn_Tx_CW_On ";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_NFC_Turn_Tx_CW_On(phoneHandle);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_NFC_Turn_Tx_CW_Off()
+	{
+		string source = "QLIB_FTM_NFC_Turn_Tx_CW_Off";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "Error FTM_NFC_Turn_Tx_CW_Off ";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_NFC_Turn_Tx_CW_Off(phoneHandle);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_NFC_Enable_Logs()
+	{
+		string source = "QLIB_FTM_NFC_EnableLogs";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "Error Enabling NFC logs";
+		string text = "Exception Enabling Logs.  Exception = ";
+		byte b = 0;
+		try
+		{
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+			b = QLIB_FTM_NFC_EnableLogs(phoneHandle);
+			if (b != 1)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text + ex.Message);
+		}
+	}
+
+	public void FTM_NFC_Clear_Logs()
+	{
+		string source = "QLIB_FTM_NFC_ClearNtfLogs";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "Error Clearing NFC logs";
+		string text = "Exception Clearing Logs.  Exception = ";
+		byte b = 0;
+		try
+		{
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+			b = QLIB_FTM_NFC_ClearNtfLogs(phoneHandle);
+			if (b != 1)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text + ex.Message);
+		}
+	}
+
+	public uint FTM_NFC_GetNumNtfLogs()
+	{
+		string source = "QLIB_FTM_NFC_GetNumNtfLogs";
+		string format = "phoneHandle :{0}";
+		string format2 = "phoneHandle :{0}, numLogs :{1}";
+		string text = "Exception Error Querying # of NFC Logs.  Exception = ";
+		uint num = 0u;
+		try
+		{
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+			num = QLIB_FTM_NFC_GetNumNtfLogs(phoneHandle);
+			Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle, num)));
+			return num;
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text + ex.Message);
+		}
+	}
+
+	public void FTM_NFC_GetOneNtfLog(int logIndex, out ushort Ntf_len, out byte[] NtfPkt)
+	{
+		string source = "QLIB_FTM_NFC_GetOneNtfLog";
+		string format = "phoneHandle :{0}, logIndex :{1}";
+		string exceptionMessage = "Error FTM_NFC_GetOneNtfLog ";
+		string format2 = "phoneHandle :{0}, Ntf_len :{1}, NtfPkt :{2}";
+		Ntf_len = 0;
+		byte b = 0;
+		NtfPkt = new byte[258];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, logIndex)));
+		b = QLIB_FTM_NFC_GetOneNtfLog(phoneHandle, logIndex, ref Ntf_len, NtfPkt);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle, Ntf_len, BitConverter.ToString(NtfPkt, 0, NtfPkt.Length))));
+	}
+
+	public void FTM_NFC_SetPollingModeType(NFC_Type_Enum Type, out int ErrorCode)
+	{
+		string source = "QLIB_FTM_NFC_SetPollingModeType";
+		string format = "phoneHandle :{0}";
+		string source2 = "QLIB_FTM_NFC_PollTypeA";
+		string source3 = "QLIB_FTM_NFC_PollTypeB";
+		string source4 = "QLIB_FTM_NFC_PollTypeF";
+		string source5 = "QLIB_FTM_NFC_PollTypeAny";
+		string text = "Error Code = ";
+		string exceptionMessage = "commandStatus != 1";
+		string text2 = "Exception Setting Polling Mode.  Exception = ";
+		byte b = 0;
+		ErrorCode = 0;
+		try
+		{
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+			switch (Type)
+			{
+			case NFC_Type_Enum.TypeA:
+				Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source2, string.Format(format, phoneHandle)));
+				b = QLIB_FTM_NFC_PollTypeA(phoneHandle, ref ErrorCode);
+				break;
+			case NFC_Type_Enum.TypeB:
+				Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source3, string.Format(format, phoneHandle)));
+				b = QLIB_FTM_NFC_PollTypeB(phoneHandle, ref ErrorCode);
+				break;
+			case NFC_Type_Enum.TypeF:
+				Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source4, string.Format(format, phoneHandle)));
+				b = QLIB_FTM_NFC_PollTypeF(phoneHandle, ref ErrorCode);
+				break;
+			case NFC_Type_Enum.AnyType:
+				Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source5, string.Format(format, phoneHandle)));
+				b = QLIB_FTM_NFC_SetPollingMode(phoneHandle, ref ErrorCode);
+				break;
+			}
+			if (ErrorCode != 0)
+			{
+				throw new PhoneException(text + ErrorCode);
+			}
+			if (b != 1)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text2 + ex.Message);
+		}
+	}
+
+	public void FTM_NFC_SetListeningModeType(NFC_Type_Enum Type, out int ErrorCode)
+	{
+		string source = "QLIB_FTM_NFC_SetListenModeType";
+		string format = "phoneHandle :{0}";
+		string source2 = "QLIB_FTM_NFC_ListenTypeA";
+		string source3 = "QLIB_FTM_NFC_ListenTypeB";
+		string source4 = "QLIB_FTM_NFC_ListenTypeF";
+		string source5 = "QLIB_FTM_NFC_ListenTypeAny";
+		string text = "Error Code = ";
+		string exceptionMessage = "commandStatus != 1";
+		string text2 = "Exception Setting Listening Mode.  Exception = ";
+		byte b = 0;
+		ErrorCode = 0;
+		try
+		{
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+			switch (Type)
+			{
+			case NFC_Type_Enum.TypeA:
+				Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source2, string.Format(format, phoneHandle)));
+				b = QLIB_FTM_NFC_ListenTypeA(phoneHandle, ref ErrorCode);
+				break;
+			case NFC_Type_Enum.TypeB:
+				Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source3, string.Format(format, phoneHandle)));
+				b = QLIB_FTM_NFC_ListenTypeB(phoneHandle, ref ErrorCode);
+				break;
+			case NFC_Type_Enum.TypeF:
+				Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source4, string.Format(format, phoneHandle)));
+				b = QLIB_FTM_NFC_ListenTypeF(phoneHandle, ref ErrorCode);
+				break;
+			case NFC_Type_Enum.AnyType:
+				Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source5, string.Format(format, phoneHandle)));
+				b = QLIB_FTM_NFC_SetListeningMode(phoneHandle, ref ErrorCode);
+				break;
+			}
+			if (ErrorCode == 0)
+			{
+				if (b != 1)
+				{
+					throw new PhoneException(exceptionMessage);
+				}
+				return;
+			}
+			throw new PhoneException(text + ErrorCode);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text2 + ex.Message);
+		}
+	}
+
+	public void FTM_NFC_DetectTag(out string TagTypeString, out int ErrorCode)
+	{
+		string text = "";
+		string exceptionMessage = "Error FTM_NFC_DetectTag";
+		string text2 = "Error Detecting Tag.  Error Code = ";
+		string text3 = "Exception Detecting Tag.  Exception = ";
+		TagTypeString = text;
+		ErrorCode = 0;
+		byte b = 0;
+		byte[] array = new byte[16000];
+		try
+		{
+			b = QLIB_FTM_NFC_DetectTag(phoneHandle, array, ref ErrorCode);
+			if (b != 1)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			TagTypeString = Encoding.Default.GetString(array);
+			if (ErrorCode != 0)
+			{
+				throw new PhoneException(text2 + ErrorCode);
+			}
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text3 + ex.Message);
+		}
+	}
+
+	public void FTM_NFC_DetectField(out string DetectNotify, out int ErrorCode)
+	{
+		string text = "";
+		string exceptionMessage = "Error FTM_NFC_DetectField";
+		string text2 = "Error Detecting Field.  Error Code = ";
+		string text3 = "Exception Detecting Field.  Exception = ";
+		DetectNotify = text;
+		ErrorCode = 0;
+		byte b = 0;
+		byte[] array = new byte[16000];
+		try
+		{
+			b = QLIB_FTM_NFC_DetectField(phoneHandle, array, ref ErrorCode);
+			if (b == 1)
+			{
+				DetectNotify = Encoding.Default.GetString(array);
+				if (ErrorCode != 0)
+				{
+					throw new PhoneException(text2 + ErrorCode);
+				}
+				return;
+			}
+			throw new PhoneException(exceptionMessage);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text3 + ex.Message);
+		}
+	}
+
+	public void FTM_NFC_SetChipID(int int_0)
+	{
+		string source = "QLIB_FTM_NFC_SetChipID";
+		string format = "phoneHandle :{0}, NFCChipID :{1}";
+		string exceptionMessage = "Error FTM_NFC_SetChipID";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, int_0)));
+		b = QLIB_FTM_NFC_SetChipID(phoneHandle, int_0);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_NFC_REQ_CHIP_TYPE(out int ChipID)
+	{
+		string source = "FTM_NFC_REQ_CHIP_TYPE";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "Error FTM_NFC_REQ_CHIP_TYPE";
+		byte b = 0;
+		byte ChipType = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_NFC_REQ_CHIP_TYPE(phoneHandle, ref ChipType);
+		ChipID = ChipType;
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_NFC_FWPIN_CTRL(int fW_PinState)
+	{
+		string source = "FTM_NFC_FWPIN_CTRL";
+		string format = "phoneHandle :{0}, fW_PinState :{1}";
+		string exceptionMessage = "Error FTM_NFC_FWPIN_CTRL";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, fW_PinState)));
+		b = QLIB_FTM_NFC_FWPIN_CTRL(phoneHandle, (byte)fW_PinState);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_Read(uint hResourceContext, uint address, ref uint data);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_Write(uint hResourceContext, uint address, uint data);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_FlowCommand(uint hResourceContext, string command, IntPtr response);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_WmiCommand(uint hResourceContext, string command, IntPtr response);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_GetEvent(uint hResourceContext, string interfaceName, IntPtr response);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_UtCommand(uint hResourceContext, string command, IntPtr response);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_GetFirmwareVersion(uint hResourceContext, ref uint major, ref uint minor, ref uint svn);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_GetRfStatus(uint hResourceContext, ref uint rfConnected, IntPtr rfName, IntPtr bbName);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_loadFwGlobalsFile(uint hResourceContext, string fileName);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_TransmitSingleTone(uint hResourceContext, int freqAmhz, int freqBmhz, int config, int startStop);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_TransmitPackets(uint hResourceContext, int numPackets, double silencePeriod, int mcs, int numBytes);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_TransmitPacketsOnly(uint hResourceContext, int numPackets, double silencePeriod, int mcs, int numBytes);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_TransmitPackets_W_MCS_Gain(uint hResourceContext, int numPackets, double silencePeriod, int mcs, int numBytes);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_SetChannel(uint hResourceContext, int channel);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_ClearRxStatistics(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_GetRxStatistics(uint hResourceContext, IntPtr counters);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_SwReset(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_DoInternalCals(uint hResourceContext, int channel);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_SetConfigFilePath(uint hResourceContext, string path);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_GetDeviceInterfaceName(uint hResourceContext, IntPtr name);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_SetDriverMode(uint hResourceContext, string mode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_LoadRegCsvFiles(uint hResourceContext, string csvPath);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_MnemonicRead(uint hResourceContext, string interfaceName, string mnemonicName, ref uint value);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_MnemonicWrite(uint hResourceContext, string interfaceName, string mnemonicName, uint value);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_GetRfSectorGain(uint hResourceContext, ref short sectorNo, ref short sectorGainNo, ref uint rfRxTxEn);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_GetChannel(uint hResourceContext, ref uint channelNum);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_GetTxCwToneInfo(uint hResourceContext, ref uint enabled, ref double freq);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_GetTxToneInfo(uint hResourceContext, ref uint enabled, ref double freqA, ref double freqB, ref uint Mode, ref uint SinMax);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_DisableRxIF(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_DisableTxIF(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_TurnOffRxLO(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_TurnOffTxLO(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_GetMnemonicInfo(uint hResourceContext, string mnemonicName, ref uint address, ref short startingBitNum, ref short endingBitNum, ref uint mask);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_GetTempurature(uint hResourceContext, ref double bbTemp, ref double rfTemp);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_GetSupportedHwVersions(uint hResourceContext, IntPtr versions);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WIGIG_SetHwVersion(uint hResourceContext, string version);
+
+	public uint FTM_WIGIG_Read(uint address)
+	{
+		string source = "QLIB_FTM_WIGIG_Read";
+		string format = "phoneHandle: {0} address: {1}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_Read(): failed";
+		string format2 = " data: {0}";
+		uint data = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, address)));
+		if (QLIB_FTM_WIGIG_Read(phoneHandle, address, ref data) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, data)));
+		return data;
+	}
+
+	public void FTM_WIGIG_Write(uint address, uint data)
+	{
+		string source = "QLIB_FTM_WIGIG_Write";
+		string format = "phoneHandle: {0} address: {1} data: {2}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_Write(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, address, data)));
+		if (QLIB_FTM_WIGIG_Write(phoneHandle, address, data) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public string FTM_WIGIG_FlowCommand(string command)
+	{
+		string source = "QLIB_FTM_WIGIG_Flow";
+		string format = "phoneHandle: {0} command: {1}";
+		string text = " response: ";
+		IntPtr intPtr = Marshal.AllocHGlobal(4095);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, command)));
+		QLIB_FTM_WIGIG_FlowCommand(phoneHandle, command, intPtr);
+		string text2 = Marshal.PtrToStringAnsi(intPtr);
+		Marshal.FreeHGlobal(intPtr);
+		Logger.Add(new Message((MessageType)2, source, text + text2));
+		return text2;
+	}
+
+	public string FTM_WIGIG_WmiCommand(string command)
+	{
+		string source = "QLIB_FTM_WIGIG_WmiCommand";
+		string format = "phoneHandle: {0} command: {1}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_WmiCommand(): failed";
+		string text = " response: ";
+		IntPtr intPtr = Marshal.AllocHGlobal(4095);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, command)));
+		if (QLIB_FTM_WIGIG_WmiCommand(phoneHandle, command, intPtr) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		string text2 = Marshal.PtrToStringAnsi(intPtr);
+		Marshal.FreeHGlobal(intPtr);
+		Logger.Add(new Message((MessageType)2, source, text + text2));
+		return text2;
+	}
+
+	public string FTM_WIGIG_GetEvent(string interfaceName)
+	{
+		string source = "QLIB_FTM_WIGIG_GetEvent";
+		string format = "phoneHandle: {0} command: {1}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_GetEvent(): failed";
+		string text = " response: ";
+		IntPtr intPtr = Marshal.AllocHGlobal(4095);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, interfaceName)));
+		if (QLIB_FTM_WIGIG_GetEvent(phoneHandle, interfaceName, intPtr) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		string text2 = Marshal.PtrToStringAnsi(intPtr);
+		Marshal.FreeHGlobal(intPtr);
+		Logger.Add(new Message((MessageType)2, source, text + text2));
+		return text2;
+	}
+
+	public string FTM_WIGIG_UtCommand(string command)
+	{
+		string source = "QLIB_FTM_WIGIG_UtCommand";
+		string format = "phoneHandle: {0} command: {1}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_UtCommand(): failed";
+		string text = " response: ";
+		IntPtr intPtr = Marshal.AllocHGlobal(4095);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, command)));
+		if (QLIB_FTM_WIGIG_UtCommand(phoneHandle, command, intPtr) == 0)
+		{
+			Marshal.FreeHGlobal(intPtr);
+			throw new PhoneException(exceptionMessage);
+		}
+		string text2 = Marshal.PtrToStringAnsi(intPtr);
+		Marshal.FreeHGlobal(intPtr);
+		Logger.Add(new Message((MessageType)2, source, text + text2));
+		return text2;
+	}
+
+	public void FTM_WIGIG_GetFirmwareVersion(out uint major, out uint minor, out uint svn)
+	{
+		string source = "QLIB_FTM_WIGIG_GetFirmwareVersion";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_GetFirmwareVersion(): failed";
+		string format2 = " major: {0} minor: {1} svn: {2}";
+		svn = 0u;
+		minor = 0u;
+		major = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WIGIG_GetFirmwareVersion(phoneHandle, ref major, ref minor, ref svn) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, major, minor, svn)));
+	}
+
+	public bool FTM_WIGIG_GetRfStatus(out string rfName, out string bbName)
+	{
+		string source = "QLIB_FTM_WIGIG_GetRfStatus";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_GetRfStatus(): failed";
+		string format2 = " return: {0} rfName: {1} bbName: {2}";
+		string text = "False";
+		string text2 = "True";
+		IntPtr intPtr = Marshal.AllocHGlobal(1024);
+		IntPtr intPtr2 = Marshal.AllocHGlobal(1024);
+		uint rfConnected = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WIGIG_GetRfStatus(phoneHandle, ref rfConnected, intPtr, intPtr2) != 0)
+		{
+			rfName = Marshal.PtrToStringAnsi(intPtr);
+			Marshal.FreeHGlobal(intPtr);
+			bbName = Marshal.PtrToStringAnsi(intPtr2);
+			Marshal.FreeHGlobal(intPtr2);
+			bool flag = false;
+			if ((ulong)rfConnected <= 0uL)
+			{
+				Logger.Add(new Message((MessageType)2, source, string.Format(format2, flag ? text2 : text, rfName, bbName)));
+			}
+			else
+			{
+				flag = true;
+				Logger.Add(new Message((MessageType)2, source, string.Format(format2, text2, rfName, bbName)));
+			}
+			return flag;
+		}
+		Marshal.FreeHGlobal(intPtr);
+		Marshal.FreeHGlobal(intPtr2);
+		throw new PhoneException(exceptionMessage);
+	}
+
+	public void FTM_WIGIG_loadFwGlobalsFile(string filename)
+	{
+		string source = "QLIB_FTM_WIGIG_loadFwGlobalsFile";
+		string format = "phoneHandle: {0} filename: {1}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_loadFwGlobalsFile(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, filename)));
+		if (QLIB_FTM_WIGIG_loadFwGlobalsFile(phoneHandle, filename) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WIGIG_TransmitSingleTone(int freqAmhz, int freqBmhz, int config, int startStop)
+	{
+		string source = "QLIB_FTM_WIGIG_TransmitSingleTone";
+		string format = "phoneHandle: {0} freqAmhz: {1} freqBmhz: {2} config: {3} startStop: {4}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_TransmitSingleTone(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, freqAmhz, freqBmhz, config, startStop)));
+		if (QLIB_FTM_WIGIG_TransmitSingleTone(phoneHandle, freqAmhz, freqBmhz, config, startStop) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WIGIG_TransmitPackets(int numPackets, double silencePeriod, int mcs, int numBytes)
+	{
+		string source = "QLIB_FTM_WIGIG_TransmitPackets";
+		string format = "phoneHandle: {0} numPackets: {1} silencePeriod: {2} mcs: {3} numBytes: {4}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_TransmitPackets(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, numPackets, silencePeriod, mcs, numBytes)));
+		if (QLIB_FTM_WIGIG_TransmitPackets(phoneHandle, numPackets, silencePeriod, mcs, numBytes) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WIGIG_TransmitPacketsOnly(int numPackets, double silencePeriod, int mcs, int numBytes)
+	{
+		string source = "QLIB_FTM_WIGIG_TransmitPacketsOnly";
+		string format = "phoneHandle: {0} numPackets: {1} silencePeriod: {2} mcs: {3} numBytes: {4}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_TransmitPacketsOnly(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, numPackets, silencePeriod, mcs, numBytes)));
+		if (QLIB_FTM_WIGIG_TransmitPacketsOnly(phoneHandle, numPackets, silencePeriod, mcs, numBytes) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WIGIG_TransmitPackets_W_MCS_Gain(int numPackets, double silencePeriod, int mcs, int numBytes)
+	{
+		string source = "QLIB_FTM_WIGIG_TransmitPackets_W_MCS_Gain";
+		string format = "phoneHandle: {0} numPackets: {1} silencePeriod: {2} mcs: {3} numBytes: {4}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_TransmitPackets_W_MCS_Gain(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, numPackets, silencePeriod, mcs, numBytes)));
+		if (QLIB_FTM_WIGIG_TransmitPackets_W_MCS_Gain(phoneHandle, numPackets, silencePeriod, mcs, numBytes) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WIGIG_SetChannel(int channel)
+	{
+		string source = "QLIB_FTM_WIGIG_SetChannel";
+		string format = "phoneHandle: {0} channel: {1}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_SetChannel(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, channel)));
+		if (QLIB_FTM_WIGIG_SetChannel(phoneHandle, channel) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WIGIG_ClearRxStatistics()
+	{
+		string source = "QLIB_FTM_WIGIG_ClearRxStatistics";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_ClearRxStatistics(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WIGIG_ClearRxStatistics(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public WigigRxReport FTM_WIGIG_GetRxStatistics()
+	{
+		string source = "QLIB_FTM_WIGIG_GetRxStatistics";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_GetRxStatistics(): failed";
+		string format2 = " inaSyncCounterDp: {0} sfdSyncCounterSc: {1} sdfTimeoutCounterDp: {2} CrcOkCounterSc: {3} CrcErrorCounterSc: {4} BerLastZeroCounterSc: {5} BerLastNonZeroCounterSc: {6} inaSyncCounterCp: {0} sfdSyncCounterCp: {1} sdfTimeoutCounterCp: {2} CrcOkCounterCp: {3} CrcErrorCounterCp: {4} BerLastZeroCounterCp: {5} BerLastNonZeroCounterCp: {6} ";
+		IntPtr intPtr = Marshal.AllocHGlobal(56);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WIGIG_GetRxStatistics(phoneHandle, intPtr) == 0)
+		{
+			Marshal.FreeHGlobal(intPtr);
+			throw new PhoneException(exceptionMessage);
+		}
+		WigigRxReport result = new WigigRxReport
+		{
+			inaSyncCounterDp = (uint)Marshal.ReadInt32(intPtr, 0),
+			sfdSyncCounterSc = (uint)Marshal.ReadInt32(intPtr, 4),
+			sdfTimeoutCounterDp = (uint)Marshal.ReadInt32(intPtr, 8),
+			CrcOkCounterSc = (uint)Marshal.ReadInt32(intPtr, 12),
+			CrcErrorCounterSc = (uint)Marshal.ReadInt32(intPtr, 16),
+			BerLastZeroCounterSc = (uint)Marshal.ReadInt32(intPtr, 20),
+			BerLastNonZeroCounterSc = (uint)Marshal.ReadInt32(intPtr, 24),
+			inaSyncCounterCp = (uint)Marshal.ReadInt32(intPtr, 28),
+			sfdSyncCounterCp = (uint)Marshal.ReadInt32(intPtr, 32),
+			sdfTimeoutCounterCp = (uint)Marshal.ReadInt32(intPtr, 36),
+			CrcOkCounterCp = (uint)Marshal.ReadInt32(intPtr, 40),
+			CrcErrorCounterCp = (uint)Marshal.ReadInt32(intPtr, 44),
+			BerLastZeroCounterCp = (uint)Marshal.ReadInt32(intPtr, 48),
+			BerLastNonZeroCounterCp = (uint)Marshal.ReadInt32(intPtr, 52)
+		};
+		Marshal.FreeHGlobal(intPtr);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, result.inaSyncCounterDp, result.sfdSyncCounterSc, result.sdfTimeoutCounterDp, result.CrcOkCounterSc, result.CrcErrorCounterSc, result.BerLastZeroCounterSc, result.BerLastNonZeroCounterSc, result.inaSyncCounterCp, result.sfdSyncCounterCp, result.sdfTimeoutCounterCp, result.CrcOkCounterCp, result.CrcErrorCounterCp, result.BerLastZeroCounterCp, result.BerLastNonZeroCounterCp)));
+		return result;
+	}
+
+	public void FTM_WIGIG_SwReset()
+	{
+		string source = "QLIB_FTM_WIGIG_SwReset";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_SwReset(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WIGIG_SwReset(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WIGIG_DoInternalCals(int channel)
+	{
+		string source = "QLIB_FTM_WIGIG_DoInternalCals";
+		string format = "phoneHandle: {0} channel: {1}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_DoInternalCals(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, channel)));
+		if (QLIB_FTM_WIGIG_DoInternalCals(phoneHandle, channel) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WIGIG_SetConfigFilePath(string path)
+	{
+		string source = "QLIB_FTM_WIGIG_SetConfigFilePath";
+		string format = "phoneHandle: {0} path: {1}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_SetConfigFilePath(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, path)));
+		if (QLIB_FTM_WIGIG_SetConfigFilePath(phoneHandle, path) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WIGIG_SetDriverMode(string mode)
+	{
+		string source = "QLIB_FTM_WIGIG_SetDriverMode";
+		string format = "phoneHandle: {0} mode: {1}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_SetDriverMode(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, mode)));
+		if (QLIB_FTM_WIGIG_SetDriverMode(phoneHandle, mode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public string FTM_WIGIG_GetDeviceInterfaceName()
+	{
+		string source = "QLIB_FTM_WIGIG_GetDeviceInterfaceName";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_GetDeviceInterfaceName(): failed";
+		string text = " response: ";
+		IntPtr intPtr = Marshal.AllocHGlobal(4095);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WIGIG_GetDeviceInterfaceName(phoneHandle, intPtr) == 0)
+		{
+			Marshal.FreeHGlobal(intPtr);
+			throw new PhoneException(exceptionMessage);
+		}
+		string text2 = Marshal.PtrToStringAnsi(intPtr);
+		Marshal.FreeHGlobal(intPtr);
+		Logger.Add(new Message((MessageType)2, source, text + text2));
+		return text2;
+	}
+
+	public void FTM_WIGIG_LoadRegCsvFiles(string csvPath)
+	{
+		string source = "QLIB_FTM_WIGIG_LoadRegCsvFiles";
+		string format = "phoneHandle: {0} csvPath: {1}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_LoadRegCsvFiles(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, csvPath)));
+		if (QLIB_FTM_WIGIG_LoadRegCsvFiles(phoneHandle, csvPath) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public uint FTM_WIGIG_MnemonicRead(string interfaceName, string mnemonicName)
+	{
+		string source = "QLIB_FTM_WIGIG_MnemonicRead";
+		string format = "phoneHandle: {0} interfaceName: {1} mnemonicName: {2}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_MnemonicRead(): failed";
+		string format2 = " value: {0}";
+		uint value = 3735936685u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, interfaceName, mnemonicName)));
+		if (QLIB_FTM_WIGIG_MnemonicRead(phoneHandle, interfaceName, mnemonicName, ref value) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, value)));
+		return value;
+	}
+
+	public void FTM_WIGIG_MnemonicWrite(string interfaceName, string mnemonicName, uint value)
+	{
+		string source = "QLIB_FTM_WIGIG_MnemonicWrite";
+		string format = "phoneHandle: {0} interfaceName: {1} mnemonicName: {2} value: {3}";
+		string exceptionMessage = "FTM_WIGIG_MnemonicWrite(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, interfaceName, mnemonicName, value)));
+		if (QLIB_FTM_WIGIG_MnemonicWrite(phoneHandle, interfaceName, mnemonicName, value) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WIGIG_GetRfSectorGain(out short sectorNo, out short sectorGainNo, out uint rfRxTxEn)
+	{
+		string source = "FTM_WIGIG_GetRfSectorGain";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_GetRfSectorGain(): failed";
+		string format2 = " sectorNo: {0} sectorGainNo: {1} rfRxTxEn: {2}";
+		sectorGainNo = -1;
+		sectorNo = -1;
+		rfRxTxEn = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WIGIG_GetRfSectorGain(phoneHandle, ref sectorNo, ref sectorGainNo, ref rfRxTxEn) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, sectorNo, sectorGainNo, rfRxTxEn)));
+	}
+
+	public uint FTM_WIGIG_GetChannel()
+	{
+		string source = "FTM_WIGIG_GetChannel";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_GetChannel(): failed";
+		string format2 = " channelNum: {0}";
+		uint channelNum = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WIGIG_GetChannel(phoneHandle, ref channelNum) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, channelNum)));
+		return channelNum;
+	}
+
+	public void FTM_WIGIG_GetTxCwToneInfo(out uint enabled, out double freq)
+	{
+		double field_ = Class38.field_4682;
+		string source = "FTM_WIGIG_GetTxCwToneInfo";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_GetTxCwToneInfo(): failed";
+		string format2 = " enabled: {0} freq: {1}";
+		enabled = 0u;
+		freq = field_;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WIGIG_GetTxCwToneInfo(phoneHandle, ref enabled, ref freq) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, enabled, freq)));
+	}
+
+	public void FTM_WIGIG_GetTxToneInfo(out uint enabled, out double freqA, out double freqB, out uint Mode, out uint SinMax)
+	{
+		double field_ = Class38.field_4682;
+		string source = "FTM_WIGIG_GetTxToneInfo";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_GetTxToneInfo(): failed";
+		string format2 = " enabled: {0} freqA: {1} freqB: {2} Mode: {3} SinMax: {4}";
+		enabled = 0u;
+		double num = field_;
+		freqB = field_;
+		freqA = num;
+		SinMax = 999u;
+		Mode = 999u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WIGIG_GetTxToneInfo(phoneHandle, ref enabled, ref freqA, ref freqB, ref Mode, ref SinMax) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, enabled, freqA, freqB, Mode, SinMax)));
+	}
+
+	public void FTM_WIGIG_DisableRxIF()
+	{
+		string source = "FTM_WIGIG_DisableRxIF";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_DisableRxIF(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WIGIG_DisableRxIF(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WIGIG_DisableTxIF()
+	{
+		string source = "FTM_WIGIG_DisableTxIF";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_DisableTxIF(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WIGIG_DisableTxIF(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WIGIG_TurnOffRxLO()
+	{
+		string source = "FTM_WIGIG_TurnOffRxLO";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_TurnOffRxLO(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WIGIG_TurnOffRxLO(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WIGIG_TurnOffTxLO()
+	{
+		string source = "FTM_WIGIG_TurnOffTxLO";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_TurnOffTxLO(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WIGIG_TurnOffTxLO(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WIGIG_GetMnemonicInfo(string mnemonicName, out uint address, out short startingBitNum, out short endingBitNum, out uint mask)
+	{
+		string source = "FTM_WIGIG_GetMnemonicInfo";
+		string format = "phoneHandle: {0} mnemonicName: {1}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_GetMnemonicInfo(): failed";
+		string format2 = " address: {0} startingBitNum: {1} endingBitNum: {2} mask: {3}";
+		endingBitNum = -1;
+		startingBitNum = -1;
+		mask = 0u;
+		address = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, mnemonicName)));
+		if (QLIB_FTM_WIGIG_GetMnemonicInfo(phoneHandle, mnemonicName, ref address, ref startingBitNum, ref endingBitNum, ref mask) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, address, startingBitNum, endingBitNum, mask)));
+	}
+
+	public void FTM_WIGIG_GetTempurature(out double bbTemperature, out double rfTemperature)
+	{
+		double field_ = Class38.field_4702;
+		string source = "FTM_WIGIG_GetTempurature";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_GetTempurature(): failed";
+		string format2 = " bbTemperature: {0} rfTemperature: {1}";
+		double num = field_;
+		rfTemperature = field_;
+		bbTemperature = num;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WIGIG_GetTempurature(phoneHandle, ref bbTemperature, ref rfTemperature) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, bbTemperature, rfTemperature)));
+	}
+
+	public string FTM_WIGIG_GetSupportedHwVersions()
+	{
+		string source = "FTM_WIGIG_GetSupportedHwVersions";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WIGIG_GetSupportedHwVersions(): failed";
+		string text = " response: ";
+		IntPtr intPtr = Marshal.AllocHGlobal(4095);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WIGIG_GetSupportedHwVersions(phoneHandle, intPtr) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		string text2 = Marshal.PtrToStringAnsi(intPtr);
+		Marshal.FreeHGlobal(intPtr);
+		Logger.Add(new Message((MessageType)2, source, text + text2));
+		return text2;
+	}
+
+	public void FTM_WIGIG_SetHwVersion(string version)
+	{
+		string source = "QLIB_FTM_WIGIG_SetHwVersion";
+		string format = "phoneHandle: {0} path: {1}";
+		string exceptionMessage = "QLIB_FTM_WIGIG_SetHwVersion(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, version)));
+		if (QLIB_FTM_WIGIG_SetHwVersion(phoneHandle, version) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WPAN15p4_VS_DUT_ENABLE(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WPAN15p4_MLME_Reset(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WPAN15p4_VS_DUT_TX_TEST(uint hResourceContext, byte iflags, byte itransmitMode, byte itransmitChannel, byte itransmitPower, ushort ipayloadLength, byte ipacketType);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WPAN15p4_VS_DUT_TEST_END(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WPAN15p4_VS_DUT_RX_TEST(uint hResourceContext, byte iflags, byte ireceiveMode, byte ireceiveChannel, ushort ipayloadLength, byte ipacketType);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WPAN15p4_VS_DUT_RX_STATS(uint hResourceContext, ref uint packetsReceived, ref uint packetsInError, ref uint bitsInError);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WPAN15p4_NVM_DOWNLOAD(uint hResourceContext, string fileName);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WPAN15p4_SELECT_INTERFACE(uint hResourceContext, byte interfaceID);
+
+	public void FTM_WPAN15p4_VS_DUT_ENABLE()
+	{
+		string source = "QLIB_FTM_WPAN15p4_VS_DUT_ENABLE";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "Error Setting 15.4 test mode";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_WPAN15p4_VS_DUT_ENABLE(phoneHandle);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WPAN15p4_MLME_Reset()
+	{
+		string source = "QLIB_FTM_WPAN15p4_MLME_Reset";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "Error doing MLME Reset";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_WPAN15p4_MLME_Reset(phoneHandle);
+		if (b != 1)
+		{
+			Thread.Sleep(hciResetRetryDelayMs);
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+			b = QLIB_FTM_WPAN15p4_MLME_Reset(phoneHandle);
+			if (b != 1)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+	}
+
+	public void FTM_WPAN15p4_VS_DUT_TX_TEST(WPAN_15p4_FlagOptions iflags, WPAN_15p4_TxRxMode itransmitMode, byte itransmitChannel, byte itransmitPower, ushort ipayloadLength, WPAN_15p4_PacketType ipacketType)
+	{
+		string source = "QLIB_FTM_WPAN15p4_VS_DUT_TX_TEST";
+		string format = "phoneHandle :{0}, iflags :{1},itransmitMode :{2},itransmitChannel :{3}, itransmitPower :{4}, ipayloadLength :{5}, ipacketType :{6}";
+		string exceptionMessage = "Error QLIB_FTM_WPAN15p4_VS_DUT_TX_TEST";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iflags, itransmitMode, itransmitChannel, itransmitPower, ipayloadLength, ipacketType)));
+		b = QLIB_FTM_WPAN15p4_VS_DUT_TX_TEST(phoneHandle, (byte)iflags, (byte)itransmitMode, itransmitChannel, itransmitPower, ipayloadLength, (byte)ipacketType);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WPAN15p4_VS_DUT_TEST_END()
+	{
+		string source = "QLIB_FTM_WPAN15p4_VS_DUT_TEST_END";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "Error Setting 15.4 test mode end";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_WPAN15p4_VS_DUT_TEST_END(phoneHandle);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WPAN15p4_VS_DUT_RX_TEST(WPAN_15p4_FlagOptions iflags, WPAN_15p4_TxRxMode ireceiveMode, byte ireceiveChannel, ushort ipayloadLength, WPAN_15p4_PacketType ipacketType)
+	{
+		string source = "QLIB_FTM_WPAN15p4_VS_DUT_RX_TEST";
+		string format = "phoneHandle :{0}, iflags :{1},ireceiveMode :{2},ireceiveChannel :{3}, ipayloadLength :{4}, ipacketType :{5}";
+		string exceptionMessage = "Error QLIB_FTM_WPAN15p4_VS_DUT_RX_TEST";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iflags, ireceiveMode, ireceiveChannel, ipayloadLength, ipacketType)));
+		b = QLIB_FTM_WPAN15p4_VS_DUT_RX_TEST(phoneHandle, (byte)iflags, (byte)ireceiveMode, ireceiveChannel, ipayloadLength, (byte)ipacketType);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WPAN15p4_VS_DUT_RX_STATS(out ulong packetsReceived, out ulong packetsInError, out ulong bitsInError)
+	{
+		string source = "QLIB_FTM_WPAN15p4_VS_DUT_RX_STATS";
+		string format = "phoneHandle :{0}";
+		string format2 = "ref packetsReceived :{0},ref packetsInError :{1},ref bitsInError :{0}";
+		string exceptionMessage = "Error QLIB_FTM_WPAN15p4_VS_DUT_RX_STATS";
+		byte b = 0;
+		uint packetsReceived2 = 0u;
+		uint packetsInError2 = 0u;
+		uint bitsInError2 = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_WPAN15p4_VS_DUT_RX_STATS(phoneHandle, ref packetsReceived2, ref packetsInError2, ref bitsInError2);
+		packetsReceived = packetsReceived2;
+		packetsInError = packetsInError2;
+		bitsInError = bitsInError2;
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, packetsReceived, packetsInError, bitsInError)));
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WPAN15p4_NVM_DOWNLOAD(string filename)
+	{
+		string source = "QLIB_FTM_WPAN15p4_NVM_DOWNLOAD";
+		string format = "phoneHandle: {0}, filename: {1}";
+		string exceptionMessage = "QLIB_FTM_WPAN15p4_NVM_DOWNLOAD(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, filename)));
+		if (QLIB_FTM_WPAN15p4_NVM_DOWNLOAD(phoneHandle, filename) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WPAN15p4_SELECT_INTERFACE(byte interfaceID)
+	{
+		string source = "FTM_WPAN15p4_SELECT_INTERFACE";
+		string format = "phoneHandle :{0}, interfaceID :{1}";
+		string exceptionMessage = "Error FTM_WPAN15p4_SELECT_INTERFACE";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, interfaceID)));
+		b = QLIB_FTM_WPAN15p4_SELECT_INTERFACE(phoneHandle, interfaceID);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AP_EXECUTE_SINGLE_TEST_WithWait(uint handle, ref ushort iFTM_Error_Code, string sTestCase, ref uint iTestStatus, ushort iTimeoutInS, ref byte iTimeourOccurred);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AP_CLEAR_RESULTS(uint handle, ref ushort iFTM_Error_Code);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AP_READ_FILE(uint handle, ref ushort iFTM_Error_Code, string sRemoteFileName, string sLocalFileName);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AP_SELECT_SEQUENCE(uint handle, string sSequenceFile, ref ushort iFTM_Error_Code, ref ushort iNum_Test);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AP_WRITE_FILE(uint handle, ref ushort iFTM_Error_Code, string sRemoteFileName, string sLocalFileName);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AP_ERASE_ALL_FILES(uint handle, ref ushort iFTM_Error_Code);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AP_TEST_APP_STATUS(uint handle, ref ushort iFTM_Error_Code, ref byte iState, ref uint iFail_Count);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AP_UTILITY(uint handle, ref ushort iFTM_Error_Code, byte byte_1, byte iUtilityStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AP_EXIT_TEST(uint handle, ref ushort iFTM_Error_Code, uint iResult, string sTestCase);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AP_TEST_LIST_TO_FILE(uint handle, ref ushort iFTM_Error_Code);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AP_EXECUTE_SINGLE_TEST(uint handle, ref ushort iFTM_Error_Code, string sTestCase);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AP_EXECUTE_ALL_TESTS(uint handle, ref ushort iFTM_Error_Code);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AP_DIR_TO_FILE(uint handle, ref ushort iFTM_Error_Code);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AP_READ_APP_VERSION(uint handle, ref ushort iFTM_Error_Code, byte[] sVersion);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AP_SET_TOKEN(uint handle, ref ushort iFTM_Error_Code, string sToken);
+
+	public void FTM_AP_Execute_Single_Test_WithWait(string sTestName, ref ushort iFTM_Error_Code, ushort iTimeOutInS, ref uint iTestStatus, ref byte bTimeOutOccurred)
+	{
+		string message = "FTM_AP_EXECUTE_SINGLE_TEST_WithWait command failed";
+		byte b = 0;
+		b = QLIB_FTM_AP_EXECUTE_SINGLE_TEST_WithWait(phoneHandle, ref iFTM_Error_Code, sTestName, ref iTestStatus, iTimeOutInS, ref bTimeOutOccurred);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_AP_ClearTestResult(ref ushort iFTM_Error_Code)
+	{
+		string message = "FTM_AP_CLearTestResults command Failed";
+		byte b = 0;
+		b = QLIB_FTM_AP_CLEAR_RESULTS(phoneHandle, ref iFTM_Error_Code);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_AP_SelectSequence(string sSequenceFile, ref ushort iFTM_Error_Code, ref ushort iNumTest)
+	{
+		string message = "FTM_AP_SelectSequence command Failed";
+		byte b = 0;
+		b = QLIB_FTM_AP_SELECT_SEQUENCE(phoneHandle, sSequenceFile, ref iFTM_Error_Code, ref iNumTest);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_AP_ReadFile(ref ushort iFTM_Error_Code, string sRemoteFile, string sLocalFile)
+	{
+		string message = "FTM_AP_ReadFile command Failed";
+		byte b = 0;
+		b = QLIB_FTM_AP_READ_FILE(phoneHandle, ref iFTM_Error_Code, sRemoteFile, sLocalFile);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_AP_WriteFile(ref ushort iFTM_Error_Code, string sRemoteFile, string sLocalFile)
+	{
+		string message = "FTM_AP_WRITE_FILE command failed";
+		byte b = 0;
+		b = QLIB_FTM_AP_WRITE_FILE(phoneHandle, ref iFTM_Error_Code, sRemoteFile, sLocalFile);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_AP_ERASE_ALL_FILES(ref ushort iFTM_Error_Code)
+	{
+		string message = "FTM_AP_ERASE_FILES Command failed";
+		byte b = 0;
+		b = QLIB_FTM_AP_ERASE_ALL_FILES(phoneHandle, ref iFTM_Error_Code);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_AP_TEST_APP_STATUS(ref ushort iFTM_Error_Code, ref byte iState, ref uint iFail_Count)
+	{
+		string message = "FTM_AP_TEST_APP_STATUS Command failed";
+		byte b = 0;
+		b = QLIB_FTM_AP_TEST_APP_STATUS(phoneHandle, ref iFTM_Error_Code, ref iState, ref iFail_Count);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_AP_Utility(ref ushort iFTM_Error_Code, byte byte_1, byte iUtilityStatus)
+	{
+		string message = "FTM_AP_UTILITY Command failed";
+		byte b = 0;
+		b = QLIB_FTM_AP_UTILITY(phoneHandle, ref iFTM_Error_Code, byte_1, iUtilityStatus);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_AP_EXIT_TEST(ref ushort iFTM_Error_Code, uint iResult, string sTestCase)
+	{
+		string message = "FTM_AP_EXIT_TEST Command failed";
+		byte b = 0;
+		b = QLIB_FTM_AP_EXIT_TEST(phoneHandle, ref iFTM_Error_Code, iResult, sTestCase);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_AP_Test_List_To_File(ref ushort iFTM_Error_Code)
+	{
+		string message = "FTM_AP_Test_List_To_File command Failed";
+		byte b = 0;
+		b = QLIB_FTM_AP_TEST_LIST_TO_FILE(phoneHandle, ref iFTM_Error_Code);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_AP_Execute_Single_Test(string sTestName, ref ushort iFTM_Error_Code)
+	{
+		string message = "FTM_AP_EXECUTE_SINGLE_TEST_command failed";
+		byte b = 0;
+		b = QLIB_FTM_AP_EXECUTE_SINGLE_TEST(phoneHandle, ref iFTM_Error_Code, sTestName);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_AP_Execute_All_Tests(ref ushort iFTM_Error_Code)
+	{
+		string message = "FTM_AP_EXECUTE_ALL_TESTS command failed";
+		byte b = 0;
+		b = QLIB_FTM_AP_EXECUTE_ALL_TESTS(phoneHandle, ref iFTM_Error_Code);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_AP_Dir_To_File(ref ushort iFTM_Error_Code)
+	{
+		string message = "FTM_AP_DIR_TO_FILE command failed";
+		byte b = 0;
+		b = QLIB_FTM_AP_DIR_TO_FILE(phoneHandle, ref iFTM_Error_Code);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_AP_Read_App_Version(ref ushort iFTM_Error_Code, byte[] sVersion)
+	{
+		string message = "FTM_AP_Read_App_Version command failed";
+		byte b = 0;
+		b = QLIB_FTM_AP_READ_APP_VERSION(phoneHandle, ref iFTM_Error_Code, sVersion);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_AP_Set_Token(string sToken, ref ushort iFTM_Error_Code)
+	{
+		string message = "FTM_AP_Set_Token command failed";
+		byte b = 0;
+		b = QLIB_FTM_AP_SET_TOKEN(phoneHandle, ref iFTM_Error_Code, sToken);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public bool getEventMessage(out EventMessage msg, ushort eventID, int timeout)
+	{
+		object obj = null;
+		while (true)
+		{
+			msg = (EventMessage)eventMsgQueue.getAsyncMessage(eventID);
+			if (msg !=null)
+			{
+				break;
+			}
+			if (timeout >= 0)
+			{
+				if (timeout > 100)
+				{
+					Thread.Sleep(100);
+					timeout -= 100;
+				}
+				else
+				{
+					Thread.Sleep(timeout);
+					timeout = -1;
+				}
+				continue;
+			}
+			msg = (EventMessage)obj;
+			return false;
+		}
+		return true;
+	}
+
+	public void flushEventMsgQueue(ushort eventID)
+	{
+		eventMsgQueue.flushLogQueue(eventID);
+	}
+
+	public void configEventMessaging(ushort eventID, bool OnOff)
+	{
+		configEventMessaging(eventID, OnOff, 10);
+	}
+
+	public void configEventMessaging(ushort eventID, bool OnOff, int queueSizeMax)
+	{
+		object obj = null;
+		if (!OnOff)
+		{
+			logFlags.EventMsgs = false;
+			if (logFlags.flags())
+			{
+				enableEventMsgs(onOff: false);
+				eventMsgQueue.RemoveQueue((ushort)(eventID & 0xFFF));
+			}
+			else
+			{
+				QLIB_ConfigureCallBacks(phoneHandle, 0u, (GeneralSWDownloadHandlerCallBackType)obj, (asyncHandlerCallBack)obj);
+				enableEventMsgs(onOff: false);
+				eventMsgQueue.RemoveQueue((ushort)(eventID & 0xFFF));
+			}
+		}
+		else
+		{
+			eventMsgQueue.registerAsyncMsgID((ushort)(eventID & 0xFFF), queueSizeMax);
+			if (logFlags.flags())
+			{
+				logFlags.EventMsgs = true;
+				enableEventMsgs(onOff: true);
+			}
+			else
+			{
+				QLIB_ConfigureCallBacks(phoneHandle, 0u, (GeneralSWDownloadHandlerCallBackType)obj, asyncHandlerCB);
+				logFlags.EventMsgs = true;
+				enableEventMsgs(onOff: true);
+			}
+		}
+	}
+
+	private void enableEventMsgs(bool onOff)
+	{
+		byte[] obj = new byte[12]
+		{
+			96, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0
+		};
+		byte[] array;
+		int num;
+		if (!onOff)
+		{
+			obj[1] = 0;
+			array = obj;
+			num = 1425032367;
+		}
+		else
+		{
+			obj[1] = 1;
+			array = obj;
+			num = 1425032367;
+		}
+		_ = num ^ -753048098;
+		short resSize = 128;
+		byte[] respBuff = new byte[128];
+		SendSync((short)array.Length, array, ref resSize, respBuff);
+	}
+
+	private List<EventMessage> parseEventMsgs(byte[] message)
+	{
+		List<EventMessage> list = new List<EventMessage>();
+		if (message.Length < 5)
+		{
+			return list;
+		}
+		int num = 3;
+		while (num < message.Length)
+		{
+			ushort num2 = (ushort)((message[num + 1] << 8) | message[num]);
+			if (num2 == 0)
+			{
+				return list;
+			}
+			int num3 = 8;
+			if ((ulong)(uint)(num2 & 0x8000) > 0uL)
+			{
+				num3 = 2;
+			}
+			int num4 = (num2 & 0x6000) >> 13;
+			bool flag = false;
+			int num5 = 0;
+			switch (num4)
+			{
+			case 1:
+				num5 = 1;
+				break;
+			case 2:
+				num5 = 2;
+				break;
+			case 3:
+				flag = true;
+				break;
+			}
+			int num6 = num + 2 + num3;
+			int num7;
+			int num8;
+			if (!flag)
+			{
+				num7 = num6;
+				num8 = 1229061482;
+			}
+			else
+			{
+				num7 = num6 + 1;
+				num8 = 1229061482;
+			}
+			_ = num8 ^ 0x12D7633C;
+			if (flag)
+			{
+				num5 = message[num7 - 1];
+			}
+			int num9 = num7 + num5;
+			int num10 = num9 - num;
+			byte[] array = new byte[num10 + 3];
+			array[0] = 96;
+			array[1] = (byte)(num10 & 0xFF);
+			array[2] = (byte)((num10 >> 8) & 0xFF);
+			int i = 0;
+			for (int num11 = num10 - 1; i <= num11; i++)
+			{
+				array[i + 3] = message[num + i];
+			}
+			list.Add(new EventMessage(num2, array));
+			num = num9;
+		}
+		return list;
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_EventReportControl(uint hResourceContext, bool operationSwitch);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_SetEntireEventMaskState(uint hResourceContext, bool maskState);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_SetEventMaskBits(uint hResourceContext, ushort[] ushort_0, int maskIDListSize, bool maskState);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_GetNextEvent(uint hResourceContext, byte[] eventID);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_ClearEventQueue(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_GetEventQueueSize(uint hResourceContext, uint[] eventQueueSize);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_WaitForEvent(uint hResourceContext, ushort eventID, byte[] events, uint timeOutMsec);
+
+	public void ClearEventMsgQueue()
+	{
+		string exceptionMessage = "QC.QMSLPhone.ClearEventMsgQueue: Error in Clearing Event Queue";
+		if (QLIB_DIAG_ClearEventQueue(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public bool GetEventQueueSize(ref int queuesize)
+	{
+		object obj = null;
+		bool result = false;
+		uint[] array = new uint[1];
+		if (QLIB_DIAG_GetEventQueueSize(phoneHandle, array) == 0)
+		{
+			queuesize = (int)array[0];
+			array = (uint[])obj;
+			return result;
+		}
+		result = true;
+		queuesize = (int)array[0];
+		array = (uint[])obj;
+		return true;
+	}
+
+	public bool WaitForEvent(ushort eventID, ulong timeOurInMsec)
+	{
+		bool result = false;
+		byte[] array = new byte[1024];
+		QMSL_Event_Element_Struct qMSL_Event_Element_Struct = new QMSL_Event_Element_Struct();
+		qMSL_Event_Element_Struct.event_id = 0;
+		if (QLIB_DIAG_WaitForEvent(phoneHandle, eventID, array, (uint)timeOurInMsec) != 0)
+		{
+			MemoryStream input = new MemoryStream(array, 0, 100);
+			BinaryReader binaryReader = new BinaryReader(input);
+			qMSL_Event_Element_Struct.time_length = binaryReader.ReadByte();
+			qMSL_Event_Element_Struct.time = new byte[8];
+			for (int i = 0; i <= 7; i++)
+			{
+				qMSL_Event_Element_Struct.time[i] = binaryReader.ReadByte();
+			}
+			qMSL_Event_Element_Struct.event_id = (ushort)binaryReader.ReadInt16();
+			qMSL_Event_Element_Struct.payload_len = binaryReader.ReadByte();
+			qMSL_Event_Element_Struct.payload_data = new byte[256];
+			int j = 0;
+			for (int num = qMSL_Event_Element_Struct.payload_len - 1; j <= num; j++)
+			{
+				qMSL_Event_Element_Struct.payload_data[j] = binaryReader.ReadByte();
+			}
+		}
+		if (qMSL_Event_Element_Struct.event_id == eventID)
+		{
+			result = true;
+		}
+		return result;
+	}
+
+	public void EnableEvents(bool bTurnOnEvents)
+	{
+		string exceptionMessage = "Error in Enabling/Disabling events";
+		string text = "QC.QMSLPhone.EnableEvents: ";
+		try
+		{
+			if (QLIB_DIAG_EventReportControl(phoneHandle, bTurnOnEvents) == 0 || QLIB_DIAG_SetEntireEventMaskState(phoneHandle, maskState: false) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		catch (Exception ex)
+		{
+			throw new Exception(text + ex.Message);
+		}
+	}
+
+	public void SetEventMask(int _iEventListSize, ushort[] _aiEventList, bool _bActivateEvents)
+	{
+		string exceptionMessage = "QC.QMSLPhone.SetEventMask: Error in Setting Event Mask";
+		if (QLIB_DIAG_SetEventMaskBits(phoneHandle, _aiEventList, _iEventListSize, _bActivateEvents) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public bool EventGetMessageFromEventQueue(long[] _iEventRecd, ref int payloadLength, ref byte[] payload)
+	{
+		object obj = null;
+		bool flag = false;
+		byte[] array = new byte[270];
+		QMSL_Event_Element_Struct qMSL_Event_Element_Struct = new QMSL_Event_Element_Struct();
+		if (QLIB_DIAG_GetNextEvent(phoneHandle, array) != 0)
+		{
+			flag = true;
+		}
+		if (flag)
+		{
+			MemoryStream input = new MemoryStream(array, 0, 256);
+			BinaryReader binaryReader = new BinaryReader(input);
+			qMSL_Event_Element_Struct.time_length = binaryReader.ReadByte();
+			qMSL_Event_Element_Struct.time = new byte[8];
+			for (int i = 0; i <= 7; i++)
+			{
+				qMSL_Event_Element_Struct.time[i] = binaryReader.ReadByte();
+			}
+			qMSL_Event_Element_Struct.event_id = (ushort)binaryReader.ReadInt16();
+			_iEventRecd[0] = qMSL_Event_Element_Struct.event_id;
+			qMSL_Event_Element_Struct.payload_len = binaryReader.ReadByte();
+			payloadLength = qMSL_Event_Element_Struct.payload_len;
+			qMSL_Event_Element_Struct.payload_data = new byte[256];
+			int j = 0;
+			for (int num = qMSL_Event_Element_Struct.payload_len - 1; j <= num; j++)
+			{
+				qMSL_Event_Element_Struct.payload_data[j] = binaryReader.ReadByte();
+			}
+			Array.Copy(qMSL_Event_Element_Struct.payload_data, payload, payloadLength);
+			input = (MemoryStream)obj;
+			binaryReader = (BinaryReader)obj;
+		}
+		array = (byte[])obj;
+		return flag;
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_SendSync(uint hResourceContext, short requestSize, byte[] requestBytes, ref short responseSize, byte[] responseBytes, uint timeout);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_DLoad_Reset(uint hResourceContext, uint timeoutSeconds);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_DLoadVersionReq(uint hResourceContext, uint timeoutSeconds);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern void QLIB_SetLibraryMode(byte useQPST);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern uint QLIB_ConnectServer(uint comPort);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern uint QLIB_ConnectServerWithWait(uint comPort, uint wait_ms);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern uint QLIB_QPHONEMS_ConnectServer_Sahara(uint ComPort, ref uint version, ref uint serialno, ref uint msmid, StringBuilder pkhash, byte getInfo, int mode, uint timeout, QPHONEMSCBSWDownloadHandlerCallBack pSWDLCallBack);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DisconnectServer_Sahara(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern uint QLIB_QPHONEMS_ConnectServer_FireHose(uint ComPort, QPHONEMSCBSWDownloadHandlerCallBack pSWDLCallBack);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern uint QLIB_QPHONEMS_ConnectServerSimple_FireHose(QPHONEMSCBSWDownloadHandlerCallBack pSWDLCallBack);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_GetAvailablePhonesPortList(ref ushort NumPorts, ushort[] PortList, ushort NumIgnorePorts, ushort[] IgnorePortList);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_GetComPortNumber(uint hResourceContext, ushort[] physicalPort);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_IsPhoneConnected(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern void QLIB_SetTargetType(byte targetType);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern void QLIB_SetDiagType(byte diagType);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DisconnectServer_FireHose(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DisconnectServer(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DisconnectAllServers();
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern uint QLIB_ConnectServer_UserDefinedTransport(IntPtr hUserHandle, IntPtr pUserDefinedSend, IntPtr pUserDefinedReceive, IntPtr pUserDefinedFlushRx, char bQMSL_HandlesTxHDLC, char bQMSL_HandlesRxHDLC);
+
+	[DllImport("kernel32.dll", CallingConvention = CallingConvention.StdCall, SetLastError = true)]
+	private static extern IntPtr LoadLibrary(string dllToLoad);
+
+	[DllImport("kernel32.dll", CallingConvention = CallingConvention.StdCall, SetLastError = true)]
+	private static extern IntPtr GetProcAddress(IntPtr hModule, string procedureName);
+
+	[DllImport("kernel32.dll", CallingConvention = CallingConvention.StdCall, SetLastError = true)]
+	private static extern bool FreeLibrary(IntPtr hModule);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_CONTROL_F(uint hResourceContext, int mode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_IsFTM_Mode(uint hResourceContext, byte[] byte_1);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_GetPhoneOperatingMode(uint hResourceContext, ref uint piPhoneMode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_ChangeFTM_BootMode(uint hResourceContext, byte ftmMode, byte reset);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_ChangeFTM_ModeRuntime(uint hResourceContext, byte ftmMode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_SPC_F(uint hResourceContext, byte[] iSPC, ref ushort piSPC_Result);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_EXT_BUILD_ID_F(uint hResourceContext, uint[] iMSM_HW_Version, uint[] iMobModel, byte[] sMobSwRev, byte[] sModelStr);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_AddExtendedLogCode(uint hResourceContext, byte equipmentID, ushort logCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_ClearAllLogCodes(uint hResourceContext, byte equipmentID);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_ClearPhoneLogQueue(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_SetPhoneLoggingState(uint hResourceContext, [MarshalAs(UnmanagedType.U1)] bool enableLogging);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_GetNextPhoneLog(uint hResourceContext, ushort[] logSize, byte[] requestBytes, uint timeOut);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_GSDIDIAG_GET_AVAILABLE_APPS(uint hResourceContext, ref ushort numSlots, ref ushort slot1Inserted, ref ushort ushort_0, ref ushort slot2Inserted, ref ushort ushort_1);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECOND_CHAIN_TEST_CALL(uint hResourceContext, ushort iMode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_TX_ON(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_TX_OFF(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_PA_STATE(uint hResourceContext, byte iPA_State, ref ushort iFTM_Error_Code);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_MODE_ID(uint hResourceContext, short modeId);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_SECONDARY_CHAIN(uint hResourceContext, ushort mode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_MODE(uint hResourceContext, short mdeId);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_GET_CTON(uint hResourceContext, long[] cToN);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_CHAN(uint hResourceContext, ushort iChannel);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_CALIBRATION_STATE(uint hResourceContext, ushort iCalState);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_GET_UNIFIED_ENH_THERM_V2(uint hResourceContext, byte iTechFamily, byte iBand, byte iSubBand, byte iSigPath, byte iRfmDevice, ref short iThermValue, ref short iThermValueDegC);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_LTE_SET_TX_CARRIER_INDEX(uint hResourceContext, ref byte status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_RF_MODE_EXIT(uint hResourceContext, ref ushort status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_LTE_SET_HD_FDD(uint hResourceContext, byte bEnable_HD_FDD, ref byte piStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_RF_TEST_CMD_RADIO_CONFIGURE(uint hResourceContext, uint subscriber, uint technology, byte[] request_data, byte[] response_data, ref uint error_code, ref uint specific_err_code);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_RF_DEBUG_CMD_RADIO_CONFIGURE(uint hResourceContext, uint technology, byte[] req_struct, byte[] rsp_struct, ref uint error_code, ref uint specific_err_code);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_RF_DEBUG_CMD_TX_OVERRIDE(uint hResourceContext, uint technology, byte[] req_struct, byte[] rsp_struct, ref uint error_code, ref uint specific_err_code);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_RF_DEBUG_CMD_RX_OVERRIDE(uint hResourceContext, uint technology, byte[] req_struct, byte[] rsp_struct, ref uint error_code, ref uint specific_err_code);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_RF_DEBUG_CMD_TX_MEASURE(uint hResourceContext, uint technology, byte[] req_struct, byte[] rsp_struct, ref uint error_code, ref uint specific_err_code);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_VERNO_F(uint hResourceContext, byte[] comp_date, byte[] comp_time, byte[] rel_date, byte[] rel_time, byte[] ver_dir, byte[] scm, byte[] mob_cai_rev, byte[] mob_model, ushort[] mob_firm_rev, byte[] slot_cycle_index, byte[] voc_maj, byte[] voc_min);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_StartDLF_Logging(uint hResourceContext, string sLogFile, byte bAlwaysUsePC_Time);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_StopDLF_Logging(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_StartLogging(uint hResourceContext, string logFile);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_StopLogging(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern void QLIB_ConfigureLibraryTextLogCallBack(uint ResourceContext, asyncMessageCB pAsyncMessageCB);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_SetLogFlags(uint hResourceContext, uint uiLogFlags);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_SetMessageFilter(uint hResourceContext, ushort iSSID, uint iRT_MASK);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_SetPhoneLoggingState(uint hResourceContext, byte bEnableLogging);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern uint QLIB_GetTimeOut(uint hResourceContext, uint eTimeOutId);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_ConfigureTimeOut(uint hResourceContext, uint eTimeOutId, uint iNewValue_ms);
+
+	public static Phone SpecificPhoneInstance(string schedulerID, out bool isNew)
+	{
+		string name = "PHONEDOTNET_MUTEX";
+		object obj = null;
+		phoneMutex = new Mutex(initiallyOwned: false, name);
+		phoneMutex.WaitOne();
+		isNew = false;
+		if (!phoneInstanceMap.ContainsKey(schedulerID))
+		{
+			if (phoneInstanceField ==null)
+			{
+				phoneInstanceMap.Add(schedulerID, new Phone());
+				isNew = true;
+				phoneMutex.ReleaseMutex();
+				return phoneInstanceMap[schedulerID];
+			}
+			phoneInstanceMap.Add(schedulerID, phoneInstanceField);
+			phoneMutex.ReleaseMutex();
+			return phoneInstanceMap[schedulerID];
+		}
+		phoneMutex.ReleaseMutex();
+		return phoneInstanceMap[schedulerID];
+	}
+
+	public Phone()
+	{
+		//Error decoding local variables: Signature type sequence must have at least one element.
+		logQueue = new AsyncMsgQueue();
+		asyncMsgQueue_0 = new AsyncMsgQueue();
+		eventMsgQueue = new AsyncMsgQueue();
+		fileList = new List<EfsEntry>();
+		asyncHandlerCB = asyncCB;
+		generalSWDownloadHandlerCallBack_delegate = generalSWDownloadHandlerCallBack;
+		qphoneDwonloadHandlerCallBack_delegate = qphoneEMSCBSWDownloadHandlerCallBack;
+		swdownloadEMMCloghandlerCallBack_delegate = swdownloademmcLogHandlerCallBack;
+		eFireHoseLibSrc = FireHoseLibSrc.FIREHOSE_LIB_QMSL;
+	}
+
+	public bool activateResource(string newResourceId)
+	{
+		string value = "COM";
+		uint result = 0u;
+		if (!resourceList.ContainsKey(newResourceId))
+		{
+			bool flag = false;
+			return false;
+		}
+		contextInfo contextInfo = resourceList[newResourceId];
+		phoneHandle = contextInfo.phoneHandle;
+		hUserHandle = contextInfo.hUserhandle;
+		resourceIDField = newResourceId;
+		if (!newResourceId.ToUpper().StartsWith(value))
+		{
+			if (!uint.TryParse(newResourceId.Substring(0), out result))
+			{
+				return true;
+			}
+			comPortNumField = result;
+			return true;
+		}
+		if (!uint.TryParse(newResourceId.Substring(3), out result))
+		{
+			return true;
+		}
+		comPortNumField = result;
+		return true;
+	}
+
+	public string GetPhoneVersionInfo(out string string_0, out string CompileDate)
+	{
+		string text = "Common version information:\r\n  compile date:";
+		string text2 = "\r\n  compile time:";
+		string text3 = "\r\n  release date:";
+		string text4 = "\r\n  release time:";
+		string text5 = "\r\n  version directory:";
+		string text6 = "\r\n  version directory V2:";
+		string text7 = "\r\n  MSM V2:";
+		string text8 = "\r\n  Model:";
+		string text9 = "\r\n  Model V2:";
+		string text10 = "\r\n  Model Name V2:";
+		string text11 = "\r\n1X specific version information:\r\n  Station Class Mark:";
+		string text12 = "\r\n  Slot cycle:";
+		string text13 = "\r\nOther version information:\r\n  CAI rev:";
+		string text14 = "\r\n  Firmware Rev:";
+		string text15 = "\r\n  Vocoder Major Version:";
+		string text16 = "\r\n  Vocoder Minor Version:";
+		string text17 = "\r\n  HW version:";
+		string text18 = "\r\n  SW version:";
+		string text19 = " ";
+		byte[] bytes = new byte[11];
+		byte[] bytes2 = new byte[8];
+		byte[] bytes3 = new byte[11];
+		byte[] bytes4 = new byte[8];
+		byte[] bytes5 = new byte[8];
+		byte[] array = new byte[1];
+		byte[] array2 = new byte[1];
+		byte[] array3 = new byte[1];
+		ushort[] array4 = new ushort[1];
+		byte[] array5 = new byte[1];
+		byte[] array6 = new byte[1];
+		byte[] array7 = new byte[1];
+		uint[] array8 = new uint[1];
+		uint[] array9 = new uint[1];
+		byte[] array10 = new byte[512];
+		byte[] array11 = new byte[512];
+		byte b = 0;
+		byte b2 = 0;
+		byte b3 = 0;
+		byte b4 = 0;
+		byte b5 = 0;
+		byte b6 = 0;
+		byte b7 = 0;
+		QLIB_DIAG_EXT_BUILD_ID_F(phoneHandle, array8, array9, array10, array11);
+		string text20 = Encoding.ASCII.GetString(bytes);
+		string text21 = Encoding.ASCII.GetString(bytes3);
+		string text22 = Encoding.ASCII.GetString(bytes2);
+		string text23 = Encoding.ASCII.GetString(bytes4);
+		string text24 = Encoding.ASCII.GetString(bytes5);
+		string text25 = Encoding.ASCII.GetString(array10);
+		string text26 = Encoding.ASCII.GetString(array11);
+		string result = text + text20.Replace('\0', ' ').Trim() + text2 + text22.Replace('\0', ' ').Trim() + text3 + text21.Replace('\0', ' ').Trim() + text4 + text23.Replace('\0', ' ').Trim() + text5 + text24.Replace('\0', ' ').Trim() + text6 + text25.Replace('\0', ' ').Trim() + text7 + array8[0] + text8 + array3[0] + text9 + array9[0] + text10 + text26.Replace('\0', ' ').Trim() + text11 + array[0] + text12 + array5[0] + text13 + array2[0] + text14 + array4[0] + text15 + array6[0] + text16 + array7[0] + text17 + b + b2 + b3 + text18 + b4 + b5 + b6 + b7;
+		string_0 = text25.Replace('\0', ' ').Trim();
+		CompileDate = text20.Replace('\0', ' ').Trim() + text19 + text22.Replace('\0', ' ').Trim();
+		return result;
+	}
+
+	public string GetPhoneVersionInfo(out string string_0, out string CompileDate, out string string_1)
+	{
+		string text = "Common version information:\r\n  compile date:";
+		string text2 = "\r\n  compile time:";
+		string text3 = "\r\n  release date:";
+		string text4 = "\r\n  release time:";
+		string text5 = "\r\n  version directory:";
+		string text6 = "\r\n  version directory V2:";
+		string text7 = "\r\n  MSM:\r\n  MSM V2:";
+		string text8 = "\r\n  Model:";
+		string text9 = "\r\n  Model V2:";
+		string text10 = "\r\n  Model Name V2:";
+		string text11 = "\r\n1X specific version information:\r\n  Station Class Mark:";
+		string text12 = "\r\n  Slot cycle:";
+		string text13 = "\r\nOther version information:\r\n  CAI rev:";
+		string text14 = "\r\n  Firmware Rev:";
+		string text15 = "\r\n  Vocoder Major Version:";
+		string text16 = "\r\n  Vocoder Minor Version:";
+		string text17 = "\r\n";
+		string text18 = " ";
+		string text19 = "";
+		byte[] array = new byte[11];
+		byte[] array2 = new byte[8];
+		byte[] array3 = new byte[11];
+		byte[] array4 = new byte[8];
+		byte[] array5 = new byte[8];
+		byte[] array6 = new byte[1];
+		byte[] array7 = new byte[1];
+		byte[] array8 = new byte[1];
+		ushort[] array9 = new ushort[1];
+		byte[] array10 = new byte[1];
+		byte[] array11 = new byte[1];
+		byte[] array12 = new byte[1];
+		uint[] array13 = new uint[1];
+		uint[] array14 = new uint[1];
+		byte[] array15 = new byte[512];
+		byte[] array16 = new byte[512];
+		QLIB_DIAG_VERNO_F(phoneHandle, array, array2, array3, array4, array5, array6, array7, array8, array9, array10, array11, array12);
+		QLIB_DIAG_EXT_BUILD_ID_F(phoneHandle, array13, array14, array15, array16);
+		string text20 = Encoding.ASCII.GetString(array);
+		string text21 = Encoding.ASCII.GetString(array3);
+		string text22 = Encoding.ASCII.GetString(array2);
+		string text23 = Encoding.ASCII.GetString(array4);
+		string text24 = Encoding.ASCII.GetString(array5);
+		string text25 = Encoding.ASCII.GetString(array15);
+		string text26 = Encoding.ASCII.GetString(array16);
+		string result = text + text20.Replace('\0', ' ').Trim() + text2 + text22.Replace('\0', ' ').Trim() + text3 + text21.Replace('\0', ' ').Trim() + text4 + text23.Replace('\0', ' ').Trim() + text5 + text24.Replace('\0', ' ').Trim() + text6 + text25.Replace('\0', ' ').Trim() + text7 + array13[0] + text8 + array8[0] + text9 + array14[0] + text10 + text26.Replace('\0', ' ').Trim() + text11 + array6[0] + text12 + array10[0] + text13 + array7[0] + text14 + array9[0] + text15 + array11[0] + text16 + array12[0] + text17;
+		string_0 = text25.Replace('\0', ' ').Trim();
+		CompileDate = text20.Replace('\0', ' ').Trim() + text18 + text22.Replace('\0', ' ').Trim();
+		string_1 = text19;
+		return result;
+	}
+
+	public void DIAG_EXT_BUILD_ID_F(out string string_0, out string string_1, out string Model)
+	{
+		uint[] array = new uint[1];
+		uint[] array2 = new uint[1];
+		byte[] array3 = new byte[512];
+		byte[] sModelStr = new byte[512];
+		QLIB_DIAG_EXT_BUILD_ID_F(phoneHandle, array, array2, array3, sModelStr);
+		string_0 = Encoding.ASCII.GetString(array3);
+		string_0 = string_0.Replace('\0', ' ').Trim();
+		string_1 = array[0].ToString();
+		Model = array2[0].ToString();
+	}
+
+	public bool IsFTM_Mode()
+	{
+		byte[] array = new byte[1];
+		QLIB_IsFTM_Mode(phoneHandle, array);
+		if (array[0] != 1)
+		{
+			return false;
+		}
+		return true;
+	}
+
+	public bool IsPhoneInFTMMode()
+	{
+		return IsFTM_Mode();
+	}
+
+	public void GetPhoneOperatingMode(ref ulong iPhoneMode)
+	{
+		string exceptionMessage = "QLIB_GetPhoneOperatingMode Failed";
+		uint piPhoneMode = 0u;
+		if (QLIB_GetPhoneOperatingMode(phoneHandle, ref piPhoneMode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		iPhoneMode = piPhoneMode;
+	}
+
+	public void ChangeFTMBootMode(bool PutInFTMMode, bool Reset)
+	{
+		ChangeFTM_BootMode(PutInFTMMode, Reset);
+	}
+
+	public void ChangeFTM_BootMode(bool PutInFTMMode, bool Reset)
+	{
+		string exceptionMessage = "Error changing the FTM Boot Mode";
+		byte ftmMode = 0;
+		byte reset = 0;
+		if (PutInFTMMode)
+		{
+			ftmMode = 1;
+			if (!Reset)
+			{
+				if (QLIB_ChangeFTM_BootMode(phoneHandle, ftmMode, reset) == 0)
+				{
+					throw new PhoneException(exceptionMessage);
+				}
+				return;
+			}
+			reset = 1;
+			if (QLIB_ChangeFTM_BootMode(phoneHandle, ftmMode, 1) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		else if (!Reset)
+		{
+			if (QLIB_ChangeFTM_BootMode(phoneHandle, ftmMode, reset) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		else
+		{
+			reset = 1;
+			if (QLIB_ChangeFTM_BootMode(phoneHandle, ftmMode, 1) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+	}
+
+	public void SetLibraryMode(LibraryModeEnum LibraryMode)
+	{
+		byte useQPST = Convert.ToByte((int)LibraryMode);
+		QMSLLibraryMode = LibraryMode;
+		QLIB_SetLibraryMode(useQPST);
+	}
+
+	public void SetTargetType(TargetType targetType)
+	{
+		byte targetType2 = Convert.ToByte((int)targetType);
+		QLIB_SetTargetType(targetType2);
+	}
+
+	public void ChangeFTM_ModeRuntime(bool PutInFTMMode)
+	{
+		string exceptionMessage = "Error changing the FTM Runtime Mode";
+		byte ftmMode = 0;
+		if (!PutInFTMMode)
+		{
+			if (QLIB_ChangeFTM_ModeRuntime(phoneHandle, ftmMode) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			return;
+		}
+		ftmMode = 1;
+		if (QLIB_ChangeFTM_ModeRuntime(phoneHandle, 1) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void DisconnectToServer()
+	{
+		int num = 0;
+		try
+		{
+			QLIB_DisconnectServer(phoneHandle);
+			initialized = false;
+			resourceList.Remove(resourceIDField);
+		}
+		catch (Exception)
+		{
+			initialized = (byte)num != 0;
+		}
+	}
+
+	public void ConnectToServer(int comPortNum, TargetType targetType)
+	{
+		QLIB_SetTargetType((byte)targetType);
+		connectToServerAutoDetect((uint)comPortNum, 60u);
+	}
+
+	public void ConnectToServer(int comPortNum, TargetType targetType, DiagType diagType)
+	{
+		QLIB_SetTargetType((byte)targetType);
+		QLIB_SetDiagType((byte)diagType);
+		connectToServerAutoDetect((uint)comPortNum, 60u);
+	}
+
+	public void ConnectToServer(int comPortNum)
+	{
+		try
+		{
+			connectToServerAutoDetect((uint)comPortNum, 60u);
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+	}
+
+	public void ConnectToServer(int comPortNum, uint timeOut)
+	{
+		try
+		{
+			connectToServerAutoDetect((uint)comPortNum, timeOut);
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+	}
+
+	public void ConnectToServer(int comPortNum, uint timeOut, TargetType targetType)
+	{
+		try
+		{
+			QLIB_SetTargetType((byte)targetType);
+			connectToServerAutoDetect((uint)comPortNum, timeOut);
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+	}
+
+	public void ConnectToServer(int comPortNum, uint timeOut, TargetType targetType, LibraryModeEnum libModeType)
+	{
+		try
+		{
+			QMSLLibraryMode = libModeType;
+			QLIB_SetTargetType((byte)targetType);
+			connectToServerAutoDetect((uint)comPortNum, timeOut);
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+	}
+
+	public void connectToServerAutoDetect(uint comPort, uint cOMPortAutoDetectTimeout)
+	{
+		string exceptionMessage = "Could not connect to the COMPORT";
+		string text = "COM";
+		ushort[] array = new ushort[1];
+		if (initialized && ((long)comPort >= 65535L || comPort == ComPortNum))
+		{
+			return;
+		}
+		phoneHandle = 0u;
+		QLIB_SetLibraryMode((byte)QMSLLibraryMode);
+		if ((long)comPort != 65535L)
+		{
+			phoneHandle = QLIB_ConnectServer(comPort);
+			if ((long)phoneHandle == 0L)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			QLIB_GetComPortNumber(phoneHandle, array);
+			comPortNumField = array[0];
+			initialized = true;
+			resourceIDField = text + comPortNumField;
+			if (!resourceList.ContainsKey(resourceIDField))
+			{
+				contextInfo value = new contextInfo
+				{
+					phoneHandle = phoneHandle,
+					hUserhandle = (IntPtr)0
+				};
+				resourceList.Add(resourceIDField, value);
+			}
+		}
+		else
+		{
+			phoneHandle = QLIB_ConnectServerWithWait(comPort, (uint)((ulong)cOMPortAutoDetectTimeout * 1000uL));
+			if ((long)phoneHandle == 0L)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			QLIB_GetComPortNumber(phoneHandle, array);
+			comPortNumField = array[0];
+			initialized = true;
+			resourceIDField = text + comPortNumField;
+			if (!resourceList.ContainsKey(resourceIDField))
+			{
+				contextInfo value = new contextInfo
+				{
+					phoneHandle = phoneHandle,
+					hUserhandle = (IntPtr)0
+				};
+				resourceList.Add(resourceIDField, value);
+			}
+		}
+	}
+
+	public void ConnectToServer_Sahara(uint comPort, ref ulong version, ref ulong serialno, ref ulong msmid, ref string pkhash, int mode, ulong timeout)
+	{
+		string text = "";
+		string exceptionMessage = "Could not connect to the COMPORT";
+		string text2 = "COM";
+		pkhash = text;
+		uint version2 = 0u;
+		uint serialno2 = 0u;
+		uint msmid2 = 0u;
+		uint num = (uint)timeout;
+		if (!initialized)
+		{
+			bool flag = true;
+			phoneHandle = 0u;
+			QLIB_SetLibraryMode((byte)QMSLLibraryMode);
+			pkhash = text;
+			StringBuilder stringBuilder = new StringBuilder(256);
+			phoneHandle = QLIB_QPHONEMS_ConnectServer_Sahara(comPort, ref version2, ref serialno2, ref msmid2, stringBuilder, 1, mode, num, qphoneDwonloadHandlerCallBack_delegate);
+			version = version2;
+			serialno = serialno2;
+			msmid = msmid2;
+			timeout = num;
+			if ((long)phoneHandle == 0L)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			pkhash = stringBuilder.ToString();
+			comPortNumField = comPort;
+			initialized = true;
+			resourceIDField = text2 + comPortNumField;
+			if (!resourceList.ContainsKey(resourceIDField))
+			{
+				contextInfo value = new contextInfo
+				{
+					phoneHandle = phoneHandle,
+					hUserhandle = (IntPtr)0
+				};
+				resourceList.Add(resourceIDField, value);
+			}
+		}
+		else if ((long)comPort < 65535L && comPort != ComPortNum)
+		{
+			phoneHandle = 0u;
+			QLIB_SetLibraryMode((byte)QMSLLibraryMode);
+			pkhash = text;
+			StringBuilder stringBuilder = new StringBuilder(256);
+			phoneHandle = QLIB_QPHONEMS_ConnectServer_Sahara(comPort, ref version2, ref serialno2, ref msmid2, stringBuilder, 1, mode, num, qphoneDwonloadHandlerCallBack_delegate);
+			version = version2;
+			serialno = serialno2;
+			msmid = msmid2;
+			timeout = num;
+			if ((long)phoneHandle == 0L)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			pkhash = stringBuilder.ToString();
+			comPortNumField = comPort;
+			initialized = true;
+			resourceIDField = text2 + comPortNumField;
+			if (!resourceList.ContainsKey(resourceIDField))
+			{
+				contextInfo value = new contextInfo
+				{
+					phoneHandle = phoneHandle,
+					hUserhandle = (IntPtr)0
+				};
+				resourceList.Add(resourceIDField, value);
+			}
+		}
+	}
+
+	public void ConnectToServer_Sahara(uint comPort, ref ulong version, int mode, ulong timeout)
+	{
+		string exceptionMessage = "Could not connect to the COMPORT";
+		string text = "COM";
+		if (!initialized || ((long)comPort < 65535L && comPort != ComPortNum))
+		{
+			uint serialno = 0u;
+			uint msmid = 0u;
+			uint version2 = 0u;
+			uint timeout2 = (uint)timeout;
+			phoneHandle = 0u;
+			QLIB_SetLibraryMode((byte)QMSLLibraryMode);
+			StringBuilder pkhash = new StringBuilder(256);
+			phoneHandle = QLIB_QPHONEMS_ConnectServer_Sahara(comPort, ref version2, ref serialno, ref msmid, pkhash, 0, mode, timeout2, qphoneDwonloadHandlerCallBack_delegate);
+			version = version2;
+			if ((long)phoneHandle == 0L)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			comPortNumField = comPort;
+			initialized = true;
+			resourceIDField = text + comPortNumField;
+			if (!resourceList.ContainsKey(resourceIDField))
+			{
+				contextInfo value = new contextInfo
+				{
+					phoneHandle = phoneHandle,
+					hUserhandle = (IntPtr)0
+				};
+				resourceList.Add(resourceIDField, value);
+			}
+		}
+	}
+
+	public void DisconnectServer_Sahara()
+	{
+		//Error decoding local variables: Signature type sequence must have at least one element.
+		initialized = false;
+		QLIB_DisconnectServer_Sahara(phoneHandle);
+		resourceList.Remove(resourceIDField);
+		if (hUserHandle != IntPtr.Zero)
+		{
+			CloseUserDefinedTransport(ResourceID);
+			FreeLibrary(hUserHandle);
+			hUserHandle = IntPtr.Zero;
+		}
+	}
+
+	public void ConnectToServer_FireHose(uint comPort)
+	{
+		string exceptionMessage = "Could not connect to the COMPORT";
+		string text = "COM";
+		phoneHandle = 0u;
+		if (!initialized || ((long)comPort < 65535L && comPort != ComPortNum))
+		{
+			if (eFireHoseLibSrc == FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+			{
+				phoneHandle = QEMMCLib_FireHoseOpenPort(comPort, swdownloadEMMCloghandlerCallBack_delegate);
+			}
+			else
+			{
+				QLIB_SetLibraryMode((byte)QMSLLibraryMode);
+				phoneHandle = QLIB_QPHONEMS_ConnectServer_FireHose(comPort, qphoneDwonloadHandlerCallBack_delegate);
+			}
+			if ((long)phoneHandle == 0L)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			comPortNumField = comPort;
+			initialized = true;
+			resourceIDField = text + comPortNumField;
+			if (!resourceList.ContainsKey(resourceIDField))
+			{
+				contextInfo value = new contextInfo
+				{
+					phoneHandle = phoneHandle,
+					hUserhandle = (IntPtr)0
+				};
+				resourceList.Add(resourceIDField, value);
+			}
+		}
+	}
+
+	public void ConnectToServerSimple_FireHose()
+	{
+		string exceptionMessage = "Could not connect to the FireHose Server";
+		string text = "COM";
+		phoneHandle = 0u;
+		if (initialized)
+		{
+			return;
+		}
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_SetLibraryMode((byte)QMSLLibraryMode);
+			phoneHandle = QLIB_QPHONEMS_ConnectServerSimple_FireHose(qphoneDwonloadHandlerCallBack_delegate);
+			if ((long)phoneHandle == 0L)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			comPortNumField = 0u;
+			initialized = true;
+			resourceIDField = text + comPortNumField;
+			if (!resourceList.ContainsKey(resourceIDField))
+			{
+				contextInfo value = new contextInfo
+				{
+					phoneHandle = phoneHandle,
+					hUserhandle = (IntPtr)0
+				};
+				resourceList.Add(resourceIDField, value);
+			}
+		}
+		else
+		{
+			if ((long)phoneHandle == 0L)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			comPortNumField = 0u;
+			initialized = true;
+			resourceIDField = text + comPortNumField;
+			if (!resourceList.ContainsKey(resourceIDField))
+			{
+				contextInfo value = new contextInfo
+				{
+					phoneHandle = phoneHandle,
+					hUserhandle = (IntPtr)0
+				};
+				resourceList.Add(resourceIDField, value);
+			}
+		}
+	}
+
+	public void DisconnectServer_FireHose()
+	{
+		//Error decoding local variables: Signature type sequence must have at least one element.
+		initialized = false;
+		if (eFireHoseLibSrc == FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QEMMCLib_FireHoseClosePort(swdownloadEMMCloghandlerCallBack_delegate);
+			resourceList.Remove(resourceIDField);
+			return;
+		}
+		QLIB_DisconnectServer_FireHose(phoneHandle);
+		resourceList.Remove(resourceIDField);
+		if (hUserHandle != IntPtr.Zero)
+		{
+			CloseUserDefinedTransport(ResourceID);
+			FreeLibrary(hUserHandle);
+			hUserHandle = IntPtr.Zero;
+		}
+	}
+
+	public uint GetPhoneComPort()
+	{
+		return comPortNumField;
+	}
+
+	public void GetAvailablePhonesPortList(ref ushort NumPorts, out ushort[] PortList, ushort NumIgnorePorts, ushort[] IgnorePortList)
+	{
+		string exceptionMessage = "Error GetAvailablePhonesPortList";
+		string text = "Exception in GetAvailablePhonesPortList.  Exception = ";
+		PortList = new ushort[NumPorts];
+		byte b = 0;
+		try
+		{
+			b = QLIB_GetAvailablePhonesPortList(ref NumPorts, PortList, NumIgnorePorts, IgnorePortList);
+			if (b != 1)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text + ex.Message);
+		}
+	}
+
+	public uint LoadUserDefinedTransportLibraryAndConnectDUT(string resourceId, string userDefinedDll)
+	{
+		string procedureName = "OpenUserDefinedTransport";
+		string procedureName2 = "UserDefinedSend";
+		string procedureName3 = "UserDefinedReceive";
+		string procedureName4 = "UserDefinedFlushTxRx";
+		string procedureName5 = "CloseUserDefinedTransport";
+		string exceptionMessage = "OpenUserDefinedTransport command failed; handle = 0";
+		string text = "OpenUserDefinedTransport command failed; Return value: ";
+		string text2 = "OpenUserDefinedTransport command failed; could activate existing resourceID: ";
+		string text3 = "Error: Loaded User Defined Transport dll does not contain right function calls: ";
+		hUserHandle = LoadLibrary(userDefinedDll);
+		IntPtr procAddress = GetProcAddress(hUserHandle, procedureName);
+		IntPtr procAddress2 = GetProcAddress(hUserHandle, procedureName2);
+		IntPtr procAddress3 = GetProcAddress(hUserHandle, procedureName3);
+		IntPtr procAddress4 = GetProcAddress(hUserHandle, procedureName4);
+		IntPtr procAddress5 = GetProcAddress(hUserHandle, procedureName5);
+		if (procAddress == IntPtr.Zero || procAddress3 == IntPtr.Zero || procAddress2 == IntPtr.Zero || procAddress4 == IntPtr.Zero || procAddress5 == IntPtr.Zero)
+		{
+			FreeLibrary(hUserHandle);
+			hUserHandle = IntPtr.Zero;
+			throw new PhoneException(text3 + userDefinedDll);
+		}
+		resourceIDField = resourceId;
+		if (resourceList.ContainsKey(resourceIDField))
+		{
+			if (!activateResource(resourceIDField))
+			{
+				throw new PhoneException(text2 + resourceIDField);
+			}
+			IsPhoneConnected();
+			return phoneHandle;
+		}
+		int target = 0;
+		if (CSharpImpl.__Assign(ref target, OpenUserDefinedTransport(resourceId)) == 0)
+		{
+			phoneHandle = QLIB_ConnectServer_UserDefinedTransport((IntPtr)(1024 + resourceList.Count), procAddress2, procAddress3, procAddress4, '\u0001', '\u0001');
+			if ((ulong)phoneHandle > 0uL)
+			{
+				contextInfo value = new contextInfo
+				{
+					phoneHandle = phoneHandle,
+					hUserhandle = hUserHandle
+				};
+				resourceList.Add(resourceIDField, value);
+				IsPhoneConnected();
+				return phoneHandle;
+			}
+			throw new PhoneException(exceptionMessage);
+		}
+		throw new PhoneException(text + target);
+	}
+
+	private int OpenUserDefinedTransport(string resourceId)
+	{
+		string procedureName = "OpenUserDefinedTransport";
+		IntPtr procAddress = GetProcAddress(hUserHandle, procedureName);
+		OpenUserDefinedDelegate openUserDefinedDelegate = (OpenUserDefinedDelegate)Marshal.GetDelegateForFunctionPointer(procAddress, typeof(OpenUserDefinedDelegate));
+		return openUserDefinedDelegate(resourceId);
+	}
+
+	private void CloseUserDefinedTransport(string resourceId)
+	{
+		string procedureName = "CloseUserDefinedTransport";
+		IntPtr procAddress = GetProcAddress(hUserHandle, procedureName);
+		CloseUserDefinedDelegate closeUserDefinedDelegate = (CloseUserDefinedDelegate)Marshal.GetDelegateForFunctionPointer(procAddress, typeof(CloseUserDefinedDelegate));
+		closeUserDefinedDelegate(resourceId);
+	}
+
+	public bool IsPhoneConnected()
+	{
+		byte b = 0;
+		b = QLIB_IsPhoneConnected(phoneHandle);
+		if (b != 1)
+		{
+			return false;
+		}
+		return true;
+	}
+
+	public void SendSync(short requestSize, byte[] reqBuffer, ref short resSize, byte[] respBuff)
+	{
+		string exceptionMessage = "SendSync: QMSL Error occurred";
+		if (resSize != 0)
+		{
+			if (QLIB_SendSync(phoneHandle, requestSize, reqBuffer, ref resSize, respBuff, 20000u) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			return;
+		}
+		resSize = 2048;
+		if (QLIB_SendSync(phoneHandle, requestSize, reqBuffer, ref resSize, respBuff, 20000u) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void QPHONEMS_DLoad_Reset(uint timeoutSeconds)
+	{
+		string text = "Failed to reboot the phone ";
+		byte b = 0;
+		b = QLIB_QPHONEMS_DLoad_Reset(phoneHandle, timeoutSeconds);
+		if (b != 1)
+		{
+			throw new Exception(text + b);
+		}
+	}
+
+	public void QPHONEMS_DLoadVersionReq(uint timeoutSeconds)
+	{
+		string text = "Failed to get the phone version ";
+		byte b = 0;
+		b = QLIB_QPHONEMS_DLoadVersionReq(phoneHandle, timeoutSeconds);
+		if (b != 1)
+		{
+			throw new Exception(text + b);
+		}
+	}
+
+	public void ModeControl(mode_enum_type mode, int resetdelay)
+	{
+		string text = "Error in QTA.Phone.ModeControl :Error in setting phone mode to ";
+		if (QLIB_DIAG_CONTROL_F(phoneHandle, (int)mode) == 0)
+		{
+			throw new PhoneException(text + mode);
+		}
+		Thread.Sleep(resetdelay);
+	}
+
+	public void DIAG_CONTROL_F(mode_enum_type mode, int resetdelay)
+	{
+		string text = "Error in QTA.Phone.ModeControl :Error in setting phone mode to ";
+		if (QLIB_DIAG_CONTROL_F(phoneHandle, (int)mode) == 0)
+		{
+			throw new PhoneException(text + mode);
+		}
+		Thread.Sleep(resetdelay);
+	}
+
+	public void ResetPhone(int resetdelay)
+	{
+		ModeControl(mode_enum_type.MODE_OFFLINE_D_F, 2000);
+		ModeControl((mode_enum_type)2, resetdelay);
+	}
+
+	public void SetTxState(bool onOff)
+	{
+		string exceptionMessage = "Could not turn ON the TX";
+		string exceptionMessage2 = "Could not turn OFF the TX";
+		if (!onOff)
+		{
+			if (QLIB_FTM_SET_TX_OFF(phoneHandle) == 0)
+			{
+				throw new PhoneException(exceptionMessage2);
+			}
+		}
+		else if (QLIB_FTM_SET_TX_ON(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void SetTxON(bool on_off)
+	{
+		string exceptionMessage = "Could not turn ON the TX";
+		string exceptionMessage2 = "Could not turn OFF the TX";
+		if (on_off)
+		{
+			if (QLIB_FTM_SET_TX_ON(phoneHandle) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		else if (QLIB_FTM_SET_TX_OFF(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage2);
+		}
+	}
+
+	public void FTM_SET_TX_ON()
+	{
+		string exceptionMessage = "Could not turn ON the TX";
+		if (QLIB_FTM_SET_TX_ON(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_SET_TX_OFF()
+	{
+		string exceptionMessage = "Could not turn offthe TX";
+		if (QLIB_FTM_SET_TX_OFF(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_SET_PA_STATE(byte iPA_State, ref ushort iFTM_Error_Code)
+	{
+		string exceptionMessage = "QLIB_FTM_SET_PA_STATE throws exception";
+		if (QLIB_FTM_SET_PA_STATE(phoneHandle, iPA_State, ref iFTM_Error_Code) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_SET_PDM(ushort iPDMtype, ushort ushort_0)
+	{
+		string exceptionMessage = "QLIB_FTM_SET_PDM throws exception";
+		if (QLIB_FTM_SET_PDM(phoneHandle, iPDMtype, ushort_0) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_SET_CHAN(ushort iChannel)
+	{
+		string exceptionMessage = "QLIB_FTM_SET_CHAN throws exception";
+		if (QLIB_FTM_SET_CHAN(phoneHandle, iChannel) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void SetRx1On(bool rx1On)
+	{
+		string exceptionMessage = "Could not turn set Rx1 On";
+		if (!rx1On)
+		{
+			currentModeID = (FTM_Mode_Id_Enum)0;
+			if (QLIB_FTM_SET_MODE_ID(phoneHandle, (short)currentModeID) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		else
+		{
+			currentModeID = FTM_Mode_Id_Enum.FTM_MODE_ID_CDMA_1X_RX1;
+			if (QLIB_FTM_SET_MODE_ID(phoneHandle, (short)currentModeID) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+	}
+
+	public void FTM_SET_SECONDARY_CHAIN(FTM_SecondaryChainMode newMode)
+	{
+		string exceptionMessage = "Error setting secondary chain mode";
+		if (QLIB_FTM_SET_SECONDARY_CHAIN(phoneHandle, (ushort)newMode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_SET_MODE(FTM_RF_Mode_Enum mode)
+	{
+		string exceptionMessage = "Error setting RF Mode in the phone";
+		if (QLIB_FTM_SET_MODE(phoneHandle, (short)mode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_SET_MODE(CDMA_Bands cdmaBand)
+	{
+		string exceptionMessage = "Error setting RF Mode in the phone";
+		if (QLIB_FTM_SET_MODE(phoneHandle, (short)cdmaBand) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_SET_MODE(WCDMA_Bands wcdmaBand)
+	{
+		string exceptionMessage = "Error setting RF Mode in the phone";
+		if (QLIB_FTM_SET_MODE(phoneHandle, (short)wcdmaBand) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_SET_MODE(GSM_Bands gsmBand)
+	{
+		string exceptionMessage = "Error setting RF Mode in the phone";
+		if (QLIB_FTM_SET_MODE(phoneHandle, (short)gsmBand) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void SetSecondaryChainMode(FTM_SecondaryChainMode newMode)
+	{
+		string exceptionMessage = "Error setting secondary chain mode";
+		if (QLIB_FTM_SET_SECONDARY_CHAIN(phoneHandle, (ushort)newMode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void SetMode(FTM_RF_Mode_Enum mode)
+	{
+		string exceptionMessage = "Error setting RF Mode in the phone";
+		if (QLIB_FTM_SET_MODE(phoneHandle, (short)mode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_GET_CTON(long[] cToN)
+	{
+		string exceptionMessage = "Error getting GPS CN from the phone";
+		if (QLIB_FTM_GET_CTON(phoneHandle, cToN) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void Get_GPS_CN(long[] cToN)
+	{
+		string exceptionMessage = "Error getting GPS CN from the phone";
+		if (QLIB_FTM_GET_CTON(phoneHandle, cToN) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void Set_CHAN(ushort iChannel)
+	{
+		string exceptionMessage = "Error setting CH to the phone";
+		if (QLIB_FTM_SET_CHAN(phoneHandle, iChannel) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_LTE_SET_TX_CARRIER_INDEX()
+	{
+		byte b = 0;
+		QLIB_FTM_LTE_SET_TX_CARRIER_INDEX(phoneHandle, ref b);
+	}
+
+	public void FTM_RF_MODE_EXIT()
+	{
+		ushort num = 0;
+		QLIB_FTM_RF_MODE_EXIT(phoneHandle, ref num);
+	}
+
+	public bool FTM_StateConfirm()
+	{
+		ulong num = 0uL;
+		if (!IsFTM_Mode())
+		{
+			if ((decimal)num != 1m)
+			{
+				if (QLIB_DIAG_CONTROL_F(phoneHandle, 3) != 0)
+				{
+					return false;
+				}
+				return true;
+			}
+			return false;
+		}
+		return false;
+	}
+
+	public void SendSPC(byte[] spcBytes)
+	{
+		string text = "Failed to set SPC.  Error Code = ";
+		ushort piSPC_Result = 4;
+		byte b = 0;
+		b = QLIB_DIAG_SPC_F(phoneHandle, spcBytes, ref piSPC_Result);
+		if (b != 1)
+		{
+			throw new PhoneException(text + piSPC_Result);
+		}
+	}
+
+	public void StartLogging(string logFileName)
+	{
+		string exceptionMessage = "Error starting QLIB Text Logging";
+		if (QLIB_StartLogging(phoneHandle, logFileName) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void StopLogging()
+	{
+		string exceptionMessage = "Error stopping QLIB Text Logging";
+		if (QLIB_StopLogging(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void ConfigureLibraryTextLogCallBack(QMSLTextLogCB pAsyncMessageCB)
+	{
+		qmslTextLogCBField = pAsyncMessageCB;
+		AsyncMessageCBField = MyAsyncMessageCB;
+		QLIB_ConfigureLibraryTextLogCallBack(phoneHandle, AsyncMessageCBField);
+	}
+
+	public void MyAsyncMessageCB(ushort iMessageSize, IntPtr iMessageBuffer, uint contextID)
+	{
+		object obj = null;
+		byte[] array = new byte[512];
+		Marshal.Copy(iMessageBuffer, array, 0, 512);
+		ushort num = 0;
+		for (ushort num2 = 8; num2 < 512; num2++)
+		{
+			if (array[num2] == 0)
+			{
+				num = num2;
+				break;
+			}
+		}
+		string message = Encoding.ASCII.GetString(array, 8, num - 8);
+		uint num3 = 0u;
+		num3 = array[1];
+		num3 <<= 8;
+		num3 += array[0];
+		uint num4 = 0u;
+		num4 = array[7];
+		num4 <<= 8;
+		num4 += array[6];
+		num4 <<= 8;
+		num4 += array[5];
+		num4 <<= 8;
+		num4 += array[4];
+		if (qmslTextLogCBField !=null)
+		{
+			qmslTextLogCBField(num4, (ushort)num3, message);
+		}
+	}
+
+	public void SetLogFlags()
+	{
+		string exceptionMessage = "Error setting QLIB Log Flags";
+		if (QLIB_SetLogFlags(phoneHandle, 16927u) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void StartDLF_Logging(string logFileName)
+	{
+		string exceptionMessage = "Error starting DLF Logging";
+		if (QLIB_StartDLF_Logging(phoneHandle, logFileName, 1) != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void StopDLF_Logging()
+	{
+		string exceptionMessage = "Error stopping DLF Logging";
+		if (QLIB_StopDLF_Logging(phoneHandle) != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void StartAsyncCapture(int iSSID, int iRT_MASK)
+	{
+		string exceptionMessage = "Error setting message filter";
+		string exceptionMessage2 = "Error setting phone logging state";
+		if (QLIB_DIAG_SetMessageFilter(phoneHandle, (ushort)iSSID, (uint)iRT_MASK) != 0)
+		{
+			if (QLIB_DIAG_SetPhoneLoggingState(phoneHandle, enableLogging: true) == 0)
+			{
+				throw new PhoneException(exceptionMessage2);
+			}
+			return;
+		}
+		throw new PhoneException(exceptionMessage);
+	}
+
+	public void DisconnectServer()
+	{
+		//Error decoding local variables: Signature type sequence must have at least one element.
+		initialized = false;
+		QLIB_DisconnectServer(phoneHandle);
+		resourceList.Remove(resourceIDField);
+		if (hUserHandle != IntPtr.Zero)
+		{
+			CloseUserDefinedTransport(ResourceID);
+			FreeLibrary(hUserHandle);
+			hUserHandle = IntPtr.Zero;
+		}
+	}
+
+	public void DisconnectAllServers()
+	{
+		initialized = false;
+		QLIB_DisconnectAllServers();
+		foreach (KeyValuePair<string, contextInfo> resource in resourceList)
+		{
+			if (resource.Value.hUserhandle != IntPtr.Zero)
+			{
+				CloseUserDefinedTransport(resource.Key);
+				FreeLibrary(resource.Value.hUserhandle);
+			}
+		}
+		hUserHandle = IntPtr.Zero;
+		resourceList.Clear();
+	}
+
+	public void FTM_SECOND_CHAIN_TEST_CALL(TestCallMode mode)
+	{
+		string exceptionMessage = "Fail to set test call mode.";
+		if (QLIB_FTM_SECOND_CHAIN_TEST_CALL(phoneHandle, (ushort)mode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_SET_MODE_ID(FTM_Mode_Id_Enum modeID)
+	{
+		string text = "Fail to set mode ID:";
+		if (QLIB_FTM_SET_MODE_ID(phoneHandle, (short)modeID) == 0)
+		{
+			throw new PhoneException(text + modeID);
+		}
+		currentModeID = modeID;
+	}
+
+	public void FTM_LTE_SET_HD_FDD(byte bEnable_HD_FDD)
+	{
+		string exceptionMessage = "set HD FDD fail!";
+		byte piStatus = 0;
+		if (QLIB_FTM_LTE_SET_HD_FDD(phoneHandle, bEnable_HD_FDD, ref piStatus) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_SET_CAL_MODE(ushort iCalState)
+	{
+		string exceptionMessage = "Fail to set to cal mode";
+		if (QLIB_FTM_SET_CALIBRATION_STATE(phoneHandle, iCalState) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_GET_UNIFIED_ENH_THERM_V2(byte iTechFamily, byte iBand, byte iSubBand, byte iSigPath, byte iRfmDevice, ref short iThermValue, ref short iThermValueDegC)
+	{
+		string exceptionMessage = "FTM_GET_UNIFIED_ENH_THERM_V2 failure";
+		if (QLIB_FTM_GET_UNIFIED_ENH_THERM_V2(phoneHandle, iTechFamily, iBand, iSubBand, iSigPath, iRfmDevice, ref iThermValue, ref iThermValueDegC) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public bool Check_SIM_Card(out ushort numSlots, out ushort slot1Inserted, out ushort ushort_0, out ushort slot2Inserted, out ushort ushort_1)
+	{
+		byte b = 0;
+		ushort numSlots2 = 0;
+		ushort slot1Inserted2 = 0;
+		ushort ushort_2 = 0;
+		ushort slot2Inserted2 = 0;
+		ushort ushort_3 = 0;
+		b = QLIB_GSDIDIAG_GET_AVAILABLE_APPS(phoneHandle, ref numSlots2, ref slot1Inserted2, ref ushort_2, ref slot2Inserted2, ref ushort_3);
+		numSlots = numSlots2;
+		slot1Inserted = slot1Inserted2;
+		slot2Inserted = slot2Inserted2;
+		ushort_0 = ushort_2;
+		ushort_1 = ushort_3;
+		if (b != 1)
+		{
+			return false;
+		}
+		return true;
+	}
+
+	private byte[] GetRadioConfigReqByteArray(FTM_RF_Debug_Property_Struct req_struct)
+	{
+		List<byte> list = new List<byte>();
+		byte[] bytes = BitConverter.GetBytes(req_struct.num_properties);
+		list.AddRange(bytes);
+		int i = 0;
+		for (int num = (int)((long)req_struct.num_properties - 1L); i <= num; i++)
+		{
+			bytes = BitConverter.GetBytes(req_struct.properties[i].type);
+			list.AddRange(bytes);
+			bytes = BitConverter.GetBytes(req_struct.properties[i].value);
+			list.AddRange(bytes);
+		}
+		int count = list.Count;
+		byte[] array = new byte[count];
+		int j = 0;
+		for (int num2 = count - 1; j <= num2; j++)
+		{
+			array[j] = list[j];
+		}
+		return array;
+	}
+
+	private void GenRadioConfigRspStruct(ref FTM_RF_Debug_Property_Struct rspStruct, byte[] rspArray)
+	{
+		object properties = null;
+		int num = 0;
+		rspStruct.num_properties = BitConverter.ToUInt32(rspArray, 0);
+		num = 4;
+		if ((ulong)rspStruct.num_properties <= 0uL)
+		{
+			rspStruct.properties = (FTM_RF_Debug_Property_Date_Type[])properties;
+			return;
+		}
+		rspStruct.properties = new FTM_RF_Debug_Property_Date_Type[(int)((long)rspStruct.num_properties - 1L + 1L)];
+		int i = 0;
+		for (int num2 = (int)((long)rspStruct.num_properties - 1L); i <= num2; i++)
+		{
+			rspStruct.properties[i].type = BitConverter.ToUInt32(rspArray, num);
+			num += 4;
+			rspStruct.properties[i].value = BitConverter.ToInt64(rspArray, num);
+			num += 8;
+		}
+	}
+
+	public void FTM_RF_TEST_CMD_RADIO_CONFIGURE(uint subscriber, uint technology, ref FTM_RF_Debug_Property_Struct request_struct, ref FTM_RF_Debug_Property_Struct response_struct, ref uint error_code, ref uint specific_err_code)
+	{
+		string exceptionMessage = "QLIB_FTM_RF_TEST_CMD_RADIO_CONFIGURE failure";
+		byte[] radioConfigReqByteArray = GetRadioConfigReqByteArray(request_struct);
+		byte[] array = new byte[3076];
+		if (QLIB_FTM_RF_TEST_CMD_RADIO_CONFIGURE(phoneHandle, subscriber, technology, radioConfigReqByteArray, array, ref error_code, ref specific_err_code) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		GenRadioConfigRspStruct(ref response_struct, array);
+	}
+
+	public void FTM_RF_DEBUG_CMD_RADIO_CONFIGURE(uint technology, ref FTM_RF_Debug_Property_Struct req_struct, ref FTM_RF_Debug_Property_Struct rsp_struct, ref uint error_code, ref uint specific_err_code)
+	{
+		string exceptionMessage = "QLIB_FTM_RF_Debug_CMD_RADIO_CONFIGURE failure";
+		byte[] radioConfigReqByteArray = GetRadioConfigReqByteArray(req_struct);
+		byte[] array = new byte[3076];
+		if (QLIB_FTM_RF_DEBUG_CMD_RADIO_CONFIGURE(phoneHandle, technology, radioConfigReqByteArray, array, ref error_code, ref specific_err_code) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		GenRadioConfigRspStruct(ref rsp_struct, array);
+	}
+
+	public void FTM_RF_DEBUG_CMD_TX_OVERRIDE(uint technology, ref FTM_RF_Debug_Property_Struct req_struct, ref FTM_RF_Debug_Property_Struct rsp_struct, ref uint error_code, ref uint specific_err_code)
+	{
+		string exceptionMessage = "QLIB_FTM_RF_Debug_CMD_TX_OVERRIDE failure";
+		byte[] radioConfigReqByteArray = GetRadioConfigReqByteArray(req_struct);
+		byte[] array = new byte[3076];
+		if (QLIB_FTM_RF_DEBUG_CMD_TX_OVERRIDE(phoneHandle, technology, radioConfigReqByteArray, array, ref error_code, ref specific_err_code) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		GenRadioConfigRspStruct(ref rsp_struct, array);
+	}
+
+	public void FTM_RF_DEBUG_CMD_RX_OVERRIDE(uint technology, ref FTM_RF_Debug_Property_Struct req_struct, ref FTM_RF_Debug_Property_Struct rsp_struct, ref uint error_code, ref uint specific_err_code)
+	{
+		string exceptionMessage = "QLIB_FTM_RF_Debug_CMD_RX_OVERRIDE failure";
+		byte[] radioConfigReqByteArray = GetRadioConfigReqByteArray(req_struct);
+		byte[] array = new byte[3076];
+		if (QLIB_FTM_RF_DEBUG_CMD_RX_OVERRIDE(phoneHandle, technology, radioConfigReqByteArray, array, ref error_code, ref specific_err_code) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		GenRadioConfigRspStruct(ref rsp_struct, array);
+	}
+
+	public void FTM_RF_DEBUG_CMD_TX_MEASURE(uint technology, ref FTM_RF_Debug_Property_Struct req_struct, ref FTM_RF_Debug_Property_Struct rsp_struct, ref uint error_code, ref uint specific_err_code)
+	{
+		string exceptionMessage = "QLIB_FTM_RF_Debug_CMD_TX_MEASURE failure";
+		byte[] radioConfigReqByteArray = GetRadioConfigReqByteArray(req_struct);
+		byte[] array = new byte[3076];
+		if (QLIB_FTM_RF_DEBUG_CMD_TX_MEASURE(phoneHandle, technology, radioConfigReqByteArray, array, ref error_code, ref specific_err_code) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		GenRadioConfigRspStruct(ref rsp_struct, array);
+	}
+
+	public void Dispose()
+	{
+		Dispose(disposing: true);
+		GC.SuppressFinalize(this);
+	}
+
+	protected void Dispose(bool disposing)
+	{
+		DisconnectAllServers();
+	}
+
+	~Phone()
+	{
+		Dispose(disposing: false);
+	}
+
+	public void WriteErrorCode(string wErrCode)
+	{
+		string exceptionMessage = "Error writing NV item Error Code to the phone";
+		byte[] array = new byte[128];
+		array = Encoding.Default.GetBytes(wErrCode);
+		try
+		{
+			NVWrite(nv_items_enum_type.NV_FACTORY_DATA_4_I, array, 128);
+		}
+		catch (Exception)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void ReadErrorCode(out string rErrCode)
+	{
+		string exceptionMessage = "Error reading Error Code from the phone";
+		byte[] array = new byte[128];
+		try
+		{
+			NVRead(nv_items_enum_type.NV_FACTORY_DATA_4_I, array, 128);
+		}
+		catch (Exception)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		rErrCode = Encoding.Default.GetString(array);
+	}
+
+	public bool getF3Message(out F3Message msg, ushort msgSubSysCode, int timeout)
+	{
+		object obj = null;
+		while (true)
+		{
+			msg = (F3Message)asyncMsgQueue_0.getAsyncMessage(msgSubSysCode);
+			if (msg !=null)
+			{
+				return true;
+			}
+			if (timeout < 0)
+			{
+				break;
+			}
+			if (timeout > 100)
+			{
+				Thread.Sleep(100);
+				timeout -= 100;
+			}
+			else
+			{
+				Thread.Sleep(timeout);
+				timeout = -1;
+			}
+		}
+		msg = (F3Message)obj;
+		return false;
+	}
+
+	public void configF3Messaging(ushort msgSubSysCode, bool OnOff)
+	{
+		configF3Messaging(msgSubSysCode, OnOff, 10, ushort.MaxValue);
+	}
+
+	public void configF3Messaging(ushort msgSubSysCode, bool OnOff, int queueSizeMax, ushort ssmask)
+	{
+		object obj = null;
+		if (!OnOff)
+		{
+			logFlags.F3Msgs = false;
+			if (logFlags.flags())
+			{
+				configF3MsgSubSys(msgSubSysCode, 0u);
+				asyncMsgQueue_0.RemoveQueue(msgSubSysCode);
+			}
+			else
+			{
+				QLIB_ConfigureCallBacks(phoneHandle, 0u, (GeneralSWDownloadHandlerCallBackType)obj, (asyncHandlerCallBack)obj);
+				configF3MsgSubSys(msgSubSysCode, 0u);
+				asyncMsgQueue_0.RemoveQueue(msgSubSysCode);
+			}
+			return;
+		}
+		asyncMsgQueue_0.registerAsyncMsgID(msgSubSysCode, queueSizeMax);
+		if (!logFlags.flags())
+		{
+			QLIB_ConfigureCallBacks(phoneHandle, 0u, (GeneralSWDownloadHandlerCallBackType)obj, asyncHandlerCB);
+			logFlags.F3Msgs = true;
+			uint f3MsgSubSysRunTimeMask = getF3MsgSubSysRunTimeMask(msgSubSysCode);
+			configF3MsgSubSys(msgSubSysCode, f3MsgSubSysRunTimeMask & ssmask);
+		}
+		else
+		{
+			logFlags.F3Msgs = true;
+			uint f3MsgSubSysRunTimeMask = getF3MsgSubSysRunTimeMask(msgSubSysCode);
+			configF3MsgSubSys(msgSubSysCode, f3MsgSubSysRunTimeMask & ssmask);
+		}
+	}
+
+	public void flushF3MsgQueue(ushort msgSubSysID)
+	{
+		asyncMsgQueue_0.flushLogQueue(msgSubSysID);
+	}
+
+	private void configF3MsgSubSys(ushort msgSubSysID, uint runtimeMask)
+	{
+		byte[] array = new byte[12];
+		array[0] = 125;
+		array[1] = 4;
+		array[2] = (byte)(msgSubSysID & 0xFF);
+		array[3] = (byte)(msgSubSysID >> 8);
+		array[7] = 0;
+		array[6] = 0;
+		array[8] = (byte)(runtimeMask & 0xFF);
+		array[9] = (byte)((runtimeMask >> 8) & 0xFF);
+		array[10] = (byte)((runtimeMask >> 16) & 0xFF);
+		array[11] = (byte)((runtimeMask >> 24) & 0xFF);
+		short resSize = 128;
+		byte[] respBuff = new byte[128];
+		SendSync((short)array.Length, array, ref resSize, respBuff);
+	}
+
+	private uint getF3MsgSubSysRunTimeMask(ushort msgSubSysID)
+	{
+		byte[] array = new byte[6]
+		{
+			125,
+			2,
+			(byte)(msgSubSysID & 0xFF),
+			(byte)(msgSubSysID >> 8),
+			0,
+			0
+		};
+		short resSize = 128;
+		byte[] array2 = new byte[128];
+		SendSync((short)array.Length, array, ref resSize, array2);
+		if (resSize >= 12)
+		{
+			return (uint)((array2[11] << 24) | (array2[10] << 16) | (array2[9] << 8) | array2[8]);
+		}
+		uint num = 0u;
+		return 0u;
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern void QLIB_ConfigureCallBacks(uint handle, uint nullVal1, GeneralSWDownloadHandlerCallBackType generalSWDownloadHandlerCB, asyncHandlerCallBack cb);
+
+	private void asyncCB(ushort msgSize, IntPtr msgPtr, uint contextID)
+	{
+		byte[] array = new byte[msgSize];
+		Marshal.Copy(msgPtr, array, 0, msgSize);
+		asyncHandler(array);
+	}
+
+	public void asyncHandler(byte[] message)
+	{
+		switch (message[0])
+		{
+		case 121:
+		{
+			ushort num2 = (ushort)((message[15] << 8) + message[14]);
+			if (asyncMsgQueue_0.isMsgIDRegistered(num2))
+			{
+				asyncMsgQueue_0.queueAsyncMessage(new F3Message(num2, message));
+			}
+			break;
+		}
+		case 96:
+		{
+			List<EventMessage> list = parseEventMsgs(message);
+			{
+				foreach (EventMessage item in list)
+				{
+					if (eventMsgQueue.isMsgIDRegistered(item.msgID))
+					{
+						eventMsgQueue.queueAsyncMessage(item);
+					}
+				}
+				break;
+			}
+		}
+		case 16:
+		{
+			ushort num = (ushort)((message[7] << 8) + message[6]);
+			if (logQueue.isMsgIDRegistered(num))
+			{
+				logQueue.queueAsyncMessage(new LogMessage(num, message));
+			}
+			break;
+		}
+		}
+	}
+
+	public bool getLogMessage(out LogMessage msg, ushort logCode, int timeout)
+	{
+		object obj = null;
+		msg = (LogMessage)logQueue.getAsyncMessage(logCode);
+		bool flag = msg !=null;
+		int num = 1411394653;
+		int num2;
+		while (true)
+		{
+			_ = num ^ 0x2E8080B0;
+			if (!flag)
+			{
+				if (timeout >= 0)
+				{
+					if (timeout > 100)
+					{
+						Thread.Sleep(100);
+						timeout -= 100;
+						num2 = 923748246;
+						break;
+					}
+					Thread.Sleep(timeout);
+					timeout = -1;
+					msg = (LogMessage)logQueue.getAsyncMessage(logCode);
+					flag = msg !=null;
+					num = 1411394653;
+					continue;
+				}
+				msg = new LogMessage(0, new byte[1]);
+				return false;
+			}
+			return true;
+		}
+		while (true)
+		{
+			_ = num2 ^ 0x2E8080B0;
+			while (true)
+			{
+				msg = (LogMessage)logQueue.getAsyncMessage(logCode);
+				if (!(flag = msg !=null))
+				{
+					if (timeout >= 0)
+					{
+						if (timeout > 100)
+						{
+							break;
+						}
+						Thread.Sleep(timeout);
+						timeout = -1;
+						continue;
+					}
+					msg = new LogMessage(0, new byte[1]);
+					return false;
+				}
+				return true;
+			}
+			Thread.Sleep(100);
+			timeout -= 100;
+			num2 = 923748246;
+		}
+	}
+
+	public int getLogMessageCount()
+	{
+		return logQueue.getMessageCount();
+	}
+
+	public int getLogMessageCount(ushort logCode)
+	{
+		return logQueue.getMessageCount(logCode);
+	}
+
+	public void flushLogQueue(ushort logCode)
+	{
+		logQueue.flushLogQueue(logCode);
+	}
+
+	public void configLogging(ushort logCode, bool OnOff)
+	{
+		configLogging(logCode, OnOff, 10);
+	}
+
+	public void configLogging(ushort logCode, bool OnOff, int queueSizeMax)
+	{
+		object obj = null;
+		if (!OnOff)
+		{
+			logFlags.LogMsgs = false;
+			if (logFlags.flags())
+			{
+				logQueue.RemoveQueue(logCode);
+				return;
+			}
+			QLIB_ConfigureCallBacks(phoneHandle, 0u, (GeneralSWDownloadHandlerCallBackType)obj, (asyncHandlerCallBack)obj);
+			logQueue.RemoveQueue(logCode);
+			return;
+		}
+		logQueue.registerAsyncMsgID(logCode, queueSizeMax);
+		if (logFlags.flags())
+		{
+			logFlags.LogMsgs = true;
+			QLIB_DIAG_AddExtendedLogCode(phoneHandle, (byte)((logCode >> 12) & 0xFF), logCode);
+		}
+		else
+		{
+			QLIB_ConfigureCallBacks(phoneHandle, 0u, (GeneralSWDownloadHandlerCallBackType)obj, asyncHandlerCB);
+			logFlags.LogMsgs = true;
+			QLIB_DIAG_AddExtendedLogCode(phoneHandle, (byte)((logCode >> 12) & 0xFF), logCode);
+		}
+	}
+
+	public void SetLoggingOnExtended(ushort logCode, byte equipID, bool extended)
+	{
+		string exceptionMessage = "Error in clearing log codes";
+		string text = "Error in QTA.Phone: ";
+		try
+		{
+			if (extended || QLIB_DIAG_ClearAllLogCodes(phoneHandle, equipID) != 0)
+			{
+				if (QLIB_DIAG_AddExtendedLogCode(phoneHandle, equipID, logCode) == 0)
+				{
+					throw new PhoneException(exceptionMessage);
+				}
+				return;
+			}
+			throw new PhoneException(exceptionMessage);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text + ex.Message);
+		}
+	}
+
+	public void DIAG_ClearPhoneLogQueue()
+	{
+		string exceptionMessage = "QTA.Phone.ClearLogMsgQueue: Error in clearing log msg queue";
+		if (QLIB_DIAG_ClearPhoneLogQueue(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void ClearLogMsgQueue()
+	{
+		string exceptionMessage = "QTA.Phone.ClearLogMsgQueue: Error in clearing log msg queue";
+		if (QLIB_DIAG_ClearPhoneLogQueue(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void LogUnregisterMessage(byte equipID)
+	{
+		string exceptionMessage = "There was an error unregistering log messages";
+		if (QLIB_DIAG_SetPhoneLoggingState(phoneHandle, enableLogging: false) != 0)
+		{
+			if (QLIB_DIAG_ClearAllLogCodes(phoneHandle, equipID) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			return;
+		}
+		throw new PhoneException(exceptionMessage);
+	}
+
+	public bool LogGetMessageFromEventQueue(byte[] logMsg, ulong timeOut)
+	{
+		object obj = null;
+		bool flag = false;
+		ushort[] array = new ushort[1];
+		byte[] array2 = new byte[2046];
+		int num = logMsg.Length;
+		if (QLIB_DIAG_GetNextPhoneLog(phoneHandle, array, array2, (uint)timeOut) == 0)
+		{
+			if (flag)
+			{
+				if (num < array[0] - 4)
+				{
+					flag = false;
+					array = (ushort[])obj;
+					array2 = (byte[])obj;
+					return false;
+				}
+				Array.Copy(array2, 0, logMsg, 0, num);
+				array = (ushort[])obj;
+			}
+			else
+			{
+				array = (ushort[])obj;
+			}
+			array2 = (byte[])obj;
+			return flag;
+		}
+		flag = true;
+		if (num >= array[0] - 4)
+		{
+			Array.Copy(array2, 0, logMsg, 0, num);
+			array = (ushort[])obj;
+			array2 = (byte[])obj;
+			return flag;
+		}
+		flag = false;
+		array = (ushort[])obj;
+		array2 = (byte[])obj;
+		return false;
+	}
+
+	public bool DIAG_GetNextPhoneLog(byte[] logMsg, ulong timeOut)
+	{
+		object obj = null;
+		bool flag = false;
+		ushort[] array = new ushort[1];
+		byte[] array2 = new byte[2046];
+		int num = logMsg.Length;
+		bool flag2;
+		if (QLIB_DIAG_GetNextPhoneLog(phoneHandle, array, array2, (uint)timeOut) == 0)
+		{
+			flag2 = flag;
+		}
+		else
+		{
+			flag = true;
+			flag2 = true;
+		}
+		if (!flag2)
+		{
+			array = (ushort[])obj;
+			array2 = (byte[])obj;
+			return flag;
+		}
+		if (num >= array[0] - 4)
+		{
+			Array.Copy(array2, 0, logMsg, 0, num);
+			array = (ushort[])obj;
+			array2 = (byte[])obj;
+			return flag;
+		}
+		flag = false;
+		array = (ushort[])obj;
+		array2 = (byte[])obj;
+		return false;
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", SetLastError = true)]
+	private static extern byte QLIB_FTM_FFBM_SET_MODE(uint hResourceContext, byte iBootMode, byte iSubBootMode, ref ushort iFTM_Error_Code);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", SetLastError = true)]
+	private static extern byte QLIB_FTM_FFBM_GET_MODE(uint hResourceContext, ref ushort iFTM_Error_Code, ref byte iCurrentBootMode, ref byte iCurrentBootSubMode, ref byte iNextBootMode, ref byte iNextBootSubMode);
+
+	public void FFBM_SET_MODE(byte iBootMode, byte iSubBootMode, ref ushort iFTM_Error_Code)
+	{
+		string message = "Error when running FFBM set mode command";
+		if (QLIB_FTM_FFBM_SET_MODE(phoneHandle, iBootMode, iSubBootMode, ref iFTM_Error_Code) == 0)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FFBM_GET_MODE(ref ushort ErrorCode, ref byte CurrentBootMode, ref byte CurrentBootSubMode, ref byte NextBootMode, ref byte NextBootSubMode)
+	{
+		string message = "Error when running FFBM get mode command";
+		if (QLIB_FTM_FFBM_GET_MODE(phoneHandle, ref ErrorCode, ref CurrentBootMode, ref CurrentBootSubMode, ref NextBootMode, ref NextBootSubMode) == 0)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_TRANSMIT_BURST(uint hResourceContext, byte iSlotNum, Modulation_Data_Source iDataSource, byte byte_1, uint iNumBursts, IsInfiniteDuration bIsInfiniteDuration);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_TRANSMIT_CONT(uint hResourceContext, byte iSlotNum, Modulation_Data_Source iDataSource, byte byte_1, uint iNumBursts, IsInfiniteDuration bIsInfiniteDuration);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_PA_DAC_INPUT(uint hResourceContext, ushort ushort_0);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_TX_WAVEFORM(uint hResourceContext, byte iWaveformType, byte iWaveformAttrib);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_CDMA_CW_WAVEFORM(uint hResourceContext, byte byte_1);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_GET_RX_AGC(uint hResourceContext, ref short piRX_AGC);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_GET_DVGA_OFFSET(uint hResourceContext, short iExpectedRX_AGC, ref short piDVGAoffset);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_DVGA_OFFSET(uint hResourceContext, short short_0);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_PA_RANGE(uint hResourceContext, ushort iPArange);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_PDM(uint hResourceContext, ushort iPDMtype, ushort ushort_0);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_GSM_SET_LINEAR_RGI(uint hResourceContext, ushort iSlotNum, ushort iRgiIndex, byte iModeType);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_TX_FRAME_MATRIX(uint hResourceContext, byte iSlotNum, byte iTurnSlotOn, ushort iPwrLevel, byte iModScheme);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_GSM_LINEAR_PA_RANGE(uint hResourceContext, ushort iSlotNum, ushort iPArange);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_GET_RSSI(uint hResourceContext, ref uint piRssiValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_RX_BURST(uint hResourceContext, byte iSlotNum, short iRxfunction);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_RX_CONTINUOUS(uint hResourceContext, byte iSlotNum, short iRxFunction);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_XPT_TXAGC_OVERRIDE(uint hResourceContext, byte eDevice, byte eXPT_type, byte eIQ_Override_type, uint iIQ_gain, byte eEnvSc_Override_type, uint iEnvScale, ushort iRGI, ushort iPA_bias, byte iPA_state, ushort iPA_curr, byte eDelay_Override_type, uint iDelay_us);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_GET_GSM_PRX_DRX_RSSI(uint hResourceContext, ref uint pRxRssiValue, ref uint drxRssiValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_DEVICE_PATH(uint hResourceContext, byte masterDev, byte masterDevPath, byte slaveDev, byte slaveDevPath, ref byte status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_GET_RFFE_DEVICE_IDS(uint hResourceContext, ref FTM_GET_RFFE_DEVICE_INFO_Request req, ref FTM_GET_RFFE_DEVICE_IDS_Response resp);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_GET_RFFE_DEVICE_INFO(uint hResourceContext, byte[] req, byte[] resp);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", SetLastError = true)]
+	private static extern byte QLIB_FTM_GET_LNA_OFFSET(uint hResourceContext, ushort ushort_0, short iExpectedRX_AGC, ref short piLNAoffsetValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_LTE_SET_TX_BANDWIDTH(uint hResourceContext, byte itxChanBW);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_LTE_SET_RX_BANDWIDTH(uint hResourceContext, byte itxChanBW);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_LTE_SET_TX_WAVEFORM(uint hResourceContext, byte iTxWaveform, byte inumRBsPUSCH, byte inumRBsPUCCH, byte byte_1);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_LTE_SET_TX_MODULATION_TYPE(uint hResourceContext, uint iModulationType);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_LNA_RANGE(uint hResourceContext, byte byte_1);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_RFNV_READ(uint hResourceContext, ushort iRFNV_ID, byte[] pData, ref ushort iDataSz, ref ushort iFTM_Error_Code);
+
+	public void Set_Tranmit_Burst(byte iSlotNum, Modulation_Data_Source iDataSource, byte byte_1, ulong iNumBursts, IsInfiniteDuration bIsInfiniteDuration)
+	{
+		string exceptionMessage = "Error setting transmit burst";
+		if (QLIB_FTM_SET_TRANSMIT_BURST(phoneHandle, iSlotNum, iDataSource, byte_1, (uint)iNumBursts, bIsInfiniteDuration) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void Set_Transmit_Cont(byte iSlotNum, Modulation_Data_Source iDataSource, byte byte_1, ulong iNumBursts, IsInfiniteDuration bIsInfiniteDuration)
+	{
+		string exceptionMessage = "Error setting transmit continuously (CW mode)";
+		if (QLIB_FTM_SET_TRANSMIT_CONT(phoneHandle, iSlotNum, iDataSource, byte_1, (uint)iNumBursts, bIsInfiniteDuration) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void Set_PA_DAC_Input(ushort ushort_0)
+	{
+		string exceptionMessage = "Error setting PA DAC Input";
+		if (QLIB_FTM_SET_PA_DAC_INPUT(phoneHandle, ushort_0) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void Set_CDMA_Tx_Waveform(byte iWaveformType, byte iWaveformAttrib)
+	{
+		string exceptionMessage = "Error setting CDMA Tx Waveform";
+		if (QLIB_FTM_SET_TX_WAVEFORM(phoneHandle, iWaveformType, iWaveformAttrib) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void Set_CDMA_CW_Waveform(byte byte_1)
+	{
+		string exceptionMessage = "Error setting CDMA CW Waveform";
+		if (QLIB_FTM_CDMA_CW_WAVEFORM(phoneHandle, byte_1) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_GET_RX_AGC(ref short piRX_AGC)
+	{
+		string exceptionMessage = "Error in QLIB_FTM_GET_RX_AGC";
+		if (QLIB_FTM_GET_RX_AGC(phoneHandle, ref piRX_AGC) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_GET_DVGA_OFFSET(short iExpectedRX_AGC, ref short piDVGAoffset)
+	{
+		string exceptionMessage = "Error in QLIB_FTM_GET_DVGA_OFFSET";
+		if (QLIB_FTM_GET_DVGA_OFFSET(phoneHandle, iExpectedRX_AGC, ref piDVGAoffset) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_SET_DVGA_OFFSET(short short_0)
+	{
+		string exceptionMessage = "Error in QLIB_FTM_SET_DVGA_OFFSET";
+		if (QLIB_FTM_SET_DVGA_OFFSET(phoneHandle, short_0) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void Set_CDMA_Set_PA_Range(ushort iPArange)
+	{
+		string exceptionMessage = "Error setting CDMA PA Range";
+		if (QLIB_FTM_SET_PA_RANGE(phoneHandle, iPArange) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void Set_CDMA_Set_PDM(ushort iPDMtype, ushort ushort_0)
+	{
+		string exceptionMessage = "Error setting CDMA PDM Value";
+		if (QLIB_FTM_SET_PDM(phoneHandle, iPDMtype, ushort_0) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void Set_Tx_Liner_RGI(ushort iSlotNum, ushort iRgiIndex, byte iModeType)
+	{
+		string exceptionMessage = "Error setting TX_LINEAR_RGI";
+		if (QLIB_FTM_GSM_SET_LINEAR_RGI(phoneHandle, iSlotNum, iRgiIndex, iModeType) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_GSM_SET_LINEAR_RGI(ushort iSlotNum, ushort iRgiIndex, byte iModeType)
+	{
+		string exceptionMessage = "Error setting TX_LINEAR_RGI";
+		if (QLIB_FTM_GSM_SET_LINEAR_RGI(phoneHandle, iSlotNum, iRgiIndex, iModeType) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void Set_Tx_Fram_Matrix(byte iSlotNum, byte iTurnSlotOn, ushort iPwrLevel, byte iModScheme)
+	{
+		string exceptionMessage = "Error setting Fram_Matrix";
+		if (QLIB_FTM_SET_TX_FRAME_MATRIX(phoneHandle, iSlotNum, iTurnSlotOn, iPwrLevel, iModScheme) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_XPT_TXAGC_OVERRIDE(byte eDevice, byte eXPT_type, byte eIQ_Override_type, uint iIQ_gain, byte eEnvSc_Override_type, uint iEnvScale, ushort iRGI, ushort iPA_bias, byte iPA_state, ushort iPA_curr, byte eDelay_Override_type, uint iDelay_us)
+	{
+		string exceptionMessage = "QLIB_FTM_XPT_TXAGC_OVERRIDE return status 0";
+		if (QLIB_FTM_XPT_TXAGC_OVERRIDE(phoneHandle, eDevice, eXPT_type, eIQ_Override_type, iIQ_gain, eEnvSc_Override_type, iEnvScale, iRGI, iPA_bias, iPA_state, iPA_curr, eDelay_Override_type, iDelay_us) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_GET_RSSI(ref uint piRssiValue)
+	{
+		string exceptionMessage = "Error in FTM_GET_RSSI";
+		if (QLIB_FTM_GET_RSSI(phoneHandle, ref piRssiValue) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_SET_RX_CONTINUOUS(byte iSlotNum, short iRxFunction)
+	{
+		string exceptionMessage = "Error in FTM_SET_RX_CONTINUOUS";
+		if (QLIB_FTM_SET_RX_CONTINUOUS(phoneHandle, iSlotNum, iRxFunction) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_SET_RX_BURST(byte iSlotNum, short iRxFunction)
+	{
+		string exceptionMessage = "Error in FTM_GET_RSSI";
+		if (QLIB_FTM_SET_RX_BURST(phoneHandle, iSlotNum, iRxFunction) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_SET_LNA_RANGE(byte byte_1)
+	{
+		string exceptionMessage = "Failed to set LNA range";
+		if (QLIB_FTM_SET_LNA_RANGE(phoneHandle, byte_1) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void Set_FTM_SET_GSM_LINEAR_PA_RANGE(byte iSlotNum, ushort iPArange)
+	{
+		string exceptionMessage = "Error setting PA Range";
+		if (QLIB_FTM_SET_GSM_LINEAR_PA_RANGE(phoneHandle, iSlotNum, iPArange) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_SET_GSM_LINEAR_PA_RANGE(ushort iSlotNum, ushort iPArange)
+	{
+		string exceptionMessage = "Error setting PA Range";
+		if (QLIB_FTM_SET_GSM_LINEAR_PA_RANGE(phoneHandle, iSlotNum, iPArange) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_LTE_SET_TX_BANDWIDTH(byte itxChanBW)
+	{
+		string text = "QLIB_FTM_LTE_SET_TX_BANDWIDTH: ";
+		if (QLIB_FTM_LTE_SET_TX_BANDWIDTH(phoneHandle, itxChanBW) == 0)
+		{
+			throw new PhoneException(text + itxChanBW);
+		}
+	}
+
+	public void FTM_LTE_SET_RX_BANDWIDTH(byte irxChanBW)
+	{
+		string text = "QLIB_FTM_LTE_SET_RX_BANDWIDTH: ";
+		if (QLIB_FTM_LTE_SET_RX_BANDWIDTH(phoneHandle, irxChanBW) == 0)
+		{
+			throw new PhoneException(text + irxChanBW);
+		}
+	}
+
+	public void FTM_LTE_SET_TX_WAVEFORM(byte iTxWaveform, byte inumRBsPUSCH, byte inumRBsPUCCH, byte byte_1)
+	{
+		string exceptionMessage = "QLIB_FTM_LTE_SET_TX_WAVEFORM ";
+		if (QLIB_FTM_LTE_SET_TX_WAVEFORM(phoneHandle, iTxWaveform, inumRBsPUSCH, inumRBsPUCCH, byte_1) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void LTESetTxBandwidth(byte itxChanBW)
+	{
+		string text = "Fail to set LTE Tx bandwidth: ";
+		if (QLIB_FTM_LTE_SET_TX_BANDWIDTH(phoneHandle, itxChanBW) == 0)
+		{
+			throw new PhoneException(text + itxChanBW);
+		}
+	}
+
+	public void LTESetRxBandwidth(byte itxChanBW)
+	{
+		string text = "Fail to set LTE Rx bandwidth: ";
+		if (QLIB_FTM_LTE_SET_RX_BANDWIDTH(phoneHandle, itxChanBW) == 0)
+		{
+			throw new PhoneException(text + itxChanBW);
+		}
+	}
+
+	public void method_0(ulong iModulationType)
+	{
+		string text = "Fail to set LTE Tx modulation: ";
+		if (QLIB_FTM_LTE_SET_TX_MODULATION_TYPE(phoneHandle, (uint)iModulationType) == 0)
+		{
+			throw new PhoneException(text + iModulationType);
+		}
+	}
+
+	public void GetLNAOffset(ushort ushort_0, short iExpectedRX_AGC, out short iLNAoffsetValue)
+	{
+		string exceptionMessage = "Fail to get LNA Offset.";
+		short piLNAoffsetValue = 0;
+		if (QLIB_FTM_GET_LNA_OFFSET(phoneHandle, ushort_0, iExpectedRX_AGC, ref piLNAoffsetValue) == 0)
+		{
+			iLNAoffsetValue = 0;
+			throw new PhoneException(exceptionMessage);
+		}
+		iLNAoffsetValue = piLNAoffsetValue;
+	}
+
+	public short GetLNAOffset(ushort ushort_0, short iExpectedRX_AGC)
+	{
+		short piLNAoffsetValue = 0;
+		if (QLIB_FTM_GET_LNA_OFFSET(phoneHandle, ushort_0, iExpectedRX_AGC, ref piLNAoffsetValue) == 0)
+		{
+			short num = -999;
+			return -999;
+		}
+		return piLNAoffsetValue;
+	}
+
+	public void QLIB_FTM_RFNV_READ(ushort iRFNV_ID, byte[] pData, ref ushort iDataSz, ref ushort iFTM_Error_Code)
+	{
+		string exceptionMessage = "Fail to read RFNV";
+		if (QLIB_FTM_RFNV_READ(phoneHandle, iRFNV_ID, pData, ref iDataSz, ref iFTM_Error_Code) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_GET_GSM_PRX_DRX_RSSI(ref uint pRxRssiValue, ref uint drxRssiValue)
+	{
+		string exceptionMessage = "Fail to get PRx/DRx RSSI";
+		if (QLIB_FTM_GET_GSM_PRX_DRX_RSSI(phoneHandle, ref pRxRssiValue, ref drxRssiValue) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_SET_DEVICE_PATH(byte masterDev, byte masterDevPath, byte slaveDev, byte slaveDevPath)
+	{
+		byte b = 0;
+		QLIB_FTM_SET_DEVICE_PATH(phoneHandle, masterDev, masterDevPath, slaveDev, slaveDevPath, ref b);
+	}
+
+	public void FTM_RFFE_READ_CMD(byte iChannel, byte iSlave, ushort iAddress, ref byte iData)
+	{
+		QLIB_FTM_RFFE_READWRITE_CMD(phoneHandle, 0, 1, iChannel, iSlave, iAddress, ref iData, 1);
+	}
+
+	public void FTM_RFFE_WRITE_CMD(byte iChannel, byte iSlave, ushort iAddress, ref byte iData)
+	{
+		QLIB_FTM_RFFE_READWRITE_CMD(phoneHandle, 0, 0, iChannel, iSlave, iAddress, ref iData, 1);
+	}
+
+	public void FTM_GET_RFFE_DEVICE_IDS(ref FTM_GET_RFFE_DEVICE_INFO_Request req, ref FTM_GET_RFFE_DEVICE_IDS_Response resp)
+	{
+		QLIB_FTM_GET_RFFE_DEVICE_IDS(phoneHandle, ref req, ref resp);
+	}
+
+	public void FTM_GET_RFFE_DEVICE_INFO(byte[] req, byte[] resp)
+	{
+		QLIB_FTM_GET_RFFE_DEVICE_INFO(phoneHandle, req, resp);
+	}
+
+	public byte[] ConvertStringToByte(string InStr, int numBytes)
+	{
+		byte[] array = new byte[numBytes];
+		int[] array2 = new int[numBytes];
+		string[] array3 = new string[numBytes];
+		InStr.ToCharArray();
+		int i = 0;
+		for (int num = InStr.Length - 1; i <= num; i++)
+		{
+			array3[i] = InStr[i].ToString();
+			array2[i] = int.Parse(array3[i], NumberStyles.HexNumber);
+		}
+		int num2 = InStr.Length - 1;
+		int num3 = 0;
+		while (num3 < InStr.Length)
+		{
+			array[num3] = (byte)array2[num2];
+			num3++;
+			num2--;
+		}
+		return array;
+	}
+
+	public byte[] ConvertStringToByteArray(string InStr, int numBytes)
+	{
+		byte[] array = new byte[numBytes];
+		int[] array2 = new int[numBytes];
+		string[] array3 = new string[numBytes];
+		int i = 0;
+		for (int num = InStr.Length - 1; i <= num; i++)
+		{
+			array3[i] = InStr[i].ToString();
+			array2[i] = int.Parse(array3[i], NumberStyles.HexNumber);
+		}
+		int num2 = InStr.Length - 1;
+		int num3 = 0;
+		while (num3 < InStr.Length)
+		{
+			array[num3] = (byte)array2[num2];
+			num3++;
+			num2--;
+		}
+		return array;
+	}
+
+	public byte[] ConvertStringToAsciiByteArray(string InStr, int numBytes)
+	{
+		byte[] array = new byte[numBytes];
+		int[] array2 = new int[numBytes];
+		string[] array3 = new string[numBytes];
+		int i = 0;
+		for (int num = InStr.Length - 1; i <= num; i++)
+		{
+			array3[i] = InStr[i].ToString();
+			array2[i] = int.Parse(array3[i], NumberStyles.HexNumber);
+			array2[i] += 48;
+		}
+		int j = 0;
+		for (int num2 = InStr.Length - 1; j <= num2; j++)
+		{
+			array[j] = (byte)array2[j];
+		}
+		return array;
+	}
+
+	public long method_1(string InStr, int numBytes)
+	{
+		int[] array = new int[numBytes];
+		string[] array2 = new string[numBytes];
+		long num = 0L;
+		int i = 0;
+		for (int num2 = InStr.Length - 1; i <= num2; i++)
+		{
+			array2[i] = InStr[i].ToString();
+			array[i] = int.Parse(array2[i], NumberStyles.HexNumber);
+		}
+		num = 0L;
+		int j = 0;
+		for (int num3 = array.Length - 1; j <= num3; j++)
+		{
+			num += Convert.ToInt16(array[j]);
+			if (j != array.Length - 1)
+			{
+				num <<= 4;
+			}
+		}
+		return num;
+	}
+
+	public bool ConvertByteArrayToAsciiString(byte[] ByteArrayIn, int StrLength, out string StringOut)
+	{
+		string text = "";
+		string[] array = new string[StrLength];
+		StringOut = text;
+		int i = 0;
+		for (int num = StrLength - 1; i <= num; i++)
+		{
+			if (ByteArrayIn != null && ByteArrayIn.Length > i && Convert.ToByte(ByteArrayIn[i]) >= 48)
+			{
+				array[i] = Convert.ToString(Convert.ToByte(ByteArrayIn[i] - 48), 16);
+				array[i].ToUpper();
+				StringOut += array[i];
+			}
+		}
+		return true;
+	}
+
+	public bool ConvertByteArrayToHexString(byte[] ByteArrayIn, int StrLength, out string StringOut)
+	{
+		string text = "";
+		string[] array = new string[2];
+		StringOut = text;
+		int i = 0;
+		for (int num = StrLength - 1; i <= num; i++)
+		{
+			if (ByteArrayIn != null && ByteArrayIn.Length > i)
+			{
+				byte b = Convert.ToByte(ByteArrayIn[i]);
+				byte b2 = Convert.ToByte(b & 0xF);
+				byte b3 = Convert.ToByte((b & 0xF0) >> 4);
+				array[0] = Convert.ToString(b2, 16);
+				array[1] = Convert.ToString(b3, 16);
+				StringOut = StringOut + array[1].ToUpper() + array[0].ToUpper();
+			}
+		}
+		return true;
+	}
+
+	public bool ConvertByteArrayToIntString(byte[] ByteArrayIn, int StrLength, out string StringOut)
+	{
+		string text = "";
+		StringOut = text;
+		int i = 0;
+		for (int num = StrLength - 1; i <= num; i++)
+		{
+			if (ByteArrayIn != null && ByteArrayIn.Length > i)
+			{
+				byte b = Convert.ToByte(ByteArrayIn[i]);
+				byte b2 = Convert.ToByte(b & 0xF);
+				byte b3 = Convert.ToByte((b & 0xF0) >> 4);
+				int num2 = (b2 + b3) % 10;
+				StringOut += Convert.ToString(num2, 10);
+			}
+		}
+		return true;
+	}
+
+	public bool ConvertAsciiByteArrayToAlphaNumericString(byte[] ByteArrayIn, int StrLength, out string StringOut)
+	{
+		string text = "";
+		char[] array = new char[12];
+		StringOut = text;
+		int i = 0;
+		for (int num = StrLength - 1; i <= num; i++)
+		{
+			if (ByteArrayIn != null && ByteArrayIn.Length > i && ByteArrayIn[i] >= 48)
+			{
+				array[i] = Convert.ToChar(ByteArrayIn[i]);
+				StringOut += array[i];
+				StringOut = StringOut.ToUpper();
+			}
+		}
+		return true;
+	}
+
+	public bool GetFileChecksum(string filename, out string strChecksum)
+	{
+		string text = "";
+		string text2 = "X2";
+		int result = 1;
+		if (!File.Exists(filename))
+		{
+			strChecksum = text;
+			return false;
+		}
+		using (FileStream inputStream = new FileStream(filename, FileMode.Open))
+		{
+			byte[] array = new MD5CryptoServiceProvider().ComputeHash(inputStream);
+			StringBuilder stringBuilder = new StringBuilder(32);
+			byte[] array2 = array;
+			byte[] array3 = array2;
+			foreach (byte b in array3)
+			{
+				stringBuilder.Append(b.ToString(text2));
+			}
+			strChecksum = stringBuilder.ToString().ToUpper();
+		}
+		return (byte)result != 0;
+	}
+
+	public void GenerateRandomHexNumber(int numBytes, out string RandomNumber)
+	{
+		string text = "";
+		string text2 = "Error generating random number: ";
+		try
+		{
+			byte[] array = new byte[numBytes];
+			RNGCryptoServiceProvider rNGCryptoServiceProvider = new RNGCryptoServiceProvider();
+			rNGCryptoServiceProvider.GetBytes(array);
+			string StringOut = text;
+			ConvertByteArrayToHexString(array, numBytes, out StringOut);
+			RandomNumber = StringOut;
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text2 + ex.Message);
+		}
+	}
+
+	public void GenerateRandomIntegerNumber(int numDigits, out string RandomNumber)
+	{
+		string text = "";
+		string text2 = "Error generating random number: ";
+		try
+		{
+			byte[] array = new byte[numDigits];
+			RNGCryptoServiceProvider rNGCryptoServiceProvider = new RNGCryptoServiceProvider();
+			rNGCryptoServiceProvider.GetBytes(array);
+			string StringOut = text;
+			ConvertByteArrayToIntString(array, numDigits, out StringOut);
+			RandomNumber = StringOut;
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text2 + ex.Message);
+		}
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_ANT_Receiver_Test(uint hResourceContext, byte iFrequencyOffset, double dPacketRate, ushort iNoOfPackets, ushort iDeviceNumber, ushort iDeviceType, ushort iTransmissionType, byte[] iDataPayload);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_ANT_Transmitter_Test(uint hResourceContext, byte iFrequencyOffset, double dPacketRate, ushort iNoOfPackets, ushort iDeviceNumber, ushort iDeviceType, ushort iTransmissionType, byte[] iDataPayload);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_ANT_Reset_Test(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_ANT_Receiver_Test_Result_Status(uint hResourceContext, ref ushort packetsReceived, ref ushort packetsLost, ref ushort packetsCRCError, ref uint totalBitErrors, ref ushort noOfSyncLosses, ref byte status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_ANT_Transmitter_Test_Result_Status(uint hResourceContext, ref ushort packetsTransmitted, ref byte status);
+
+	public void FTM_ANT_Receiver_Test(byte frequencyOffset, double packetRate, ushort noOfPackets, ushort deviceNumber, ushort deviceType, ushort transmissionType, byte[] dataPayload)
+	{
+		string source = "QLIB_FTM_ANT_Receiver_Test";
+		string format = "phoneHandle: {0},frequencyOffset: {1},packetRate: {2},noOfPackets: {3},deviceNumber: {4},deviceType: {5},transmissionType: {6},dataPayload: {7}";
+		string exceptionMessage = "QLIB_FTM_ANT_Receiver_Test failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, frequencyOffset, packetRate, noOfPackets, deviceNumber, deviceType, transmissionType, BitConverter.ToString(dataPayload))));
+		if (QLIB_FTM_ANT_Receiver_Test(phoneHandle, frequencyOffset, packetRate, noOfPackets, deviceNumber, deviceType, transmissionType, dataPayload) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_ANT_Transmitter_Test(byte frequencyOffset, double packetRate, ushort noOfPackets, ushort deviceNumber, ushort deviceType, ushort transmissionType, byte[] dataPayload)
+	{
+		string source = "QLIB_FTM_ANT_Transmitter_Test";
+		string format = "phoneHandle: {0},frequencyOffset: {1},packetRate: {2},noOfPackets: {3},deviceNumber: {4},deviceType: {5},transmissionType: {6},dataPayload: {7}";
+		string exceptionMessage = "QLIB_FTM_ANT_Transmitter_Test failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, frequencyOffset, packetRate, noOfPackets, deviceNumber, deviceType, transmissionType, BitConverter.ToString(dataPayload))));
+		if (QLIB_FTM_ANT_Transmitter_Test(phoneHandle, frequencyOffset, packetRate, noOfPackets, deviceNumber, deviceType, transmissionType, dataPayload) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_ANT_Reset_Test()
+	{
+		string source = "QLIB_FTM_ANT_Reset_Test";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_ANT_Reset_Test failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_ANT_Reset_Test(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_ANT_Receiver_Test_Result_Status(out ushort packetsReceived, out ushort packetsLost, out ushort packetsCRCError, out uint totalBitErrors, out ushort noOfSyncLosses, out ANT_TestStatus testStatus)
+	{
+		string source = "QLIB_FTM_ANT_Receiver_Test_Result_Status";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_ANT_Receiver_Test_Result_Status failed";
+		string format2 = "ref packetsReceived :{0}, ref packetsLost :{1}, ref packetsCRCError :{2}, ref totalBitErrors :{3}, ref noOfSyncLosses :{4}, ref status :{5}";
+		byte b = 0;
+		noOfSyncLosses = 0;
+		packetsCRCError = 0;
+		packetsLost = 0;
+		packetsReceived = 0;
+		totalBitErrors = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_ANT_Receiver_Test_Result_Status(phoneHandle, ref packetsReceived, ref packetsLost, ref packetsCRCError, ref totalBitErrors, ref noOfSyncLosses, ref b) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, packetsReceived, packetsLost, packetsCRCError, totalBitErrors, noOfSyncLosses, b)));
+		testStatus = (ANT_TestStatus)b;
+	}
+
+	public void FTM_ANT_Transmitter_Test_Result_Status(out ushort packetsTransmitted, out ANT_TestStatus testStatus)
+	{
+		string source = "QLIB_FTM_ANT_Transmitter_Test_Result_Status";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_ANT_Transmitter_Test_Result_Status failed";
+		string format2 = "ref packetsTransmitted :{0}, ref status :{1}";
+		byte b = 0;
+		packetsTransmitted = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_ANT_Transmitter_Test_Result_Status(phoneHandle, ref packetsTransmitted, ref b) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, packetsTransmitted, b)));
+		testStatus = (ANT_TestStatus)b;
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_Enable_Bluetooth(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_HCI_Reset(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_DisableSleep(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_SetAddr(uint hResourceContext, byte[] iAddr);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_SetCW(uint hResourceContext, byte iChannel);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_HCI_USER_CMD(uint hResourceContext, byte[] commandBytes, byte length);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_BT_GetModuleVersion(uint hResourceContext, [MarshalAs(UnmanagedType.LPArray)] byte[] commandBytes);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_TXC_ONLY(uint hResourceContext, byte ichannel, byte itransmitOutputPower, byte itransmitType, byte ipatternLength, uint ibitPattern);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_LE_PROD_TEST_TXCONT(uint hResourceContext, byte ichannel, byte itransmitOutputPower, byte itransmitType, byte ipatternLength, uint ibitPattern);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_QHS_PROD_TEST(uint hResourceContext, byte itestMode, byte ichannel, ushort ipayloadLength, byte ipayloadPattern, byte iphyRate, byte itxPowerIndex, ushort imaxPackets);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_LE_PROD_TEST_TXCONT_QCA402x(uint hResourceContext, byte ichannel, byte itransmitOutputPower, byte itransmitType, byte ipatternLength, uint ibitPattern);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_RX_CONTINUOUS(uint hResourceContext, byte iTechnologyType, byte ichannel, byte iSWGain);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_STATS(uint hResourceContext, [MarshalAs(UnmanagedType.LPArray)] byte[] Channel1, [MarshalAs(UnmanagedType.LPArray)] byte[] Channel2, [MarshalAs(UnmanagedType.LPArray)] byte[] Channel3, [MarshalAs(UnmanagedType.LPArray)] byte[] Channel4, [MarshalAs(UnmanagedType.LPArray)] byte[] Channel5);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_RX_ONLY(uint hResourceContext, byte[] ichannel, byte itransmitPattern, byte ipacketType, bool idataWhiteningEnable, byte itransitOutputPower, bool ireceiverHighGainEnable, byte[] itargetDeviceAddress, bool ihoppingEnable, ushort ipayloadLength, byte ilogicalTransportAddress);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_TX(uint hResourceContext, byte[] ichannel, byte itransmitPattern, byte ipacketType, bool idataWhiteningEnable, byte itransitOutputPower, bool ireceiverHighGainEnable, byte[] itargetDeviceAddress, bool ihoppingEnable, ushort ipayloadLength, byte ilogicalTransportAddress);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_LE_HCI_Receiver_Test(uint hResourceContext, byte iTestFrequency);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_LE_HCI_Transmitter_Test(uint hResourceContext, byte iTestFrequency, byte iTestPayloadLength, byte iTestPayload);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_LE_HCI_Enhanced_Receiver_Test(uint hResourceContext, byte iTestFrequency, byte iPhyType);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_LE_HCI_Enhanced_Receiver_Test_ModulationIndex(uint hResourceContext, byte iTestFrequency, byte iPhyType, byte iModulationIndex);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_LE_HCI_Enhanced_Transmitter_Test(uint hResourceContext, byte iTestFrequency, byte iTestPayloadLength, byte iTestPayload, byte iPhyType);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_LE_HCI_Test_End(uint hResourceContext, ref ushort noOfPackets);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_SET_CHIP_ID(uint hResourceContext, int bluetoothChipID);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_SET_LegacyLoggingMode(uint hResourceContext, int bluetoothLegacyLoggingEnable);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_PROD_TEST_HCI_GET_PER_AR3002(uint hResourceContext, [MarshalAs(UnmanagedType.LPArray)] byte[] perStatistics, byte ipacketType);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_TXC_AR3002(uint hResourceContext, byte ichannel, byte iPowerLevel);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_HCI_GET_RSSI(uint hResourceContext, ref short rssi, byte channelOffset, byte noOfAverages);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_RX_BURST_CONFIG(uint hResourceContext, ushort numberofPacketsToReceive);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_SEQ_TX(uint hResourceContext, byte iTxTestMode, byte iTxChannel, byte[] itragetDeviceAddress, byte ilogicalTransportAddress, byte itransitOutputPower, ushort iNumberofPacketsForEachMode, bool NullPacketsEnable);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_SEQ_RX(uint hResourceContext, byte channel, byte[] targetDeviceAddress, byte logicalTransportAddress, ushort NumberofRotation);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_SEQ_RX_STATUS(uint hResourceContext, [MarshalAs(UnmanagedType.LPArray)] byte[] Dh1, [MarshalAs(UnmanagedType.LPArray)] byte[] Dh5, [MarshalAs(UnmanagedType.LPArray)] byte[] TwoDh5, [MarshalAs(UnmanagedType.LPArray)] byte[] ThreeDh5, [MarshalAs(UnmanagedType.LPArray)] byte[] Le);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_GET_BD_ADDR(uint hResourceContext, [MarshalAs(UnmanagedType.LPArray)] byte[] bdAddress);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_SET_BD_ADDR(uint hResourceContext, byte[] bdAddress);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_STOP(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_SSBI_POKE(uint hResourceContext, int Address, int Value);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_SSBI_PEEK(uint hResourceContext, int Address, out int Value);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_Get_PIN_CONNECTIVITIY(uint hResourceContext, ref short short_0, ref short WLANResponse, ref short short_1);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_CSR8811_WarmReset(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_CSR8811_Pause(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_CSR8811_SetTxPower(uint hResourceContext, byte txPowerLevel);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_CSR8811_SetBLETxPower(uint hResourceContext, short BLEtxPowerLevel);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_CSR8811_SetPacketType(uint hResourceContext, ushort packetType, ushort payloadLength);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_CSR8811_Tx_Data_ON(uint hResourceContext, ushort txFrequency, byte payloadType, byte packetType);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_CSR8811_ConfigXtalFTrim(uint hResourceContext, ushort xtalFTrimValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_CSR8811_SET_BD_ADDR(uint hResourceContext, byte UAP, byte[] LAP);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_CSR8811_Rx_BER_ON(uint hResourceContext, ushort iRxFreq, ushort iNumberOfPackets);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_CSR8811_Get_Rx_Stats(uint hResourceContext, ref uint iBitsInError, ref uint iTotalBitsReceived);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_EDL_POKE32_REQ(uint hResourceContext, int memAddress, byte datalength, byte[] data);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_EDL_POKE16_REQ(uint hResourceContext, int memAddress, byte datalength, byte[] data);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_EDL_POKE8_REQ(uint hResourceContext, int memAddress, byte datalength, byte[] data);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_EDL_PEEK32_REQ(uint hResourceContext, int Address, int datalength, out int Value);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_EDL_PEEK16_REQ(uint hResourceContext, int Address, int datalength, out int Value);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_EDL_PEEK8_REQ(uint hResourceContext, int Address, int datalength, out int Value);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_NVM_DOWNLOAD(uint hResourceContext, string fileName);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_PATCH_DOWNLOAD(uint hResourceContext, string fileName);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_ConfigXtalFTrim(uint hResourceContext, byte capValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_PIN_CONNECTIVITY_Test(uint hResourceContext, byte interfaceID);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_SELECT_INTERFACE(uint hResourceContext, byte interfaceID);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_SET_PERSIST_ACCESS_OPT(uint hResourceContext, byte cfgType, byte[] iData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_GET_PERSIST_ACCESS_OPT(uint hResourceContext, byte cfgType, [MarshalAs(UnmanagedType.LPArray)] byte[] data);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_SET_BAUDRATE(uint hResourceContext, byte BTbaudRateId);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_VOICE_LOOPBACK(uint hResourceContext, byte loopBackMode, ushort voicesetting);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_HCI_VS_SET_TECH_PL_MAPPING_CORRECTION(uint hResourceContext, byte Flags, byte iCount, [MarshalAs(UnmanagedType.LPArray)] byte[] Technology, [MarshalAs(UnmanagedType.LPArray)] byte[] PowerLevel, [MarshalAs(UnmanagedType.LPArray)] float[] OffsetValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_HCI_VS_SET_TECH_PL_MAPPING_CORRECTION_With_RFChain(uint hResourceContext, byte iFlags, byte iCount, [MarshalAs(UnmanagedType.LPArray)] byte[] RFChain, [MarshalAs(UnmanagedType.LPArray)] byte[] Technology, [MarshalAs(UnmanagedType.LPArray)] byte[] PowerLevel, [MarshalAs(UnmanagedType.LPArray)] float[] OffsetValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_HCI_VS_SET_TECH_BASED_MAX_RADIATED_POWER(uint hResourceContext, byte Num_pairs, [MarshalAs(UnmanagedType.LPArray)] byte[] Technology, [MarshalAs(UnmanagedType.LPArray)] float[] Power);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_HCI_VS_SET_RF_Chain(uint hResourceContext, byte byte_1, byte byte_2);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_HCI_VS_Prod_Test_LE_Tx_Burst(uint hResourceContext, byte ihopChannelsStr, ushort ipayloadLength, byte ipayload_type, byte ipacket_type, byte itransmitOutputPower);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_BT_HCI_VS_GET_TECH_PL_MAPPING_CORRECTION(uint hResourceContext, ref byte NumBanks, ref byte NumTech, ref byte NumPL, [MarshalAs(UnmanagedType.LPArray)] byte[] OffsetArray);
+
+	public void FTM_BT_Enable_Bluetooth()
+	{
+		string source = "QLIB_FTM_BT_Enable_Bluetooth";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "Error Setting BT mode";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_BT_Enable_Bluetooth(phoneHandle);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_HCI_Reset()
+	{
+		string source = "QLIB_FTM_BT_HCI_Reset";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "Error doing HCI Reset";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_BT_HCI_Reset(phoneHandle);
+		if (b != 1)
+		{
+			Thread.Sleep(hciResetRetryDelayMs);
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+			b = QLIB_FTM_BT_HCI_Reset(phoneHandle);
+			if (b != 1)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+	}
+
+	public void FTM_BT_DisableSleep()
+	{
+		string source = "QLIB_FTM_BT_DisableSleep";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "Error BT Disable sleep";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_BT_DisableSleep(phoneHandle);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_SetAddr(byte[] address)
+	{
+		string source = "QLIB_FTM_BT_SetAddr";
+		string format = "phoneHandle :{0}, address :{1}";
+		string exceptionMessage = "Error Setting BT Address";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BitConverter.ToString(address, 0, address.Length))));
+		b = QLIB_FTM_BT_SetAddr(phoneHandle, address);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_SetCW(byte channelNumber)
+	{
+		string source = "QLIB_FTM_BT_SetCW";
+		string format = "phoneHandle :{0}, channelNumber :{1}";
+		string exceptionMessage = "Error Setting BT CW";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, channelNumber)));
+		b = QLIB_FTM_BT_SetCW(phoneHandle, channelNumber);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void BT_GetModuleVersion(out BTModuleVersion moduleVersion)
+	{
+		string source = "QLIB_BT_GetModuleVersion";
+		string format = "phoneHandle :{0}, receivedInformation :{1}";
+		string exceptionMessage = "Error BT_GetModuleVersion";
+		string text = "Failed BTGetModuleVersion : ";
+		try
+		{
+			byte[] array = new byte[15];
+			byte b = 0;
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BitConverter.ToString(array, 0, array.Length))));
+			b = QLIB_BT_GetModuleVersion(phoneHandle, array);
+			if (b != 1)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			moduleVersion = default(BTModuleVersion);
+			moduleVersion.HCI_Version = array[7];
+			moduleVersion.LMP_Version = array[10];
+			moduleVersion.Manufacturer_Version = BitConverter.ToInt16(array, 11);
+			moduleVersion.LMP_Sub_Version = BitConverter.ToInt16(array, 13);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text + ex.Message);
+		}
+	}
+
+	public void FTM_BT_HCI_USER_CMD(byte[] commandBytes, byte length)
+	{
+		string source = "QLIB_FTM_BT_HCI_USER_CMD";
+		string format = "phoneHandle :{0}, commandBytes :{1}, length :{2}";
+		string exceptionMessage = "Error BT_HCI User CMD ";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BitConverter.ToString(commandBytes, 0, commandBytes.Length), length)));
+		b = QLIB_FTM_BT_HCI_USER_CMD(phoneHandle, commandBytes, length);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_PROD_TEST_SUBCOMMAND_TEST_TXC_ONLY(byte channel, byte transmitOutputPower, BlueTooth_TransmitType transmitType, byte patternLength, uint bitPattern)
+	{
+		string source = "QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_TXC_ONLY";
+		string format = "phoneHandle :{0}, channel :{1}, transmitOutputPower :{2},transmitType :{3}, patternLength :{4}, bitPattern :{5}";
+		string exceptionMessage = "Error FTM_BT_PROD_TEST_SUBCOMMAND_TEST_TXC_ONLY";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, channel, transmitOutputPower, transmitType, patternLength, bitPattern)));
+		b = QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_TXC_ONLY(phoneHandle, channel, transmitOutputPower, (byte)transmitType, patternLength, bitPattern);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_LE_PROD_TEST_TXCONT(byte channel, byte transmitOutputPower, BLE_TransmitType transmitType, byte patternLength, uint bitPattern)
+	{
+		string source = "QLIB_FTM_BT_LE_PROD_TEST_TXCONT";
+		string format = "phoneHandle :{0}, channel :{1}, transmitOutputPower :{2}, ,transmitType :{3}, patternLength :{4}, bitPattern :{5}";
+		string exceptionMessage = "Error FTM_BT_LE_PROD_TEST_TXCONT";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, channel, transmitOutputPower, transmitType, patternLength, bitPattern)));
+		b = QLIB_FTM_BT_LE_PROD_TEST_TXCONT(phoneHandle, channel, transmitOutputPower, (byte)transmitType, patternLength, bitPattern);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_QHS_PROD_TEST(byte itestMode, byte ichannel, ushort ipayloadLength, byte ipayloadPattern, byte iphyRate, byte itxPowerIndex, ushort imaxPackets)
+	{
+		string source = "QLIB_FTM_BT_QHS_PROD_TEST";
+		string format = "phoneHandle :{0},testMode : {1}, channel :{2}, payload length :{3}, ,payload pattern :{4}, phy rate :{5}, tx power index :{6}, macpackets :{7}";
+		string exceptionMessage = "Error FTM_BT_LE_PROD_TEST_TXCONT";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, itestMode, ichannel, ipayloadLength, ipayloadPattern, iphyRate, itxPowerIndex, imaxPackets)));
+		b = QLIB_FTM_BT_QHS_PROD_TEST(phoneHandle, itestMode, ichannel, ipayloadLength, ipayloadPattern, iphyRate, itxPowerIndex, imaxPackets);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_PROD_TEST_SUBCOMMAND_TEST_RX_CONTINUOUS(byte technologyType, byte channel, byte swGain)
+	{
+		string source = "QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_RX_CONTINUOUS";
+		string format = "phoneHandle :{0}, technologyType :{1}, channel :{2}, SWGain :{3}";
+		string exceptionMessage = "Error QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_RX_CONTINUOUS";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, technologyType, channel, swGain)));
+		b = QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_RX_CONTINUOUS(phoneHandle, technologyType, channel, swGain);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_LE_PROD_TEST_TXCONT_QCA402x(byte channel, byte transmitOutputPower, BLE_TransmitType_QCA402x transmitType, byte patternLength, uint bitPattern)
+	{
+		string source = "QLIB_FTM_BT_LE_PROD_TEST_TXCONT_QCA402x";
+		string format = "phoneHandle :{0}, channel :{1}, transmitOutputPower :{2}, ,transmitType :{3}, patternLength :{4}, bitPattern :{5}";
+		string exceptionMessage = "Error FTM_BT_LE_PROD_TEST_TXCONT_QCA402x";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, channel, transmitOutputPower, transmitType, patternLength, bitPattern)));
+		b = QLIB_FTM_BT_LE_PROD_TEST_TXCONT_QCA402x(phoneHandle, channel, transmitOutputPower, (byte)transmitType, patternLength, bitPattern);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_PROD_TEST_SUBCOMMAND_TEST_STATS(out BTRxStatsChannel Channel1Stats, out BTRxStatsChannel Channel2Stats, out BTRxStatsChannel Channel3Stats, out BTRxStatsChannel Channel4Stats, out BTRxStatsChannel Channel5Stats)
+	{
+		string source = "QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_STATS";
+		string format = "phoneHandle :{0}, receivedInformation1 :{1}, receivedInformation2 :{2}, receivedInformation3 :{3}, receivedInformation4 :{4}, receivedInformation5 :{5}";
+		string exceptionMessage = "Error BT_RXStats";
+		string text = "Failed FTM_BT_PROD_TEST_SUBCOMMAND_TEST_STATS : ";
+		try
+		{
+			byte[] array = new byte[32];
+			byte[] array2 = new byte[32];
+			byte[] array3 = new byte[32];
+			byte[] array4 = new byte[32];
+			byte[] array5 = new byte[32];
+			byte b = 0;
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BitConverter.ToString(array, 0, array.Length), BitConverter.ToString(array2, 0, array2.Length), BitConverter.ToString(array3, 0, array3.Length), BitConverter.ToString(array4, 0, array4.Length), BitConverter.ToString(array5, 0, array5.Length))));
+			b = QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_STATS(phoneHandle, array, array2, array3, array4, array5);
+			if (b != 1)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			Channel1Stats = default(BTRxStatsChannel);
+			Channel2Stats = default(BTRxStatsChannel);
+			Channel3Stats = default(BTRxStatsChannel);
+			Channel4Stats = default(BTRxStatsChannel);
+			Channel5Stats = default(BTRxStatsChannel);
+			Channel1Stats.packetReceived = BitConverter.ToUInt32(array, 0);
+			Channel2Stats.packetReceived = BitConverter.ToUInt32(array2, 0);
+			Channel3Stats.packetReceived = BitConverter.ToUInt32(array3, 0);
+			Channel4Stats.packetReceived = BitConverter.ToUInt32(array4, 0);
+			Channel5Stats.packetReceived = BitConverter.ToUInt32(array5, 0);
+			Channel1Stats.packetAccessError = BitConverter.ToUInt32(array, 4);
+			Channel2Stats.packetAccessError = BitConverter.ToUInt32(array2, 4);
+			Channel3Stats.packetAccessError = BitConverter.ToUInt32(array3, 4);
+			Channel4Stats.packetAccessError = BitConverter.ToUInt32(array4, 4);
+			Channel5Stats.packetAccessError = BitConverter.ToUInt32(array5, 4);
+			Channel1Stats.hecError = BitConverter.ToUInt32(array, 8);
+			Channel2Stats.hecError = BitConverter.ToUInt32(array2, 8);
+			Channel3Stats.hecError = BitConverter.ToUInt32(array3, 8);
+			Channel4Stats.hecError = BitConverter.ToUInt32(array4, 8);
+			Channel5Stats.hecError = BitConverter.ToUInt32(array5, 8);
+			Channel1Stats.crcError = BitConverter.ToUInt32(array, 12);
+			Channel2Stats.crcError = BitConverter.ToUInt32(array2, 12);
+			Channel3Stats.crcError = BitConverter.ToUInt32(array3, 12);
+			Channel4Stats.crcError = BitConverter.ToUInt32(array4, 12);
+			Channel5Stats.crcError = BitConverter.ToUInt32(array5, 12);
+			Channel1Stats.totalPacketBitErrors = BitConverter.ToUInt32(array, 16);
+			Channel2Stats.totalPacketBitErrors = BitConverter.ToUInt32(array2, 16);
+			Channel3Stats.totalPacketBitErrors = BitConverter.ToUInt32(array3, 16);
+			Channel4Stats.totalPacketBitErrors = BitConverter.ToUInt32(array4, 16);
+			Channel5Stats.totalPacketBitErrors = BitConverter.ToUInt32(array5, 16);
+			Channel1Stats.firstHalfBitErrors = BitConverter.ToUInt32(array, 20);
+			Channel2Stats.firstHalfBitErrors = BitConverter.ToUInt32(array2, 20);
+			Channel3Stats.firstHalfBitErrors = BitConverter.ToUInt32(array3, 20);
+			Channel4Stats.firstHalfBitErrors = BitConverter.ToUInt32(array4, 20);
+			Channel5Stats.firstHalfBitErrors = BitConverter.ToUInt32(array5, 20);
+			Channel1Stats.lastHalfBitErrors = BitConverter.ToUInt32(array, 24);
+			Channel2Stats.lastHalfBitErrors = BitConverter.ToUInt32(array2, 24);
+			Channel3Stats.lastHalfBitErrors = BitConverter.ToUInt32(array3, 24);
+			Channel4Stats.lastHalfBitErrors = BitConverter.ToUInt32(array4, 24);
+			Channel5Stats.lastHalfBitErrors = BitConverter.ToUInt32(array5, 24);
+			Channel1Stats.rssiReading = BitConverter.ToInt32(array, 28);
+			Channel2Stats.rssiReading = BitConverter.ToInt32(array2, 28);
+			Channel3Stats.rssiReading = BitConverter.ToInt32(array3, 28);
+			Channel4Stats.rssiReading = BitConverter.ToInt32(array4, 28);
+			Channel5Stats.rssiReading = BitConverter.ToInt32(array5, 28);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text + ex.Message);
+		}
+	}
+
+	public void FTM_BT_PROD_TEST_SUBCOMMAND_TEST_RX_ONLY(byte channel, BlueTooth_TransmittPatternPayload transmitPattern, BlueTooth_PacketType packetType, bool dataWhiteningEnabled, byte transmitOutputPowerLevel, bool receiverHighGainEnable, byte[] targetDeviceAddress, bool hoppingEnable, ushort payloadLength, byte logicalTransportAddress)
+	{
+		string source = "QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_RX_ONLY";
+		string format = "phoneHandle :{0}, channels :{1},transmitPattern :{2},packetType :{3},dataWhiteningEnabled :{4},transmitOutputPowerLevel :{5},receiverHighGainEnable :{6},targetDeviceAddress :{7},hoppingEnable :{8},payloadLength :{9},logicalTransportAddress :{10}";
+		string exceptionMessage = "Error FTM_BT_PROD_TEST_SUBCOMMAND_TEST_RX_ONLY";
+		byte b = 0;
+		byte[] array = new byte[6];
+		for (int i = 0; i <= 5; i++)
+		{
+			array[i] = channel;
+		}
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BitConverter.ToString(array, 0, array.Length), transmitPattern, packetType, dataWhiteningEnabled, transmitOutputPowerLevel, receiverHighGainEnable, BitConverter.ToString(targetDeviceAddress, 0, targetDeviceAddress.Length), hoppingEnable, payloadLength, logicalTransportAddress)));
+		b = QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_RX_ONLY(phoneHandle, array, (byte)transmitPattern, (byte)packetType, dataWhiteningEnabled, transmitOutputPowerLevel, receiverHighGainEnable, targetDeviceAddress, hoppingEnable, payloadLength, logicalTransportAddress);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_PROD_TEST_SUBCOMMAND_TEST_TX(byte channel, BlueTooth_TransmittPatternPayload transmitPattern, BlueTooth_PacketType packetType, bool dataWhiteningEnabled, byte transmitOutputPowerLevel, bool receiverHighGainEnable, byte[] targetDeviceAddress, bool hoppingEnable, ushort payloadLength, byte logicalTransportAddress)
+	{
+		string source = "QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_TX";
+		string format = "phoneHandle :{0}, channels :{1},transmitPattern :{2},packetType :{3}, dataWhiteningEnabled :{4}, transmitOutputPowerLevel :{5}, receiverHighGainEnable :{6}, targetDeviceAddress :{7}, hoppingEnable :{8}, payloadLength :{9}, logicalTransportAddress :{10}";
+		string exceptionMessage = "Error FTM_BT_PROD_TEST_SUBCOMMAND_TEST_TX";
+		byte b = 0;
+		byte[] array = new byte[6];
+		for (int i = 0; i <= 5; i++)
+		{
+			array[i] = channel;
+		}
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BitConverter.ToString(array, 0, array.Length), transmitPattern, packetType, dataWhiteningEnabled, transmitOutputPowerLevel, receiverHighGainEnable, BitConverter.ToString(targetDeviceAddress, 0, targetDeviceAddress.Length), hoppingEnable, payloadLength, logicalTransportAddress)));
+		b = QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_TX(phoneHandle, array, (byte)transmitPattern, (byte)packetType, dataWhiteningEnabled, transmitOutputPowerLevel, receiverHighGainEnable, targetDeviceAddress, hoppingEnable, payloadLength, logicalTransportAddress);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_LE_HCI_Transmitter_Test(int testFrequency, byte testPayloadLength, BT_LE_TransmittPatternPayload testPayload)
+	{
+		double field_ = Class38.field_202;
+		string source = "QLIB_FTM_BT_LE_HCI_Transmitter_Test";
+		string format = "phoneHandle :{0},testFrequency :{1}, testPayloadLength :{2},testPayload :{3}";
+		string exceptionMessage = "Error FTM_BT_LE_HCI_Transmitter_Test";
+		byte b = 0;
+		testFrequency = (int)Math.Round((double)(testFrequency - 2402) / field_);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, testFrequency, testPayloadLength, testPayload)));
+		b = QLIB_FTM_BT_LE_HCI_Transmitter_Test(phoneHandle, (byte)testFrequency, testPayloadLength, (byte)testPayload);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_LE_HCI_Enhanced_Transmitter_Test(int testFrequency, byte testPayloadLength, BT_LE_TransmittPatternPayload testPayload, byte phyType)
+	{
+		double field_ = Class38.field_202;
+		string source = "QLIB_FTM_BT_LE_HCI_Enhanced_Transmitter_Test";
+		string format = "phoneHandle :{0},testFrequency :{1}, testPayloadLength :{2},testPayload :{3}, phyType: {4}";
+		string exceptionMessage = "Error BT_LE_HCI_Enhanced_Transmitter_Test";
+		byte b = 0;
+		testFrequency = (int)Math.Round((double)(testFrequency - 2402) / field_);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, testFrequency, testPayloadLength, testPayload, phyType)));
+		b = QLIB_FTM_BT_LE_HCI_Enhanced_Transmitter_Test(phoneHandle, (byte)testFrequency, testPayloadLength, (byte)testPayload, phyType);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_LE_HCI_Receiver_Test(int testFrequency)
+	{
+		double field_ = Class38.field_202;
+		string source = "QLIB_FTM_BT_LE_HCI_Receiver_Test";
+		string format = "phoneHandle :{0}, testFrequency :{1}";
+		string exceptionMessage = "Error FTM_BT_LE_HCI_Receiver_Test";
+		byte b = 0;
+		testFrequency = (int)Math.Round((double)(testFrequency - 2402) / field_);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, testFrequency)));
+		b = QLIB_FTM_BT_LE_HCI_Receiver_Test(phoneHandle, (byte)testFrequency);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_LE_HCI_Enhanced_Receiver_Test(int testFrequency, byte phyType)
+	{
+		double field_ = Class38.field_202;
+		string source = "QLIB_FTM_BT_LE_HCI_Enhanced_Receiver_Test";
+		string format = "phoneHandle :{0}, testFrequency :{1}, phyType :{2}";
+		string exceptionMessage = "Error FTM_BT_LE_HCI_Enhanced_Receiver_Test";
+		byte b = 0;
+		testFrequency = (int)Math.Round((double)(testFrequency - 2402) / field_);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, testFrequency, phyType)));
+		b = QLIB_FTM_BT_LE_HCI_Enhanced_Receiver_Test(phoneHandle, (byte)testFrequency, phyType);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_LE_HCI_Enhanced_Receiver_Test_ModulationIndex(int testFrequency, byte phyType, byte modulationIndex)
+	{
+		double field_ = Class38.field_202;
+		string source = "QLIB_FTM_BT_LE_HCI_Enhanced_Receiver_Test_ModulationIndex";
+		string format = "phoneHandle :{0}, testFrequency :{1}, phyType :{2}, modulationIndex :{3}";
+		string exceptionMessage = "Error FTM_BT_LE_HCI_Enhanced_Receiver_Test_ModulationIndex";
+		byte b = 0;
+		testFrequency = (int)Math.Round((double)(testFrequency - 2402) / field_);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, testFrequency, phyType, modulationIndex)));
+		b = QLIB_FTM_BT_LE_HCI_Enhanced_Receiver_Test_ModulationIndex(phoneHandle, (byte)testFrequency, phyType, modulationIndex);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_LE_HCI_Test_End(out ushort numOfPackets)
+	{
+		string source = "QLIB_FTM_BT_LE_HCI_Test_End";
+		string format = "phoneHandle :{0}";
+		string format2 = "ref numOfPackets :{0}";
+		string exceptionMessage = "Error FTM_BT_LE_HCI_Test_End";
+		byte b = 0;
+		numOfPackets = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_BT_LE_HCI_Test_End(phoneHandle, ref numOfPackets);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, numOfPackets)));
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_Get_PIN_CONNECTIVITIY(out short btResponse, out short wlanResponse, out short fmResponse)
+	{
+		string source = "QLIB_BT_Get_PIN_CONNECTIVITIY";
+		string format = "phoneHandle :{0}";
+		string format2 = "ref btResponse :{0}, wlanResponse :{1}, fmResponse :{2}";
+		string exceptionMessage = "Error FTM_BT_Get_PIN_CONNECTIVITIY";
+		byte b = 0;
+		btResponse = -999;
+		wlanResponse = -999;
+		fmResponse = -999;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_BT_Get_PIN_CONNECTIVITIY(phoneHandle, ref btResponse, ref wlanResponse, ref fmResponse);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, btResponse, wlanResponse, fmResponse)));
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_SET_CHIP_ID(int bluetoothChipID)
+	{
+		string source = "QLIB_FTM_BT_SET_CHIP_ID";
+		string format = "phoneHandle :{0}, bluetoothChipID :{1}";
+		string exceptionMessage = "Error FTM_BT_SET_CHIP_ID";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, bluetoothChipID)));
+		b = QLIB_FTM_BT_SET_CHIP_ID(phoneHandle, bluetoothChipID);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_SET_LegacyLoggingMode(int bluetoothLegacyLoggingEnable)
+	{
+		string source = "QLIB_FTM_BT_SET_LegacyLoggingMode";
+		string format = "phoneHandle :{0}, bluetoothLegacyLoggingEnable :{1}";
+		string exceptionMessage = "Error FTM_BT_SET_LegacyLoggingMode";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, bluetoothLegacyLoggingEnable)));
+		b = QLIB_FTM_BT_SET_LegacyLoggingMode(phoneHandle, bluetoothLegacyLoggingEnable);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_PROD_TEST_HCI_GET_PER_AR3002(out GStruct0 perStatistics, BlueTooth_PacketTypeAR3002PER PacketType)
+	{
+		string source = "QLIB_FTM_BT_PROD_TEST_HCI_GET_PER_AR3002";
+		string format = "phoneHandle :{0}, receivedInformation :{1}, packet type :{2}";
+		string format2 = "phoneHandle :{0}, receivedInformation :{1}";
+		string exceptionMessage = "Error FTM_BT_PROD_TEST_HCI_GET_PER_AR3002";
+		byte[] array = new byte[8];
+		byte b = 0;
+		perStatistics = default(GStruct0);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BitConverter.ToString(array, 0, array.Length), (byte)PacketType)));
+		b = QLIB_FTM_BT_PROD_TEST_HCI_GET_PER_AR3002(phoneHandle, array, (byte)PacketType);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle, BitConverter.ToString(array, 0, array.Length))));
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		perStatistics.packetCRCErrors = BitConverter.ToUInt32(array, 0);
+		perStatistics.packetReceived = BitConverter.ToUInt32(array, 4);
+	}
+
+	public void FTM_BT_PROD_TEST_SUBCOMMAND_TEST_TXC_AR3002(byte ichannel, byte iPowerLevel)
+	{
+		string source = "QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_TXC_AR3002";
+		string format = "phoneHandle :{0}, ichannel :{1}, iPowerLevel :{2}";
+		string exceptionMessage = "Error FTM_BT_PROD_TEST_SUBCOMMAND_TEST_TXC_AR3002";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, ichannel, iPowerLevel)));
+		b = QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_TXC_AR3002(phoneHandle, ichannel, iPowerLevel);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_GET_RSSI(byte channel, byte noOfAverages, out short rssiDBM)
+	{
+		string exceptionMessage = "Error FTM_BT_GET_RSSI";
+		byte b = 0;
+		rssiDBM = -999;
+		b = QLIB_FTM_BT_HCI_GET_RSSI(phoneHandle, ref rssiDBM, channel, noOfAverages);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_PROD_TEST_SUBCOMMAND_TEST_RX_BURST_CONFIG(ushort numberofPacketsToReceive)
+	{
+		string source = "FTM_BT_PROD_TEST_SUBCOMMAND_TEST_RX_BURST_CONFIG";
+		string format = "phoneHandle :{0}, packetNumber :{1}";
+		string exceptionMessage = "Error FTM_BT_PROD_TEST_SUBCOMMAND_TEST_RX_BURST_CONFIG";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, numberofPacketsToReceive)));
+		b = QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_RX_BURST_CONFIG(phoneHandle, numberofPacketsToReceive);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_PROD_TEST_SUBCOMMAND_TEST_SEQ_TX(byte txTestMode, byte channel, byte[] targetDeviceAddress, byte logicalTransportAddress, byte transmitOutputPowerLevel, ushort NumberofPacketsForEachMode, bool NullPacketsEnable)
+	{
+		string source = "FTM_BT_PROD_TEST_SUBCOMMAND_TEST_SEQ_TX";
+		string format = "phoneHandle :{0}, TxTestMode :{1}, channels :{2}, targetDeviceAddress :{3}, logicalTransportAddress :{4}, transmitOutputPowerLevel :{5}, NumberofPacketsForEachMode :{6}, NullPacketsEnable :{7}";
+		string exceptionMessage = "Error FTM_BT_PROD_TEST_SUBCOMMAND_TEST_SEQ_TX";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, txTestMode, channel, BitConverter.ToString(targetDeviceAddress, 0, targetDeviceAddress.Length), logicalTransportAddress, transmitOutputPowerLevel, NumberofPacketsForEachMode, NullPacketsEnable)));
+		b = QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_SEQ_TX(phoneHandle, txTestMode, channel, targetDeviceAddress, logicalTransportAddress, transmitOutputPowerLevel, NumberofPacketsForEachMode, NullPacketsEnable);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_PROD_TEST_SUBCOMMAND_TEST_SEQ_RX(byte channel, byte[] targetDeviceAddress, byte logicalTransportAddress, ushort NumberofRotation)
+	{
+		string source = "FTM_BT_PROD_TEST_SUBCOMMAND_TEST_SEQ_RX";
+		string format = "phoneHandle :{0}, channels :{1}, targetDeviceAddress :{2}, logicalTransportAddress :{3}, NumberofRotation :{4}";
+		string exceptionMessage = "Error FTM_BT_PROD_TEST_SUBCOMMAND_TEST_SEQ_RX";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, channel, BitConverter.ToString(targetDeviceAddress, 0, targetDeviceAddress.Length), logicalTransportAddress, NumberofRotation)));
+		b = QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_SEQ_RX(phoneHandle, channel, targetDeviceAddress, logicalTransportAddress, NumberofRotation);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_PROD_TEST_SUBCOMMAND_TEST_SEQ_RX_STATUS(out BTListModeStat btlistModeStat_0, out BTListModeStat btlistModeStat_1, out BTListModeStat twoDH5Status, out BTListModeStat threeDH5Status, out LEListModeStat leStatus)
+	{
+		string source = "FTM_BT_PROD_TEST_SUBCOMMAND_TEST_SEQ_RX_STATUS";
+		string format = "phoneHandle :{0}, receivedInformation1 :{1}, receivedInformation2 :{2}, receivedInformation3 :{3}, receivedInformation4 :{4}, receivedInformation5 :{5}";
+		string exceptionMessage = "Error Rx List mode.";
+		string text = "Failed FTM_BT_PROD_TEST_SUBCOMMAND_TEST_SEQ_RX_STATUS : ";
+		try
+		{
+			byte[] array = new byte[28];
+			byte[] array2 = new byte[28];
+			byte[] array3 = new byte[28];
+			byte[] array4 = new byte[28];
+			byte[] array5 = new byte[24];
+			byte b = 0;
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BitConverter.ToString(array, 0, array.Length), BitConverter.ToString(array2, 0, array2.Length), BitConverter.ToString(array3, 0, array3.Length), BitConverter.ToString(array4, 0, array4.Length), BitConverter.ToString(array5, 0, array5.Length))));
+			b = QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_SEQ_RX_STATUS(phoneHandle, array, array2, array3, array4, array5);
+			if (b != 1)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			btlistModeStat_0 = default(BTListModeStat);
+			btlistModeStat_1 = default(BTListModeStat);
+			twoDH5Status = default(BTListModeStat);
+			threeDH5Status = default(BTListModeStat);
+			leStatus = default(LEListModeStat);
+			btlistModeStat_0.totalReceivePackets = BitConverter.ToUInt32(array, 0);
+			btlistModeStat_1.totalReceivePackets = BitConverter.ToUInt32(array2, 0);
+			twoDH5Status.totalReceivePackets = BitConverter.ToUInt32(array3, 0);
+			threeDH5Status.totalReceivePackets = BitConverter.ToUInt32(array4, 0);
+			leStatus.totalReceivePackets = BitConverter.ToUInt32(array5, 0);
+			btlistModeStat_0.uint_0 = BitConverter.ToUInt32(array, 4);
+			btlistModeStat_1.uint_0 = BitConverter.ToUInt32(array2, 4);
+			twoDH5Status.uint_0 = BitConverter.ToUInt32(array3, 4);
+			threeDH5Status.uint_0 = BitConverter.ToUInt32(array4, 4);
+			leStatus.uint_0 = BitConverter.ToUInt32(array5, 4);
+			btlistModeStat_0.totalHECOKPackets = BitConverter.ToUInt32(array, 8);
+			btlistModeStat_1.totalHECOKPackets = BitConverter.ToUInt32(array2, 8);
+			twoDH5Status.totalHECOKPackets = BitConverter.ToUInt32(array3, 8);
+			threeDH5Status.totalHECOKPackets = BitConverter.ToUInt32(array4, 8);
+			leStatus.totalHECOKPackets = BitConverter.ToUInt32(array5, 8);
+			btlistModeStat_0.uint_1 = BitConverter.ToUInt32(array, 12);
+			btlistModeStat_1.uint_1 = BitConverter.ToUInt32(array2, 12);
+			twoDH5Status.uint_1 = BitConverter.ToUInt32(array3, 12);
+			threeDH5Status.uint_1 = BitConverter.ToUInt32(array4, 12);
+			leStatus.uint_1 = BitConverter.ToUInt32(array5, 12);
+			btlistModeStat_0.totalCrcOKPackets = BitConverter.ToUInt32(array, 16);
+			btlistModeStat_1.totalCrcOKPackets = BitConverter.ToUInt32(array2, 16);
+			twoDH5Status.totalCrcOKPackets = BitConverter.ToUInt32(array3, 16);
+			threeDH5Status.totalCrcOKPackets = BitConverter.ToUInt32(array4, 16);
+			leStatus.totalCrcOKPackets = BitConverter.ToUInt32(array5, 16);
+			btlistModeStat_0.totalPayloadOKPackets = BitConverter.ToUInt32(array, 20);
+			btlistModeStat_1.totalPayloadOKPackets = BitConverter.ToUInt32(array2, 20);
+			twoDH5Status.totalPayloadOKPackets = BitConverter.ToUInt32(array3, 20);
+			threeDH5Status.totalPayloadOKPackets = BitConverter.ToUInt32(array4, 20);
+			leStatus.totalPayloadOKPackets = BitConverter.ToUInt32(array5, 20);
+			btlistModeStat_0.totalBitError = BitConverter.ToUInt32(array, 24);
+			btlistModeStat_1.totalBitError = BitConverter.ToUInt32(array2, 24);
+			twoDH5Status.totalBitError = BitConverter.ToUInt32(array3, 24);
+			threeDH5Status.totalBitError = BitConverter.ToUInt32(array4, 24);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text + ex.Message);
+		}
+	}
+
+	public byte[] FTM_BT_GET_BD_ADDR()
+	{
+		string source = "QLIB_FTM_BT_GET_BD_ADDR";
+		string format = "phoneHandle :{0}";
+		string text = "BDADDRESS :";
+		string exceptionMessage = "Error Setting BT mode";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		byte[] array = new byte[6];
+		b = QLIB_FTM_BT_GET_BD_ADDR(phoneHandle, array);
+		Logger.Add(new Message((MessageType)2, source, text + BitConverter.ToString(array, 0, array.Length)));
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return array;
+	}
+
+	public bool FTM_BT_SET_BD_ADDR(byte[] byte_1)
+	{
+		string source = "QLIB_FTM_BT_SET_BD_ADDR";
+		string format = "phoneHandle :{0}, BDAddress : {1}";
+		string exceptionMessage = "Error Writing BD address, possible cause: device already provisioned";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BitConverter.ToString(byte_1, 0, byte_1.Length))));
+		b = QLIB_FTM_BT_SET_BD_ADDR(phoneHandle, byte_1);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return true;
+	}
+
+	public void FTM_BT_PROD_TEST_SUBCOMMAND_TEST_STOP()
+	{
+		string source = "FTM_BT_PROD_TEST_SUBCOMMAND_TEST_STOP";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "Error QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_STOP";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_BT_PROD_TEST_SUBCOMMAND_TEST_STOP(phoneHandle);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public bool FTM_BT_POKE_SSBI(int Address, int Value)
+	{
+		string source = "QLIB_FTM_BT_POKE_SSBI_ADDR";
+		string format = "phoneHandle :{0}, Address : {1}, Value : {2}";
+		string exceptionMessage = "Error Writing SSBI value to address";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Address, Value)));
+		b = QLIB_FTM_BT_SSBI_POKE(phoneHandle, Address, Value);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return true;
+	}
+
+	public int FTM_BT_PEEK_SSBI(int Address)
+	{
+		string source = "QLIB_FTM_BT_PEEK_SSBI_ADDR";
+		string format = "phoneHandle :{0}, Address : {1}";
+		string exceptionMessage = "Error Reading SSBI value from address";
+		byte b = 0;
+		int Value = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Address)));
+		b = QLIB_FTM_BT_SSBI_PEEK(phoneHandle, Address, out Value);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return Value;
+	}
+
+	public int FTM_BT_PEEK_32_TEST(int Address, int datalength)
+	{
+		string source = "BT_EDL_PEEK32_REQ";
+		string format = "phoneHandle :{0}, Address : {1}, Datalength : {2}";
+		string exceptionMessage = "Error Reading Peek 32 value from address";
+		byte b = 0;
+		byte datalength2 = (byte)datalength;
+		int Value = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Address, datalength)));
+		b = QLIB_FTM_BT_EDL_PEEK32_REQ(phoneHandle, Address, datalength2, out Value);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return Value;
+	}
+
+	public int FTM_BT_PEEK_16_TEST(int Address, int datalength)
+	{
+		string source = "BT_EDL_PEEK16_REQ";
+		string format = "phoneHandle :{0}, Address : {1}, Datalength : {2}";
+		string exceptionMessage = "Error Reading Peek 16 value from address";
+		byte b = 0;
+		int Value = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Address, datalength)));
+		b = QLIB_FTM_BT_EDL_PEEK16_REQ(phoneHandle, Address, (byte)datalength, out Value);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return Value;
+	}
+
+	public int FTM_BT_PEEK_8_TEST(int Address, int datalength)
+	{
+		string source = "BT_EDL_PEEK8_REQ";
+		string format = "phoneHandle :{0}, Address : {1}, Datalength : {2}";
+		string exceptionMessage = "Error Reading Peek 8 value from address";
+		byte b = 0;
+		int Value = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Address, datalength)));
+		b = QLIB_FTM_BT_EDL_PEEK8_REQ(phoneHandle, Address, (byte)datalength, out Value);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return Value;
+	}
+
+	public bool FTM_BT_POKE_32_TEST(int memAddress, int datalength, int datas)
+	{
+		string source = "BT_EDL_POKE32_REQ";
+		string format = "phoneHandle :{0}, Address : {1}, Data :{2} ";
+		string exceptionMessage = "Error Writing Poke 32 value from address";
+		byte b = 0;
+		byte[] bytes = BitConverter.GetBytes(datas);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, memAddress, datas)));
+		b = QLIB_FTM_BT_EDL_POKE32_REQ(phoneHandle, memAddress, (byte)datalength, bytes);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return true;
+	}
+
+	public bool FTM_BT_POKE_16_TEST(int memAddress, int datalength, int datas)
+	{
+		string source = "BT_EDL_POKE16_REQ";
+		string format = "phoneHandle :{0}, Address : {1}, Data :{2} ";
+		string exceptionMessage = "Error Writing Poke 16 value from address";
+		byte b = 0;
+		byte[] bytes = BitConverter.GetBytes(datas);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, memAddress, datas)));
+		b = QLIB_FTM_BT_EDL_POKE16_REQ(phoneHandle, memAddress, (byte)datalength, bytes);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return true;
+	}
+
+	public bool FTM_BT_POKE_8_TEST(int memAddress, int datalength, int datas)
+	{
+		string source = "BT_EDL_POKE8_REQ";
+		string format = "phoneHandle :{0}, Address : {1}, Data :{2} ";
+		string exceptionMessage = "Error Writing Poke 8 value from address";
+		byte b = 0;
+		byte[] bytes = BitConverter.GetBytes(datas);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, memAddress, datas)));
+		b = QLIB_FTM_BT_EDL_POKE8_REQ(phoneHandle, memAddress, (byte)datalength, bytes);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return true;
+	}
+
+	public void FTM_BT_NVM_DOWNLOAD(string filename)
+	{
+		string source = "QLIB_FTM_BT_NVM_DOWNLOAD";
+		string format = "phoneHandle: {0}, filename: {1}";
+		string exceptionMessage = "QLIB_FTM_BT_NVM_DOWNLOAD(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, filename)));
+		if (QLIB_FTM_BT_NVM_DOWNLOAD(phoneHandle, filename) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_PATCH_DOWNLOAD(string filename)
+	{
+		string source = "QLIB_FTM_BT_PATCH_DOWNLOAD";
+		string format = "phoneHandle: {0}, filename: {1}";
+		string exceptionMessage = "QLIB_FTM_BT_PATCH_DOWNLOAD(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, filename)));
+		if (QLIB_FTM_BT_PATCH_DOWNLOAD(phoneHandle, filename) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_SET_PERSIST_ACCESS_OPT(byte cfgType, byte[] data)
+	{
+		string source = "QLIB_FTM_BT_SET_PERSIST_ACCESS_OPT";
+		string format = "phoneHandle :{0},cfgType: {1}, address :{2}";
+		string exceptionMessage = "Error FTM_BT_SET_PERSIST_ACCESS_OPT";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, cfgType, BitConverter.ToString(data, 0, data.Length))));
+		b = QLIB_FTM_BT_SET_PERSIST_ACCESS_OPT(phoneHandle, cfgType, data);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public byte[] FTM_BT_GET_PERSIST_ACCESS_OPT(byte cfgType)
+	{
+		string source = "QLIB_FTM_BT_GET_PERSIST_ACCESS_OPT";
+		string format = "phoneHandle :{0}";
+		string text = "DATA :";
+		string exceptionMessage = "Error FTM_BT_GET_PERSIST_ACCESS_OPT";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		byte[] array = new byte[6];
+		switch (cfgType)
+		{
+		default:
+			b = QLIB_FTM_BT_GET_PERSIST_ACCESS_OPT(phoneHandle, cfgType, array);
+			goto IL_00b8;
+		case 4:
+			array = new byte[2];
+			b = QLIB_FTM_BT_GET_PERSIST_ACCESS_OPT(phoneHandle, cfgType, array);
+			Logger.Add(new Message((MessageType)2, source, text + BitConverter.ToString(array, 0, array.Length)));
+			if (b == 1)
+			{
+				return array;
+			}
+			throw new PhoneException(exceptionMessage);
+		case 5:
+			{
+				array = new byte[7];
+				b = QLIB_FTM_BT_GET_PERSIST_ACCESS_OPT(phoneHandle, cfgType, array);
+				goto IL_00b8;
+			}
+			IL_00b8:
+			Logger.Add(new Message((MessageType)2, source, text + BitConverter.ToString(array, 0, array.Length)));
+			if (b != 1)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			return array;
+		}
+	}
+
+	public bool FTM_BT_SET_BAUDRATE(byte BTbaudRateId)
+	{
+		string source = "QLIB_FTM_BT_SET_BAUDRATE";
+		string format = "phoneHandle :{0} BTbaudRateId :{1}";
+		string format2 = "phoneHandle :{0}";
+		string exceptionMessage = "Error FTM_BT_SET_BAUDRATE";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BTbaudRateId)));
+		b = QLIB_FTM_BT_SET_BAUDRATE(phoneHandle, BTbaudRateId);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle)));
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return true;
+	}
+
+	public bool FTM_BT_VOICE_LOOPBACK(byte loopBackMode, ushort voicesetting)
+	{
+		string source = "QLIB_FTM_BT_VOICE_LOOPBACK";
+		string format = "phoneHandle :{0} loopBackMode :{1} voicesetting :{2}";
+		string format2 = "phoneHandle :{0}";
+		string exceptionMessage = "Error FTM_BT_VOICE_LOOPBACK";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, loopBackMode, voicesetting)));
+		b = QLIB_FTM_BT_VOICE_LOOPBACK(phoneHandle, loopBackMode, voicesetting);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle)));
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return true;
+	}
+
+	public bool FTM_BT_HCI_VS_SET_TECH_PL_MAPPING_CORRECTION(byte Flags, byte[] Technology, byte[] PowerLevel, float[] OffsetValue)
+	{
+		string source = "QLIB_FTM_BT_HCI_VS_SET_TECH_PL_MAPPING_CORRECTION";
+		string format = "phoneHandle :{0} Flags :{1} count :{2} Technology :{3} PowerLevel:{4}  OffsetValue:{5}";
+		string format2 = "phoneHandle :{0}";
+		string exceptionMessage = "Error FTM_BT_HCI_VS_SET_TECH_PL_MAPPING_CORRECTION";
+		byte b = 0;
+		byte b2 = (byte)Technology.Length;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Flags, b2, BitConverter.ToString(Technology, 0, Technology.Length), BitConverter.ToString(PowerLevel, 0, PowerLevel.Length), BitConverter.GetBytes(OffsetValue[0]))));
+		b = QLIB_FTM_BT_HCI_VS_SET_TECH_PL_MAPPING_CORRECTION(phoneHandle, Flags, b2, Technology, PowerLevel, OffsetValue);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle)));
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return true;
+	}
+
+	public bool FTM_BT_HCI_VS_SET_TECH_PL_MAPPING_CORRECTION_With_RFChain(byte Flags, byte[] RFChain, byte[] Technology, byte[] PowerLevel, float[] OffsetValue)
+	{
+		string source = "QLIB_FTM_BT_HCI_VS_SET_TECH_PL_MAPPING_CORRECTION_With_RFChain";
+		string format = "phoneHandle :{0} Flags :{1} count :{2} RFChain :{3} Technology :{4} PowerLevel:{5}  OffsetValue:{6}";
+		string format2 = "phoneHandle :{0}";
+		string exceptionMessage = "Error FTM_BT_HCI_VS_SET_TECH_PL_MAPPING_CORRECTION_With_RFChain";
+		byte b = 0;
+		byte b2 = (byte)Technology.Length;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Flags, b2, BitConverter.ToString(RFChain, 0, RFChain.Length), BitConverter.ToString(Technology, 0, Technology.Length), BitConverter.ToString(PowerLevel, 0, PowerLevel.Length), BitConverter.GetBytes(OffsetValue[0]))));
+		b = QLIB_FTM_BT_HCI_VS_SET_TECH_PL_MAPPING_CORRECTION_With_RFChain(phoneHandle, Flags, b2, RFChain, Technology, PowerLevel, OffsetValue);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle)));
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return true;
+	}
+
+	public bool FTM_BT_HCI_VS_SET_TECH_BASED_MAX_RADIATED_POWER(byte Num_pairs, byte[] Technology, float[] Power)
+	{
+		string source = "QLIB_FTM_BT_HCI_VS_SET_TECH_BASED_MAX_RADIATED_POWER";
+		string format = "phoneHandle :{0} Num_pairs :{1} Technology :{2} Power :{3} ";
+		string format2 = "phoneHandle :{0}";
+		string exceptionMessage = "Error FTM_BT_HCI_VS_SET_TECH_BASED_MAX_RADIATED_POWER";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Num_pairs, BitConverter.ToString(Technology, 0, Technology.Length), BitConverter.GetBytes(Power[0]))));
+		b = QLIB_FTM_BT_HCI_VS_SET_TECH_BASED_MAX_RADIATED_POWER(phoneHandle, Num_pairs, Technology, Power);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle)));
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return true;
+	}
+
+	public bool FTM_BT_HCI_VS_SET_RF_CHAIN(byte byte_1, byte byte_2)
+	{
+		string source = "QLIB_FTM_BT_HCI_VS_SET_RF_Chain";
+		string format = "phoneHandle :{0} TxChainID :{1} RxChainID :{2}";
+		string format2 = "phoneHandle :{0}";
+		string exceptionMessage = "Error FTM_BT_HCI_VS_SET_RF_CHAIN";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, byte_1, byte_2)));
+		b = QLIB_FTM_BT_HCI_VS_SET_RF_Chain(phoneHandle, byte_1, byte_2);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle)));
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return true;
+	}
+
+	public bool FTM_BT_HCI_VS_Prod_Test_LE_Tx_Burst(byte ihopChannelsStr, ushort ipayloadLength, byte ipayload_type, byte ipacket_type, byte itransmitOutputPower)
+	{
+		string source = "QLIB_FTM_BT_HCI_VS_Prod_Test_LE_Tx_Burst";
+		string format = "phoneHandle :{0} ihopChannelsStr :{1} ipayloadLength :{2} ipayload_type:{3} ipacket_type:{4} itransmitOutputPower:{5}";
+		string format2 = "phoneHandle :{0}";
+		string exceptionMessage = "Error FTM_BT_HCI_VS_Prod_Test_LE_Tx_Burst";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, ihopChannelsStr, ipayloadLength, ipayload_type, ipacket_type, itransmitOutputPower)));
+		b = QLIB_FTM_BT_HCI_VS_Prod_Test_LE_Tx_Burst(phoneHandle, ihopChannelsStr, ipayloadLength, ipayload_type, ipacket_type, itransmitOutputPower);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle)));
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return true;
+	}
+
+	public bool FTM_BT_HCI_VS_GET_TECH_PL_MAPPING_CORRECTION(out byte NumBanks, out byte NumTech, out byte NumPL, byte[] OffsetArray)
+	{
+		string source = "QLIB_FTM_BT_HCI_VS_GET_TECH_PL_MAPPING_CORRECTION";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "Error FTM_BT_HCI_VS_GET_TECH_PL_MAPPING_CORRECTION";
+		byte b = 0;
+		NumBanks = 0;
+		NumTech = 0;
+		NumPL = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_BT_HCI_VS_GET_TECH_PL_MAPPING_CORRECTION(phoneHandle, ref NumBanks, ref NumTech, ref NumPL, OffsetArray);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return true;
+	}
+
+	public void FTM_BT_CSR8811_WarmReset()
+	{
+		string source = "FTM_BT_CSR8811_WarmReset";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "Error FTM_BT_CSR8811_WarmReset";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_BT_CSR8811_WarmReset(phoneHandle);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_CSR8811_Pause()
+	{
+		string source = "FTM_BT_CSR8811_Pause";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "Error FTM_BT_CSR8811_Pause";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_BT_CSR8811_Pause(phoneHandle);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_CSR8811_SetTxPower(byte txPowerLevel)
+	{
+		string source = "FTM_BT_CSR8811_SetTxPower";
+		string format = "phoneHandle :{0}, txPowerLevel :{1}";
+		string exceptionMessage = "Error FTM_BT_CSR8811_SetTxPower";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, txPowerLevel)));
+		b = QLIB_FTM_BT_CSR8811_SetTxPower(phoneHandle, txPowerLevel);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_CSR8811_SetBLETxPower(short BLEtxPowerLevel)
+	{
+		string source = "FTM_BT_CSR8811_SetBLETxPower";
+		string format = "phoneHandle :{0}, BLEtxPowerLevel :{1}";
+		string exceptionMessage = "Error FTM_BT_CSR8811_SetBLETxPower";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BLEtxPowerLevel)));
+		b = QLIB_FTM_BT_CSR8811_SetBLETxPower(phoneHandle, BLEtxPowerLevel);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_CSR8811_SetPacketType(ushort packetType, ushort payloadLength)
+	{
+		string source = "FTM_BT_CSR8811_SetPacketType";
+		string format = "phoneHandle :{0}, packetType :{1}, payloadLength :{2}";
+		string exceptionMessage = "Error FTM_BT_CSR8811_SetPacketType";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, packetType, payloadLength)));
+		b = QLIB_FTM_BT_CSR8811_SetPacketType(phoneHandle, packetType, payloadLength);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_CSR8811_Tx_Data_ON(ushort txFrequency, byte payloadType, byte packetType)
+	{
+		string source = "FTM_BT_CSR8811_Tx_Data_ON";
+		string format = "phoneHandle :{0}, txFrequency :{1}, payloadType :{2}, packetType :{3}";
+		string exceptionMessage = "Error FTM_BT_CSR8811_Tx_Data_ON";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, txFrequency, payloadType, packetType)));
+		b = QLIB_FTM_BT_CSR8811_Tx_Data_ON(phoneHandle, txFrequency, payloadType, packetType);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_CSR8811_ConfigXtalFTrim(ushort xtalFTrimValue)
+	{
+		string source = "FTM_BT_CSR8811_ConfigXtalFTrim";
+		string format = "phoneHandle :{0}, xtalFTrimValue :{1}";
+		string exceptionMessage = "Error FTM_BT_CSR8811_ConfigXtalFTrim";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, xtalFTrimValue)));
+		b = QLIB_FTM_BT_CSR8811_ConfigXtalFTrim(phoneHandle, xtalFTrimValue);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_ConfigXtalFTrim(byte capValue)
+	{
+		string source = "FTM_BT_ConfigXtalFTrim";
+		string format = "phoneHandle :{0}, capValue :{1}";
+		string exceptionMessage = "Error FTM_BT_ConfigXtalFTrim";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, capValue)));
+		b = QLIB_FTM_BT_ConfigXtalFTrim(phoneHandle, capValue);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_PIN_CONNECTIVITY_Test(byte interfaceID)
+	{
+		string source = "FTM_BT_PIN_CONNECTIVITY_Test";
+		string format = "phoneHandle :{0}, interfaceID :{1}";
+		string exceptionMessage = "Error FTM_BT_PIN_CONNECTIVITY_Test";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, interfaceID)));
+		b = QLIB_FTM_BT_PIN_CONNECTIVITY_Test(phoneHandle, interfaceID);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_SELECT_INTERFACE(byte interfaceID)
+	{
+		string source = "FTM_BT_SELECT_INTERFACE";
+		string format = "phoneHandle :{0}, interfaceID :{1}";
+		string exceptionMessage = "Error FTM_BT_SELECT_INTERFACE";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, interfaceID)));
+		b = QLIB_FTM_BT_SELECT_INTERFACE(phoneHandle, interfaceID);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_CSR8811_SET_BD_ADDR(byte UAP, byte[] LAP)
+	{
+		string source = "FTM_BT_CSR8811_SET_BD_ADDR";
+		string format = "phoneHandle :{0}, LAP {1}, {2}, {3}, {4}";
+		string exceptionMessage = "Error FTM_BT_CSR8811_SET_BD_ADDR";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, UAP, LAP[0], LAP[1], LAP[2])));
+		b = QLIB_FTM_BT_CSR8811_SET_BD_ADDR(phoneHandle, UAP, LAP);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_CSR8811_Rx_BER_ON(ushort iRxFreq, ushort iNumberOfPackets)
+	{
+		string source = "FTM_BT_CSR8811_SET_BD_ADDR";
+		string format = "phoneHandle :{0}, iRxFreq {1} :, iNumberOfPackets {2} ";
+		string exceptionMessage = "Error FTM_BT_CSR8811_Rx_BER_ON";
+		byte b = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iRxFreq, iNumberOfPackets)));
+		b = QLIB_FTM_BT_CSR8811_Rx_BER_ON(phoneHandle, iRxFreq, iNumberOfPackets);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_BT_CSR8811_Get_Rx_Stats(out ulong iBitsInError, out ulong iTotalBitsReceived)
+	{
+		string source = "QLIB_FTM_BT_CSR8811_Get_Rx_Stats";
+		string format = "phoneHandle :{0}";
+		string format2 = "ref iBitsInError :{0}, iTotalBitsReceived :{1}";
+		string exceptionMessage = "Error FTM_BT_CSR8811_Get_Rx_Stats";
+		byte b = 0;
+		uint iBitsInError2 = 0u;
+		uint iTotalBitsReceived2 = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		b = QLIB_FTM_BT_CSR8811_Get_Rx_Stats(phoneHandle, ref iBitsInError2, ref iTotalBitsReceived2);
+		iBitsInError = iBitsInError2;
+		iTotalBitsReceived = iTotalBitsReceived2;
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iBitsInError, iTotalBitsReceived)));
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RX_ENABLE_RECEIVER(uint hResourceContext, byte iRadioBand, byte iEmphasis, byte iChSpacing, byte iRdsStd, uint iUserDefinedBandFreqMin, uint iUserDefinedBandFreqMax);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RX_DISABLE_RECEIVER(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RX_CONFIGURE_RECEIVER(uint hResourceContext, byte iRadioBand, byte iEmphasis, byte iChSpacing, byte iRdsStd, uint iUserDefinedBandFreqMin, uint iUserDefinedBandFreqMax);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RX_SET_MUTE_MODE(uint hResourceContext, byte iRxMute);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RX_SET_STEREO_MODE(uint hResourceContext, byte iStereo);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RX_SET_STATION(uint hResourceContext, uint iFreqkHz);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RX_GET_STATION_PARAMETERS(uint hResourceContext, ref uint piStationFreq, ref byte piServAvble, ref byte piRssi, ref byte piStereoProgram, ref byte piRdsSyncStatus, ref byte piMuteMode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RX_RDS_GROUP_OPTIONS(uint hResourceContext, uint iMask, uint iGroupBufferSize, byte bChangeFilterEnabled);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_TX_ENABLE_TRANSMITTER(uint hResourceContext, byte iRadioBand, byte iEmphasis, byte iChSpacing, byte iRdsStd, uint iUserDefinedBandFreqMin, uint iUserDefinedBandFreqMax);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_TX_DISABLE_TRANSMITTER(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_TX_CONFIGURE_TRANSMITTER(uint hResourceContext, byte iRadioBand, byte iEmphasis, byte iChSpacing, byte iRdsStd, uint iUserDefinedBandFreqMin, uint iUserDefinedBandFreqMax);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_TX_SET_STATION(uint hResourceContext, uint iFreqkHz);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_TX_TX_RDS_GROUPS(uint hResourceContext, uint iNumTxRdsGroups, ushort[] aiRdsData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_TX_TX_CONT_RDS_GROUPS(uint hResourceContext, uint iNumTxRdsGroups, ushort[] aiRdsData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_TX_TX_RDS_CTRL(uint hResourceContext, byte iRdsCtrl);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_TX_GET_RDS_GROUP_BUF_SIZE(uint hResourceContext, ref uint piGroupBufferSize);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_NOTIFY_WAN(uint hResourceContext, byte iCurrentFmMode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_SET_ROUTE_AUDIO(uint hResourceContext, byte iFmAudioRoute);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_BUS_READ(uint hResourceContext, byte SlaveAddress, byte iRegOffset, byte iLength, byte[] pItemData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_BUS_WRITE(uint hResourceContext, byte SlaveAddress, byte iRegOffset, byte iLength, byte[] pItemData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_Rx_Codec_Rx_iDAC(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_Rx_Codec_Rx_cDAC(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_AntSelHeadset(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_AntSelPWB(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_NotchEnable(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_MaxTxPowerCW(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RX_SET_HLSI(uint hResourceContext, byte iHlsi);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RX_SET_SOFTMUTE(uint hResourceContext, byte iSoftMute);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RX_SET_ANTENNA(uint hResourceContext, byte iAntenna);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RX_ENABLE_NOTCH(uint hResourceContext, byte iNotch);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RX_READ_RDS_GROUP_COUNTERS(uint hResourceContext, byte bResetCounters, ref uint piTotalRdsBlockErrors, ref uint piTotalRdsGroups, ref uint piTotalRdsGroup0, ref uint piTotalRdsGroup2, ref uint piTotalRdsBlockB, ref uint piTotalRdsProcessedGroup0, ref uint piTotalRdsProcessedGroup2, ref uint piTotalRdsGroupFiltered, ref uint piTotalRdsChangeFiltered);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_TX_SET_INTERNAL_TONE(uint hResourceContext, byte iTone);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_SSBI_PEEK(uint hResourceContext, ushort iAddress, ref byte piData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_SSBI_POKE(uint hResourceContext, ushort iAddress, byte iData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RIVA_PEEK(uint hResourceContext, uint iStartAddress, byte iLength, byte[] pItemData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RIVA_POKE(uint hResourceContext, uint iStartAddress, byte iLength, byte[] pItemData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_WCNSS_Audio_Capture_FM_RX(uint hResourceContext, string sFilename, uint iDuration_ms, ref uint piMissedPackets, ref uint piTotalPackets);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_LOG_StartWCNSSAudio_Log(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_LOG_StopWCNSSAudio_Log(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RX_ENABLE_AUDIO(uint hResourceContext, byte iAudioDestination);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RX_DISABLE_AUDIO(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_RX_SET_AUDIO_VOLUME(uint hResourceContext, byte iAudioVolume);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_RX_ENABLE_RECEIVER(uint hResourceContext, out byte iStatus, out byte iEmphasis, out byte iChannelSpacing, out byte iRdsStd, out byte iHighLowInjection, out int iBandLowLimit, out int iBandHighLimit);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_NVM_DOWNLOAD(uint hResourceContext, string nvmFileLocation);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_DISABLE_RECEIVER(uint hResourceContext, out byte iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_GET_RECEIVER_CONFIGURATION(uint hResourceContext, out byte iStatus, out byte iEmphasis, out byte iChannelSpacing, out byte iRDSStandard, out byte iHighAndLowSideInjection, out int iBandLowLimit, out int iBandHighLimit);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_SET_RECEIVER_CONFIGURATION(uint hResourceContext, byte iEmphasis, byte iChannelSpacing, byte iRDSStandard, byte iHighAndLowSideInjection, int iBandLowLimit, int iBandHighLimit, out byte iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_SET_MUTE_MODE(uint hResourceContext, byte iHardMute, byte iSoftMute, out byte iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_SET_STEREO_MODE(uint hResourceContext, byte iStereoMode, byte iSignalBlending, byte iInterferenceBlending, byte iMonoStereoSwitch, out byte iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_SET_ANTENNA(uint hResourceContext, byte iAntenna, out byte iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_TUNE_STATION(uint hResourceContext, int iTuneFrequency, out byte iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_GET_STATION_PARAMETERS(uint hResourceContext, out byte iStatus, out int iFrequencyTuned, out byte iServiceAvailable, out byte iRSSI, out byte iStereoProgram, out byte iRDSSyncStatus, out byte iMuteMode, out byte iSINR, out byte iInterferenceDetectorThreshold);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_SET_SOFT_MUTE(uint hResourceContext, byte iType, byte iRampRate, byte byte_1, byte byte_2, byte iIndexHigh, byte[] softMuteTable, out byte iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_GET_SOFT_MUTE(uint hResourceContext, out byte iStatus, out byte iType, out byte iRampRate, out byte byte_1, out byte byte_2, out byte iIndexHigh);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_SET_BLEND(uint hResourceContext, byte iType, byte iRampRateUp, byte iDebounceNumberOfSamplesUp, byte iDebounceIndexUp, byte byte_1, byte byte_2, byte byte_3, byte iIndexHigh, out byte iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_GET_BLEND(uint hResourceContext, out byte iStatus, out byte iType, out byte iRampRateUp, out byte iDebounceNumberOfSamplesUp, out byte iDebounceIndexUp, out byte byte_1, out byte byte_2, out byte byte_3, out byte iIndexHigh);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_PEEK_BYTE(uint hResourceContext, int iAddress, byte iDataLength, out byte iStatus, out int iAddressOut, out byte iReturnDataLength, out byte[] data);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_PEEK_WORD(uint hResourceContext, int iAddress, byte iDataLength, out byte iStatus, out int iAddressOut, out byte iReturnDataLength, out int data);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_POKE_BYTE(uint hResourceContext, int iAddress, byte iDataLength, byte[] data, out byte iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_POKE_WORD(uint hResourceContext, int iAddress, byte iDataLength, int data, out byte iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_READ_GROUP_COUNTERS(uint hResourceContext, byte iResetCounters, out byte iStatus, out int int_0, out int iTotalRDSGroupsReceived, out int iTotalRDSGroup0, out int iTotalRDSGroup2, out int iTotalRDSBlockB, out int iTotalRDSProcessedGroup0, out int iTotalRDSProcessedGroup2, out int iTotalRDSGroupFiltered, out int iTotalRDSChangeFiltered);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_READ_EXT_GROUP_COUNTERS(uint hResourceContext, byte iResetCounters, out byte iStatus, out int iTotalRDSSyncLoss, out int iTotalRDSNotSync, out int iTotalRDSSyncInt);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_RDS_GROUPS(uint hResourceContext, int int_0, int iRDSBufferSize, byte iEnableRDSChangeFilter, out byte iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_SEARCH_STATION_LIST(uint hResourceContext, byte iSearchListMode, byte iSearchListDirection, int iSearchListMax, byte iProgramType, out int numStationsFound, IntPtr foundStations, out byte iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_SET_GET_RESET_AGC(uint hResourceContext, byte iucCtrl, byte iucGainState, out byte iStatus, out byte iucCurrentGainState, out byte iucGainStateChange1, out byte iucGainStateChange2, out byte iucGainStateChange3);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_GET_STATIONS_INTERNAL_DEBUG_PARAMETERS(uint hResourceContext, out byte iStatus, out byte iBlend, out byte iSoftMute, out byte iInterferenceBlend, out byte iInterferenceSoftMute, out byte byte_1, out byte iInterferenceToCarrierRatio, out byte iInterferenceDetectorOut);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_GET_ALTERNATIVE_RADIO_FREQUENCY_LIST(uint hResourceContext, out byte iStatus, out int iTuneFrequency, out short iProgramIdentificationCode, out short iNumberOfAlternativeFrequencies, IntPtr altFreqList);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_FM_PT_RDS_GROUP_PROCESSING(uint hResourceContext, int iGroupsToProcess, out byte iStatus);
+
+	public void FTM_FM_RX_ENABLE_RECEIVER(FM_Bands RadioBand, FM_Emphasis Emphasis, FM_ChanSpacing ChSpacing, FM_RdsStd RdsStd, uint UserDefinedBandFreqMin, uint UserDefinedBandFreqMax)
+	{
+		string source = "QLIB_FTM_FM_RX_ENABLE_RECEIVER";
+		string format = "phoneHandle: {0},RadioBand: {1},Emphasis: {2},ChSpacing: {3},RdsStd: {4},UserDefinedBandFreqMin: {5},UserDefinedBandFreqMax: {6}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_ENABLE_RECEIVER failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, RadioBand, Emphasis, ChSpacing, RdsStd, UserDefinedBandFreqMin, UserDefinedBandFreqMax)));
+		if (QLIB_FTM_FM_RX_ENABLE_RECEIVER(phoneHandle, (byte)RadioBand, (byte)Emphasis, (byte)ChSpacing, (byte)RdsStd, UserDefinedBandFreqMin, UserDefinedBandFreqMax) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_RX_DISABLE_RECEIVER()
+	{
+		string source = "QLIB_FTM_FM_RX_DISABLE_RECEIVER";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_DISABLE_RECEIVER failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_FM_RX_DISABLE_RECEIVER(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_RX_CONFIGURE_RECEIVER(FM_Bands RadioBand, FM_Emphasis Emphasis, FM_ChanSpacing ChSpacing, FM_RdsStd RdsStd, uint UserDefinedBandFreqMin, uint UserDefinedBandFreqMax)
+	{
+		string source = "QLIB_FTM_FM_RX_CONFIGURE_RECEIVER";
+		string format = "phoneHandle: {0},RadioBand: {1},Emphasis: {2},ChSpacing: {3},RdsStd: {4},UserDefinedBandFreqMin: {5},UserDefinedBandFreqMax: {6}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_CONFIGURE_RECEIVER failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, RadioBand, Emphasis, ChSpacing, RdsStd, UserDefinedBandFreqMin, UserDefinedBandFreqMax)));
+		if (QLIB_FTM_FM_RX_CONFIGURE_RECEIVER(phoneHandle, (byte)RadioBand, (byte)Emphasis, (byte)ChSpacing, (byte)RdsStd, UserDefinedBandFreqMin, UserDefinedBandFreqMax) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_RX_SET_MUTE_MODE(FM_RxMute RxMuteMode)
+	{
+		string source = "QLIB_FTM_FM_RX_SET_MUTE_MODE";
+		string format = "phoneHandle: {0},RxMuteMode: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_SET_MUTE_MODE failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, RxMuteMode)));
+		if (QLIB_FTM_FM_RX_SET_MUTE_MODE(phoneHandle, (byte)RxMuteMode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_RX_SET_STEREO_MODE(FM_RxStereoMode StereoMode)
+	{
+		string source = "QLIB_FTM_FM_RX_SET_STEREO_MODE";
+		string format = "phoneHandle: {0},StereoMode: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_SET_STEREO_MODE failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, StereoMode)));
+		if (QLIB_FTM_FM_RX_SET_STEREO_MODE(phoneHandle, (byte)StereoMode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_RX_SET_STATION(uint freqKHz)
+	{
+		string source = "QLIB_FTM_FM_RX_SET_STATION";
+		string format = "phoneHandle: {0},freqKHz: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_SET_STATION failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, freqKHz)));
+		if (QLIB_FTM_FM_RX_SET_STATION(phoneHandle, freqKHz) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_RX_GET_STATION_PARAMETERS(out uint StationFreq, out byte ServAvble, out byte Rssi, out byte StereoProgram, out byte RdsSyncStatus, out byte MuteMode)
+	{
+		string source = "QLIB_FTM_FM_RX_GET_STATION_PARAMETERS";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_GET_STATION_PARAMETERS failed";
+		string format2 = "ref StationFreq: {0},ref ServAvble: {1},ref Rssi: {2},ref StereoProgram: {3},ref RdsSyncStatus: {4},ref MuteMode: {5}";
+		StationFreq = 0u;
+		ServAvble = 0;
+		Rssi = 0;
+		StereoProgram = 0;
+		RdsSyncStatus = 0;
+		MuteMode = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_FM_RX_GET_STATION_PARAMETERS(phoneHandle, ref StationFreq, ref ServAvble, ref Rssi, ref StereoProgram, ref RdsSyncStatus, ref MuteMode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, StationFreq, ServAvble, Rssi, StereoProgram, RdsSyncStatus, MuteMode)));
+	}
+
+	public void FTM_FM_RX_GET_STATION_PARAMETERS_enum(out uint StationFreq, out FM_RxServAvble ServAvble, out byte Rssi, out FM_RxStereoProgram StereoProgram, out FM_RxRdsSync RdsSyncStatus, out FM_RxMute MuteMode)
+	{
+		string source = "QLIB_FTM_FM_RX_GET_STATION_PARAMETERS";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_GET_STATION_PARAMETERS failed";
+		string format2 = "ref StationFreq: {0},ref iServAvble: {1},ref Rssi: {2},ref iStereoProgram: {3},ref iRdsSyncStatus: {4},ref iMuteMode: {5}";
+		StationFreq = 0u;
+		ServAvble = FM_RxServAvble.FM_RX_SERVICE_AVAILABLE;
+		Rssi = 0;
+		StereoProgram = FM_RxStereoProgram.FM_RX_MONO_PROGRAM;
+		RdsSyncStatus = FM_RxRdsSync.FM_RX_NO_RDS_SYNC;
+		MuteMode = FM_RxMute.FM_RX_NOMUTE;
+		byte piServAvble = 0;
+		byte piStereoProgram = 0;
+		byte piRdsSyncStatus = 0;
+		byte piMuteMode = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_FM_RX_GET_STATION_PARAMETERS(phoneHandle, ref StationFreq, ref piServAvble, ref Rssi, ref piStereoProgram, ref piRdsSyncStatus, ref piMuteMode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, StationFreq, piServAvble, Rssi, piStereoProgram, piRdsSyncStatus, piMuteMode)));
+		ServAvble = (FM_RxServAvble)piServAvble;
+		MuteMode = (FM_RxMute)piMuteMode;
+		RdsSyncStatus = (FM_RxRdsSync)piRdsSyncStatus;
+		StereoProgram = (FM_RxStereoProgram)piStereoProgram;
+	}
+
+	public void FTM_FM_RX_RDS_GROUP_OPTIONS(uint Mask, uint GroupBufferSize, FM_RxRdsChangeFilter ChangeFilterEnabled)
+	{
+		string source = "QLIB_FTM_FM_RX_RDS_GROUP_OPTIONS";
+		string format = "phoneHandle: {0},Mask: {1},GroupBufferSize: {2},ChangeFilterEnabled: {3}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_RDS_GROUP_OPTIONS failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Mask, GroupBufferSize, ChangeFilterEnabled)));
+		if (QLIB_FTM_FM_RX_RDS_GROUP_OPTIONS(phoneHandle, Mask, GroupBufferSize, (byte)ChangeFilterEnabled) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_TX_ENABLE_TRANSMITTER(FM_Bands RadioBand, FM_Emphasis Emphasis, FM_ChanSpacing ChSpacing, FM_RdsStd RdsStd, uint UserDefinedBandFreqMin, uint UserDefinedBandFreqMax)
+	{
+		string source = "QLIB_FTM_FM_TX_ENABLE_TRANSMITTER";
+		string format = "phoneHandle: {0},RadioBand: {1},Emphasis: {2},ChSpacing: {3},RdsStd: {4},UserDefinedBandFreqMin: {5},UserDefinedBandFreqMax: {6}";
+		string exceptionMessage = "QLIB_FTM_FM_TX_ENABLE_TRANSMITTER failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, RadioBand, Emphasis, ChSpacing, RdsStd, UserDefinedBandFreqMin, UserDefinedBandFreqMax)));
+		if (QLIB_FTM_FM_TX_ENABLE_TRANSMITTER(phoneHandle, (byte)RadioBand, (byte)Emphasis, (byte)ChSpacing, (byte)RdsStd, UserDefinedBandFreqMin, UserDefinedBandFreqMax) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_TX_DISABLE_TRANSMITTER()
+	{
+		string source = "QLIB_FTM_FM_TX_DISABLE_TRANSMITTER";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_FM_TX_DISABLE_TRANSMITTER failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_FM_TX_DISABLE_TRANSMITTER(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_TX_CONFIGURE_TRANSMITTER(FM_Bands RadioBand, FM_Emphasis Emphasis, FM_ChanSpacing ChSpacing, FM_RdsStd RdsStd, uint UserDefinedBandFreqMin, uint UserDefinedBandFreqMax)
+	{
+		string source = "QLIB_FTM_FM_TX_CONFIGURE_TRANSMITTER";
+		string format = "phoneHandle: {0},RadioBand: {1},Emphasis: {2},ChSpacing: {3},RdsStd: {4},UserDefinedBandFreqMin: {5},UserDefinedBandFreqMax: {6}";
+		string exceptionMessage = "QLIB_FTM_FM_TX_CONFIGURE_TRANSMITTER failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, RadioBand, Emphasis, ChSpacing, RdsStd, UserDefinedBandFreqMin, UserDefinedBandFreqMax)));
+		if (QLIB_FTM_FM_TX_CONFIGURE_TRANSMITTER(phoneHandle, (byte)RadioBand, (byte)Emphasis, (byte)ChSpacing, (byte)RdsStd, UserDefinedBandFreqMin, UserDefinedBandFreqMax) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_TX_SET_STATION(uint freqKHz)
+	{
+		string source = "QLIB_FTM_FM_TX_SET_STATION";
+		string format = "phoneHandle: {0},freqKHz: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_TX_SET_STATION failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, freqKHz)));
+		if (QLIB_FTM_FM_TX_SET_STATION(phoneHandle, freqKHz) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_TX_TX_RDS_GROUPS(uint NumTxRdsGroups, ushort[] RdsData)
+	{
+		string source = "QLIB_FTM_FM_TX_TX_RDS_GROUPS";
+		string format = "phoneHandle: {0},NumTxRdsGroups: {1},RdsData: {2}";
+		string exceptionMessage = "QLIB_FTM_FM_TX_TX_RDS_GROUPS failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, NumTxRdsGroups, RdsData)));
+		if (QLIB_FTM_FM_TX_TX_RDS_GROUPS(phoneHandle, NumTxRdsGroups, RdsData) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_TX_TX_CONT_RDS_GROUPS(uint NumTxRdsGroups, ushort[] RdsData)
+	{
+		string source = "QLIB_FTM_FM_TX_TX_CONT_RDS_GROUPS";
+		string format = "phoneHandle: {0},NumTxRdsGroups: {1},RdsData: {2}";
+		string exceptionMessage = "QLIB_FTM_FM_TX_TX_CONT_RDS_GROUPS failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, NumTxRdsGroups, RdsData)));
+		if (QLIB_FTM_FM_TX_TX_CONT_RDS_GROUPS(phoneHandle, NumTxRdsGroups, RdsData) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_TX_TX_RDS_CTRL(byte RdsCtrl)
+	{
+		string source = "QLIB_FTM_FM_TX_TX_RDS_CTRL";
+		string format = "phoneHandle: {0},RdsCtrl: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_TX_TX_RDS_CTRL failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, RdsCtrl)));
+		if (QLIB_FTM_FM_TX_TX_RDS_CTRL(phoneHandle, RdsCtrl) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_TX_GET_RDS_GROUP_BUF_SIZE(out uint GroupBufferSize)
+	{
+		string source = "QLIB_FTM_FM_TX_GET_RDS_GROUP_BUF_SIZE";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_FM_TX_GET_RDS_GROUP_BUF_SIZE failed";
+		string format2 = "ref GroupBufferSize: {0}";
+		GroupBufferSize = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_FM_TX_GET_RDS_GROUP_BUF_SIZE(phoneHandle, ref GroupBufferSize) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, GroupBufferSize)));
+	}
+
+	public void FTM_FM_NOTIFY_WAN(FM_CurrentFmState CurrentFmMode)
+	{
+		string source = "QLIB_FTM_FM_NOTIFY_WAN";
+		string format = "phoneHandle: {0},CurrentFmMode: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_NOTIFY_WAN failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, CurrentFmMode)));
+		if (QLIB_FTM_FM_NOTIFY_WAN(phoneHandle, (byte)CurrentFmMode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_SET_ROUTE_AUDIO(FM_AudioRoute FmAudioRoute)
+	{
+		string source = "QLIB_FTM_FM_SET_ROUTE_AUDIO";
+		string format = "phoneHandle: {0},FmAudioRoute: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_SET_ROUTE_AUDIO failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, FmAudioRoute)));
+		if (QLIB_FTM_FM_SET_ROUTE_AUDIO(phoneHandle, (byte)FmAudioRoute) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_RX_SET_HLSI(FM_Hlsi Hlsi)
+	{
+		string source = "QLIB_FTM_FM_RX_SET_HLSI";
+		string format = "phoneHandle: {0},Hlsi: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_SET_HLSI failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Hlsi)));
+		if (QLIB_FTM_FM_RX_SET_HLSI(phoneHandle, (byte)Hlsi) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_RX_SET_SOFTMUTE(FM_SoftMute SoftMute)
+	{
+		string source = "QLIB_FTM_FM_RX_SET_SOFTMUTE";
+		string format = "phoneHandle: {0},SoftMute: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_SET_SOFTMUTE failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, SoftMute)));
+		if (QLIB_FTM_FM_RX_SET_SOFTMUTE(phoneHandle, (byte)SoftMute) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_RX_SET_ANTENNA(FM_Antenna Antenna)
+	{
+		string source = "QLIB_FTM_FM_RX_SET_ANTENNA";
+		string format = "phoneHandle: {0},Antenna: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_SET_ANTENNA failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Antenna)));
+		if (QLIB_FTM_FM_RX_SET_ANTENNA(phoneHandle, (byte)Antenna) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_RX_ENABLE_NOTCH(FM_NotchFilter Notch)
+	{
+		string source = "QLIB_FTM_FM_RX_ENABLE_NOTCH";
+		string format = "phoneHandle: {0},Notch: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_ENABLE_NOTCH failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Notch)));
+		if (QLIB_FTM_FM_RX_ENABLE_NOTCH(phoneHandle, (byte)Notch) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_RX_READ_RDS_GROUP_COUNTERS(byte ResetCounters, out uint TotalRdsBlockErrors, out uint TotalRdsGroups, out uint TotalRdsGroup0, out uint TotalRdsGroup2, out uint TotalRdsBlockB, out uint TotalRdsProcessedGroup0, out uint TotalRdsProcessedGroup2, out uint TotalRdsGroupFiltered, out uint TotalRdsChangeFiltered)
+	{
+		string source = "QLIB_FTM_FM_RX_READ_RDS_GROUP_COUNTERS";
+		string format = "phoneHandle: {0},ResetCounters: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_READ_RDS_GROUP_COUNTERS failed";
+		TotalRdsBlockErrors = 0u;
+		TotalRdsGroups = 0u;
+		TotalRdsGroup0 = 0u;
+		TotalRdsGroup2 = 0u;
+		TotalRdsBlockB = 0u;
+		TotalRdsProcessedGroup0 = 0u;
+		TotalRdsProcessedGroup2 = 0u;
+		TotalRdsGroupFiltered = 0u;
+		TotalRdsChangeFiltered = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, ResetCounters)));
+		if (QLIB_FTM_FM_RX_READ_RDS_GROUP_COUNTERS(phoneHandle, ResetCounters, ref TotalRdsBlockErrors, ref TotalRdsGroups, ref TotalRdsGroup0, ref TotalRdsGroup2, ref TotalRdsBlockB, ref TotalRdsProcessedGroup0, ref TotalRdsProcessedGroup2, ref TotalRdsGroupFiltered, ref TotalRdsChangeFiltered) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_TX_SET_INTERNAL_TONE(FM_TxAudioTone Tone)
+	{
+		string source = "QLIB_FTM_FM_TX_SET_INTERNAL_TONE";
+		string format = "phoneHandle: {0},Tone: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_TX_SET_INTERNAL_TONE failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Tone)));
+		if (QLIB_FTM_FM_TX_SET_INTERNAL_TONE(phoneHandle, (byte)Tone) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_SSBI_PEEK(ushort Address, out byte Data)
+	{
+		string source = "QLIB_FTM_FM_SSBI_PEEK";
+		string format = "phoneHandle: {0},Address: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_SSBI_PEEK failed";
+		string format2 = "ref Data: {0}";
+		Data = byte.MaxValue;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Address)));
+		if (QLIB_FTM_FM_SSBI_PEEK(phoneHandle, Address, ref Data) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, Data)));
+	}
+
+	public void FTM_FM_SSBI_POKE(ushort Address, byte Data)
+	{
+		string source = "QLIB_FTM_FM_SSBI_POKE";
+		string format = "phoneHandle: {0},Address: {1},Data: {2}";
+		string exceptionMessage = "QLIB_FTM_FM_SSBI_POKE failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, Address, Data)));
+		if (QLIB_FTM_FM_SSBI_POKE(phoneHandle, Address, Data) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_RIVA_PEEK(uint StartAddress, byte Length, byte[] ItemData)
+	{
+		string source = "QLIB_FTM_FM_RIVA_PEEK";
+		string format = "phoneHandle: {0},StartAddress: {1},Length: {2},ItemData: {3}";
+		string exceptionMessage = "QLIB_FTM_FM_RIVA_PEEK failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, StartAddress, Length, BitConverter.ToString(ItemData, 0, ItemData.Length))));
+		if (QLIB_FTM_FM_RIVA_PEEK(phoneHandle, StartAddress, Length, ItemData) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_RIVA_POKE(uint StartAddress, byte Length, byte[] ItemData)
+	{
+		string source = "QLIB_FTM_FM_RIVA_POKE";
+		string format = "phoneHandle: {0},StartAddress: {1},Length: {2},ItemData: {3}";
+		string exceptionMessage = "QLIB_FTM_FM_RIVA_POKE failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, StartAddress, Length, BitConverter.ToString(ItemData, 0, ItemData.Length))));
+		if (QLIB_FTM_FM_RIVA_POKE(phoneHandle, StartAddress, Length, ItemData) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void WCNSS_Audio_Capture_FM_RX(string sFilename, uint iDuration_ms, out uint MissedPackets, out uint TotalPackets)
+	{
+		string source = "QLIB_WCNSS_Audio_Capture_FM_RX";
+		string format = "phoneHandle: {0},sFile: {1},iDuration_ms: {2}";
+		string exceptionMessage = "QLIB_WCNSS_Audio_Capture_FM_RX failed";
+		string format2 = "ref MissedPackets: {0},ref TotalPackets: {1}";
+		MissedPackets = 0u;
+		TotalPackets = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, sFilename, iDuration_ms)));
+		if (QLIB_WCNSS_Audio_Capture_FM_RX(phoneHandle, sFilename, iDuration_ms, ref MissedPackets, ref TotalPackets) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, MissedPackets, TotalPackets)));
+	}
+
+	public void FTM_LOG_StartWCNSSAudio_Log()
+	{
+		string source = "QLIB_FTM_LOG_StartWCNSSAudio_Log";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_LOG_StartWCNSSAudio_Log failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_LOG_StartWCNSSAudio_Log(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_LOG_StopWCNSSAudio_Log()
+	{
+		string source = "QLIB_FTM_LOG_StopWCNSSAudio_Log";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_LOG_StopWCNSSAudio_Log failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_LOG_StopWCNSSAudio_Log(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_RX_ENABLE_AUDIO(byte AudioDestination)
+	{
+		string source = "QLIB_FTM_FM_RX_ENABLE_AUDIO";
+		string format = "phoneHandle: {0},AudioDestination: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_ENABLE_AUDIO failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, AudioDestination)));
+		if (QLIB_FTM_FM_RX_ENABLE_AUDIO(phoneHandle, AudioDestination) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_RX_DISABLE_AUDIO()
+	{
+		string source = "QLIB_FTM_FM_RX_DISABLE_AUDIO";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_DISABLE_AUDIO failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_FM_RX_DISABLE_AUDIO(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_RX_SET_AUDIO_VOLUME(byte AudioVolume)
+	{
+		string source = "QLIB_FTM_FM_RX_SET_AUDIO_VOLUME";
+		string format = "phoneHandle: {0},AudioVolume: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_SET_AUDIO_VOLUME failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, AudioVolume)));
+		if (QLIB_FTM_FM_RX_SET_AUDIO_VOLUME(phoneHandle, AudioVolume) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_PT_RX_ENABLE_RECEIVER(out byte iStatus, out byte iEmphasis, out byte iChannelSpacing, out byte iRdsStd, out byte iHighLowInjection, out int iBandLowLimit, out int iBandHighLimit)
+	{
+		string source = "QLIB_FTM_FM_PT_RX_ENABLE_RECEIVER";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_FM_RX_ENABLE_RECEIVER failed";
+		string source2 = "QLIB_FTM_FM_PT_ENABLE_RECEIVER";
+		string format2 = " iStatus: {0} iEmphasis: {1} iChannelSpacing: {2} iRDSStandard: {3} iHighAndLowSideInjection: {4} iBandLowLimit: {5} iBandHighLimit: {6}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_FM_PT_RX_ENABLE_RECEIVER(phoneHandle, out iStatus, out iEmphasis, out iChannelSpacing, out iRdsStd, out iHighLowInjection, out iBandLowLimit, out iBandHighLimit) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source2, string.Format(format2, iStatus, iEmphasis, iChannelSpacing, iRdsStd, iHighLowInjection, iBandLowLimit, iBandHighLimit)));
+	}
+
+	public void FTM_FM_PT_NVM_DOWNLOAD(string nvmFileLocation)
+	{
+		string source = "QLIB_FTM_FM_PT_NVM_DOWNLOAD";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_FM_PT_NVM_DOWNLOAD failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_FM_PT_NVM_DOWNLOAD(phoneHandle, nvmFileLocation) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_PT_DISABLE_RECEIVER(out byte iStatus)
+	{
+		string source = "QLIB_FTM_FM_PT_DISABLE_RECEIVER";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_FM_DISABLE_RECEIVER failed";
+		string format2 = " iStatus: {0}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_FM_PT_DISABLE_RECEIVER(phoneHandle, out iStatus) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus)));
+	}
+
+	public void FTM_FM_PT_GET_RECEIVER_CONFIGURATION(out byte iStatus, out byte iEmphasis, out byte iChannelSpacing, out byte iRDSStandard, out byte iHighAndLowSideInjection, out int iBandLowLimit, out int iBandHighLimit)
+	{
+		string source = "QLIB_FTM_FM_PT_GET_RECEIVER_CONFIGURATION";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_FM_GET_RECEIVER_CONFIGURATION failed";
+		string format2 = " iStatus: {0} iEmphasis: {1} iChannelSpacing: {2} iRDSStandard: {3} iHighAndLowSideInjection: {4} iBandLowLimit: {5} iBandHighLimit: {6}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_FM_PT_GET_RECEIVER_CONFIGURATION(phoneHandle, out iStatus, out iEmphasis, out iChannelSpacing, out iRDSStandard, out iHighAndLowSideInjection, out iBandLowLimit, out iBandHighLimit) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus, iEmphasis, iChannelSpacing, iRDSStandard, iHighAndLowSideInjection, iBandLowLimit, iBandHighLimit)));
+	}
+
+	public void FTM_FM_PT_SET_RECEIVER_CONFIGURATION(byte iEmphasis, byte iChannelSpacing, byte iRDSStandard, byte iHighAndLowSideInjection, int iBandLowLimit, int iBandHighLimit, out byte iStatus)
+	{
+		string source = "QLIB_FTM_FM_PT_SET_RECEIVER_CONFIGURATION";
+		string format = "phoneHandle: {0} iEmphasis: {1} iChannelSpacing: {2} iRDSStandard: {3} iHighAndLowSideInjection: {4} iBandLowLimit: {5} iBandHighLimit: {6}";
+		string exceptionMessage = "QLIB_FTM_FM_SET_RECEIVER_CONFIGURATION failed";
+		string format2 = " iStatus: {0}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iEmphasis, iChannelSpacing, iRDSStandard, iHighAndLowSideInjection, iBandLowLimit, iBandHighLimit)));
+		if (QLIB_FTM_FM_PT_SET_RECEIVER_CONFIGURATION(phoneHandle, iEmphasis, iChannelSpacing, iRDSStandard, iHighAndLowSideInjection, iBandLowLimit, iBandHighLimit, out iStatus) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus)));
+	}
+
+	public void FTM_FM_PT_SET_MUTE_MODE(byte iHardMute, byte iSoftMute, out byte iStatus)
+	{
+		string source = "QLIB_FTM_FM_PT_SET_MUTE_MODE";
+		string format = "phoneHandle: {0} iHardMute: {1} iSoftMute: {2}";
+		string exceptionMessage = "QLIB_FTM_FM_SET_MUTE_MODE failed";
+		string format2 = " iStatus: {0}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iHardMute, iSoftMute)));
+		if (QLIB_FTM_FM_PT_SET_MUTE_MODE(phoneHandle, iHardMute, iSoftMute, out iStatus) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus)));
+	}
+
+	public void FTM_FM_PT_SET_STEREO_MODE(byte iStereoMode, byte iSignalBlending, byte iInterferenceBlending, byte iMonoStereoSwitch, out byte iStatus)
+	{
+		string source = "QLIB_FTM_FM_PT_SET_STEREO_MODE";
+		string format = "phoneHandle: {0} iStereoMode: {1} iSignalBlending: {2} iInterferenceBlending: {3} iMonoStereoSwitch: {4}";
+		string exceptionMessage = "QLIB_FTM_FM_SET_STEREO_MODE failed";
+		string format2 = " iStatus: {0}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iStereoMode, iSignalBlending, iInterferenceBlending, iMonoStereoSwitch)));
+		if (QLIB_FTM_FM_PT_SET_STEREO_MODE(phoneHandle, iStereoMode, iSignalBlending, iInterferenceBlending, iMonoStereoSwitch, out iStatus) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus)));
+	}
+
+	public void FTM_FM_PT_SET_ANTENNA(byte iAntenna, out byte iStatus)
+	{
+		string source = "QLIB_FTM_FM_PT_SET_ANTENNA";
+		string format = "phoneHandle: {0} iAntenna: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_SET_ANTENNA failed";
+		string format2 = " iStatus: {0}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iAntenna)));
+		if (QLIB_FTM_FM_PT_SET_ANTENNA(phoneHandle, iAntenna, out iStatus) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus)));
+	}
+
+	public void FTM_FM_PT_TUNE_STATION(int iTuneFrequency, out byte iStatus)
+	{
+		string source = "QLIB_FTM_FM_PT_TUNE_STATION";
+		string format = "phoneHandle: {0} iTuneFrequency: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_TUNE_STATION failed";
+		string format2 = " iStatus: {0}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iTuneFrequency)));
+		if (QLIB_FTM_FM_PT_TUNE_STATION(phoneHandle, iTuneFrequency, out iStatus) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus)));
+	}
+
+	public void FTM_FM_PT_GET_STATION_PARAMETERS(out byte iStatus, out int iFrequencyTuned, out byte iServiceAvailable, out byte iRSSI, out byte iStereoProgram, out byte iRDSSyncStatus, out byte iMuteMode, out byte iSINR, out byte iInterferenceDetectorThreshold)
+	{
+		string source = "QLIB_FTM_FM_PT_GET_STATION_PARAMETERS";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_FM_GET_STATION_PARAMETERS failed";
+		string format2 = " iStatus: {0} iFrequencyTuned: {1} iServiceAvailable: {2} iRSSI: {3} iStereoProgram: {4} iRDSSyncStatus: {5} iMuteMode: {6} iSINR: {7} iInterferenceDetectorThreshold: {8}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_FM_PT_GET_STATION_PARAMETERS(phoneHandle, out iStatus, out iFrequencyTuned, out iServiceAvailable, out iRSSI, out iStereoProgram, out iRDSSyncStatus, out iMuteMode, out iSINR, out iInterferenceDetectorThreshold) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus, iFrequencyTuned, iServiceAvailable, iRSSI, iStereoProgram, iRDSSyncStatus, iMuteMode, iSINR, iInterferenceDetectorThreshold)));
+	}
+
+	public void FTM_FM_PT_SET_SOFT_MUTE(byte iType, byte iRampRate, byte byte_1, byte byte_2, byte iIndexHigh, byte[] softMuteTable, out byte iStatus)
+	{
+		string source = "QLIB_FTM_FM_PT_SET_SOFT_MUTE";
+		string format = "phoneHandle: {0} iType: {1} iRampRate: {2} iSINRHigh: {3} iRMSSIHigh: {4} iIndexHigh: {5}";
+		string exceptionMessage = "QLIB_FTM_FM_SET_SOFT_MUTE failed";
+		string format2 = " iStatus: {0}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iType, iRampRate, byte_1, byte_2, iIndexHigh)));
+		if (QLIB_FTM_FM_PT_SET_SOFT_MUTE(phoneHandle, iType, iRampRate, byte_1, byte_2, iIndexHigh, softMuteTable, out iStatus) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus)));
+	}
+
+	public void FTM_FM_PT_GET_SOFT_MUTE(out byte iStatus, out byte iType, out byte iRampRate, out byte byte_1, out byte byte_2, out byte iIndexHigh)
+	{
+		string source = "QLIB_FTM_FM_PT_GET_SOFT_MUTE";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_FM_GET_SOFT_MUTE failed";
+		string format2 = " iStatus: {0} iType: {1} iRampRate: {2} iSINRHigh: {3} iRMSSIHigh: {4} iIndexHigh: {5}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_FM_PT_GET_SOFT_MUTE(phoneHandle, out iStatus, out iType, out iRampRate, out byte_1, out byte_2, out iIndexHigh) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus, iType, iRampRate, byte_1, byte_2, iIndexHigh)));
+	}
+
+	public void FTM_FM_PT_SET_BLEND(byte iType, byte iRampRateUp, byte iDebounceNumberOfSamplesUp, byte iDebounceIndexUp, byte byte_1, byte byte_2, byte byte_3, byte iIndexHigh, out byte iStatus)
+	{
+		string source = "QLIB_FTM_FM_PT_SET_BLEND";
+		string format = "phoneHandle: {0} iType: {1} iRampRateUp: {2} iDebounceNumberOfSamplesUp: {3} iDebounceIndexUp: {4} iSINRIndexSkipStep: {5} iSINRHigh: {6} iRMSSIHigh: {7} iIndexHigh: {8}";
+		string exceptionMessage = "QLIB_FTM_FM_SET_BLEND failed";
+		string format2 = " iStatus: {0}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iType, iRampRateUp, iDebounceNumberOfSamplesUp, iDebounceIndexUp, byte_1, byte_2, byte_3, iIndexHigh)));
+		if (QLIB_FTM_FM_PT_SET_BLEND(phoneHandle, iType, iRampRateUp, iDebounceNumberOfSamplesUp, iDebounceIndexUp, byte_1, byte_2, byte_3, iIndexHigh, out iStatus) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus)));
+	}
+
+	public void FTM_FM_PT_GET_BLEND(out byte iStatus, out byte iType, out byte iRampRateUp, out byte iDebounceNumberOfSamplesUp, out byte iDebounceIndexUp, out byte byte_1, out byte byte_2, out byte byte_3, out byte iIndexHigh)
+	{
+		string source = "QLIB_FTM_FM_PT_GET_BLEND";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_FM_GET_BLEND failed";
+		string format2 = " iStatus: {0} iType: {1} iRampRateUp: {2} iDebounceNumberOfSamplesUp: {3} iDebounceIndexUp: {4} iSINRIndexSkipStep: {5} iSINRHigh: {6} iRMSSIHigh: {7} iIndexHigh: {8}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_FM_PT_GET_BLEND(phoneHandle, out iStatus, out iType, out iRampRateUp, out iDebounceNumberOfSamplesUp, out iDebounceIndexUp, out byte_1, out byte_2, out byte_3, out iIndexHigh) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus, iType, iRampRateUp, iDebounceNumberOfSamplesUp, iDebounceIndexUp, byte_1, byte_2, byte_3, iIndexHigh)));
+	}
+
+	public void FTM_FM_PT_PEEK_BYTE(int iAddress, byte iDataLength, out byte iStatus, out int iAddressOut, out byte iReturnDataLength, out byte[] data)
+	{
+		string source = "QLIB_FTM_FM_PT_PEEK_BYTE";
+		string format = "phoneHandle: {0} iAddress: {1} iDataLength: {2}";
+		string exceptionMessage = "QLIB_FTM_FM_PEEK_BYTE failed";
+		string format2 = " iStatus: {0} iAddress: {1} iReturnDataLength: {2}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iAddress, iDataLength)));
+		if (QLIB_FTM_FM_PT_PEEK_BYTE(phoneHandle, iAddress, iDataLength, out iStatus, out iAddressOut, out iReturnDataLength, out data) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus, iAddress, iReturnDataLength)));
+	}
+
+	public void FTM_FM_PT_PEEK_WORD(int iAddress, byte iDataLength, out byte iStatus, out int iAddressOut, out byte iReturnDataLength, out int data)
+	{
+		string source = "QLIB_FTM_FM_PT_PEEK_WORD";
+		string format = "phoneHandle: {0} iAddress: {1} iDataLength: {2}";
+		string exceptionMessage = "QLIB_FTM_FM_PEEK_WORD failed";
+		string format2 = " iStatus: {0} iAddress: {1} iReturnDataLength: {2}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iAddress, iDataLength)));
+		if (QLIB_FTM_FM_PT_PEEK_WORD(phoneHandle, iAddress, iDataLength, out iStatus, out iAddressOut, out iReturnDataLength, out data) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus, iAddress, iReturnDataLength)));
+	}
+
+	public void FTM_FM_PT_POKE_BYTE(int iAddress, byte iDataLength, byte[] data, out byte iStatus)
+	{
+		string source = "QLIB_FTM_FM_PT_POKE_BYTE";
+		string format = "phoneHandle: {0} iAddress: {1} iDataLength: {2}";
+		string exceptionMessage = "QLIB_FTM_FM_POKE_BYTE failed";
+		string source2 = "QLIB_FTM_FM_PT_MULTI_POKE_WORD";
+		string format2 = " iStatus: {0}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iAddress, iDataLength)));
+		if (QLIB_FTM_FM_PT_POKE_BYTE(phoneHandle, iAddress, iDataLength, data, out iStatus) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source2, string.Format(format2, iStatus)));
+	}
+
+	public void FTM_FM_PT_POKE_WORD(int iAddress, byte iDataLength, int data, out byte iStatus)
+	{
+		string source = "QLIB_FTM_FM_PT_POKE_WORD";
+		string format = "phoneHandle: {0} iAddress: {1} iDataLength: {2}";
+		string exceptionMessage = "QLIB_FTM_FM_POKE_WORD failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iAddress, iDataLength)));
+		if (QLIB_FTM_FM_PT_POKE_WORD(phoneHandle, iAddress, iDataLength, data, out iStatus) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_FM_PT_READ_GROUP_COUNTERS(byte iResetCounters, out byte iStatus, out int int_0, out int iTotalRDSGroupsReceived, out int iTotalRDSGroup0, out int iTotalRDSGroup2, out int iTotalRDSBlockB, out int iTotalRDSProcessedGroup0, out int iTotalRDSProcessedGroup2, out int iTotalRDSGroupFiltered, out int iTotalRDSChangeFiltered)
+	{
+		string source = "QLIB_FTM_FM_PT_READ_GROUP_COUNTERS";
+		string format = "phoneHandle: {0} iResetCounters: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_READ_GROUP_COUNTERS failed";
+		string format2 = " iStatus: {0} iTotalRDSBlockErrors: {1} iTotalRDSGroupsReceived: {2} iTotalRDSGroup0: {3} iTotalRDSGroup2: {4} iTotalRDSBlockB: {5} iTotalRDSProcessedGroup0: {6} iTotalRDSProcessedGroup2: {7} iTotalRDSGroupFiltered: {8} iTotalRDSChangeFiltered: {9}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iResetCounters)));
+		if (QLIB_FTM_FM_PT_READ_GROUP_COUNTERS(phoneHandle, iResetCounters, out iStatus, out int_0, out iTotalRDSGroupsReceived, out iTotalRDSGroup0, out iTotalRDSGroup2, out iTotalRDSBlockB, out iTotalRDSProcessedGroup0, out iTotalRDSProcessedGroup2, out iTotalRDSGroupFiltered, out iTotalRDSChangeFiltered) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus, int_0, iTotalRDSGroupsReceived, iTotalRDSGroup0, iTotalRDSGroup2, iTotalRDSBlockB, iTotalRDSProcessedGroup0, iTotalRDSProcessedGroup2, iTotalRDSGroupFiltered, iTotalRDSChangeFiltered)));
+	}
+
+	public void FTM_FM_PT_READ_EXT_GROUP_COUNTERS(byte iResetCounters, out byte iStatus, out int iTotalRDSSyncLoss, out int iTotalRDSNotSync, out int iTotalRDSSyncInt)
+	{
+		string source = "QLIB_FTM_FM_PT_READ_EXT_GROUP_COUNTERS";
+		string format = "phoneHandle: {0} iResetCounters: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_READ_EXT_GROUP_COUNTERS failed";
+		string format2 = " iStatus: {0} iTotalRDSSyncLoss: {1} iTotalRDSNotSync: {2} iTotalRDSSyncInt: {3}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iResetCounters)));
+		if (QLIB_FTM_FM_PT_READ_EXT_GROUP_COUNTERS(phoneHandle, iResetCounters, out iStatus, out iTotalRDSSyncLoss, out iTotalRDSNotSync, out iTotalRDSSyncInt) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus, iTotalRDSSyncLoss, iTotalRDSNotSync, iTotalRDSSyncInt)));
+	}
+
+	public void FTM_FM_PT_RDS_GROUPS(int int_0, int iRDSBufferSize, byte iEnableRDSChangeFilter, out byte iStatus)
+	{
+		string source = "QLIB_FTM_FM_PT_RDS_GROUPS";
+		string format = "phoneHandle: {0} iRDSGroupEnableMask: {1} iRDSBufferSize: {2} iEnableRDSChangeFilter: {3}";
+		string exceptionMessage = "QLIB_FTM_FM_RDS_GROUPS failed";
+		string source2 = "QLIB_FTM_FM_PT_RDS_GROUP_PROCESSING";
+		string format2 = " iStatus: {0}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, int_0, iRDSBufferSize, iEnableRDSChangeFilter)));
+		if (QLIB_FTM_FM_PT_RDS_GROUPS(phoneHandle, int_0, iRDSBufferSize, iEnableRDSChangeFilter, out iStatus) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source2, string.Format(format2, iStatus)));
+	}
+
+	public void FTM_FM_PT_SEARCH_STATION_LIST(byte iSearchListMode, byte iSearchListDirection, int iSearchListMax, byte iProgramType, out int[] foundStations, out byte iStatus)
+	{
+		string source = "QLIB_FTM_FM_PT_SEARCH_STATION_LIST";
+		string format = "phoneHandle: {0} iSearchListMode: {1} iSearchListDirection: {2} iSearchListMax: {3} iProgramType: {4}";
+		string exceptionMessage = "QLIB_FTM_FM_SEARCH_STATION_LIST failed";
+		string format2 = " iStatus: {0} numStationsFound {1}";
+		foundStations = new int[20];
+		IntPtr intPtr = Marshal.AllocHGlobal(80);
+		int numStationsFound = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iSearchListMode, iSearchListDirection, iSearchListMax, iProgramType)));
+		if (QLIB_FTM_FM_PT_SEARCH_STATION_LIST(phoneHandle, iSearchListMode, iSearchListDirection, iSearchListMax, iProgramType, out numStationsFound, intPtr, out iStatus) != 0)
+		{
+			Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus, numStationsFound)));
+			if (numStationsFound > 0)
+			{
+				Marshal.Copy(intPtr, foundStations, 0, 20);
+				Marshal.FreeHGlobal(intPtr);
+			}
+			else
+			{
+				int[] array = new int[1];
+				foundStations = array;
+				Marshal.FreeHGlobal(intPtr);
+			}
+			return;
+		}
+		throw new PhoneException(exceptionMessage);
+	}
+
+	public void FTM_FM_PT_SET_GET_RESET_AGC(byte iucCtrl, byte iucGainState, out byte iStatus, out byte iucCurrentGainState, out byte iucGainStateChange1, out byte iucGainStateChange2, out byte iucGainStateChange3)
+	{
+		string source = "QLIB_FTM_FM_PT_SET_GET_RESET_AGC";
+		string format = "phoneHandle: {0} iucCtrl: {1} iucGainState: {2}";
+		string exceptionMessage = "QLIB_FTM_FM_SET_GET_RESET_AGC failed";
+		string source2 = "QLIB_FTM_FM_PT_GET_STATIONS_INTERNAL_DEBUG_PARAMETERS";
+		string format2 = " iStatus: {0} iucCurrentGainState: {1} iucGainStateChange1: {2} iucGainStateChange2: {3} iucGainStateChange3: {4}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iucCtrl, iucGainState)));
+		if (QLIB_FTM_FM_PT_SET_GET_RESET_AGC(phoneHandle, iucCtrl, iucGainState, out iStatus, out iucCurrentGainState, out iucGainStateChange1, out iucGainStateChange2, out iucGainStateChange3) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source2, string.Format(format2, iStatus, iucCurrentGainState, iucGainStateChange1, iucGainStateChange2, iucGainStateChange3)));
+	}
+
+	public void FTM_FM_PT_GET_STATIONS_INTERNAL_DEBUG_PARAMETERS(out byte iStatus, out byte iBlend, out byte iSoftMute, out byte iInterferenceBlend, out byte iInterferenceSoftMute, out byte byte_1, out byte iInterferenceToCarrierRatio, out byte iInterferenceDetectorOut)
+	{
+		string source = "QLIB_FTM_FM_PT_GET_STATIONS_INTERNAL_DEBUG_PARAMETERS";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_FM_GET_STATIONS_INTERNAL_DEBUG_PARAMETERS failed";
+		string format2 = " iStatus: {0} iBlend: {1} iSoftMute: {2} iInterferenceBlend: {3} iInterferenceSoftMute: {4} iPilotPLL: {5} iInterferenceToCarrierRatio: {6} iInterferenceDetectorOut: {7}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_FM_PT_GET_STATIONS_INTERNAL_DEBUG_PARAMETERS(phoneHandle, out iStatus, out iBlend, out iSoftMute, out iInterferenceBlend, out iInterferenceSoftMute, out byte_1, out iInterferenceToCarrierRatio, out iInterferenceDetectorOut) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus, iBlend, iSoftMute, iInterferenceBlend, iInterferenceSoftMute, byte_1, iInterferenceToCarrierRatio, iInterferenceDetectorOut)));
+	}
+
+	public void FTM_FM_PT_GET_ALTERNATIVE_RADIO_FREQUENCY_LIST(out byte iStatus, out int iTuneFrequency, out short iProgramIdentificationCode, out short iNumberOfAlternativeFrequencies, out int[] altFreqList)
+	{
+		string source = "QLIB_FTM_FM_PT_GET_ALTERNATIVE_RADIO_FREQUENCY_LIST";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_FM_GET_ALTERNATIVE_RADIO_FREQUENCY_LIST failed";
+		string format2 = " iStatus: {0} iTuneFrequency: {1} iProgramIdentificationCode: {2} iNumberOfAlternativeFrequencies: {3}";
+		altFreqList = new int[25];
+		IntPtr intPtr = Marshal.AllocHGlobal(100);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_FM_PT_GET_ALTERNATIVE_RADIO_FREQUENCY_LIST(phoneHandle, out iStatus, out iTuneFrequency, out iProgramIdentificationCode, out iNumberOfAlternativeFrequencies, intPtr) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus, iTuneFrequency, iProgramIdentificationCode, iNumberOfAlternativeFrequencies)));
+		if (iNumberOfAlternativeFrequencies <= 0)
+		{
+			int[] array = new int[1];
+			altFreqList = array;
+			Marshal.FreeHGlobal(intPtr);
+		}
+		else
+		{
+			Marshal.Copy(intPtr, altFreqList, 0, 25);
+			Marshal.FreeHGlobal(intPtr);
+		}
+	}
+
+	public void FTM_FM_PT_RDS_GROUP_PROCESSING(int iGroupsToProcess, out byte iStatus)
+	{
+		string source = "QLIB_FTM_FM_PT_RDS_GROUP_PROCESSING";
+		string format = "phoneHandle: {0} iGroupsToProcess: {1}";
+		string exceptionMessage = "QLIB_FTM_FM_RDS_GROUP_PROCESSING failed";
+		string format2 = " iStatus: {0}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iGroupsToProcess)));
+		if (QLIB_FTM_FM_PT_RDS_GROUP_PROCESSING(phoneHandle, iGroupsToProcess, out iStatus) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iStatus)));
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_CONT_TRANSMIT(uint hResourceContext, uint iMode, uint iFreq, uint iDataRate, uint iTxPwr, uint iAntenna);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_CONT_RECEIVE(uint hResourceContext, uint iAction, uint iFreq, uint iAntenna);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_RECEIVE_REPORT(uint hResourceContext, uint[] iTotalPkt, uint[] iRSSI);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_SET_MAC_ADDRESS(uint hResourceContext, byte[] aiMAC_Address);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_SET_BD_ADDRESS_IN_OTP(uint hResourceContext, byte[] aiBD_Address);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_GET_BD_ADDRESS_FROM_OTP(uint hResourceContext, IntPtr bdAddr);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_SET_OTP_REG_DOMAIN(uint hResourceContext, uint[] aiRegDmn);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_GET_OTP_REG_DOMAIN(uint hResourceContext, IntPtr aiRegDmn);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_SET_PCIe_CONFIG_IN_OTP_STREAM(uint hResourceContext, uint iAction, uint iValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_SET_TOP_CONFIG_IN_OTP(uint hResourceContext, uint iAction, uint iValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_SET_BT_CONFIG_IN_OTP(uint hResourceContext, uint iAction, uint iValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GET_BT_CONFIG_FROM_OTP(uint hResourceContext, uint iAction, ref uint iValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GET_TOP_CONFIG_FROM_OTP(uint hResourceContext, uint iAction, ref uint iValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GET_PCIe_CONFIG_FROM_OTP_STREAM(uint hResourceContext, uint iAction, ref uint iValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_DumpOTPToFile(uint hResourceContext, string fileName);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_CompareOTPAgainstFile(uint hResourceContext, string fileName, string resultsFilename, ref uint iValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_SLEEP_WAKE(uint hResourceContext, byte iMode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_V2_CONT_TRANSMIT(uint hResourceContext, uint iMode, uint iFreq, uint iDataRate, uint iTxPwr, uint iAntenna, uint iEnANI, uint iScramblerOff, uint iAifsn, ushort iPktSz, ushort iTxPattern);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_V2_CONT_RECEIVE(uint hResourceContext, uint iAction, uint iEnANI, uint iFreq, uint iAntenna);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_V2_RECEIVE_REPORT(uint hResourceContext, uint[] iTotalPkt, uint[] iRSSI);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_V2_SET_MAC_ADDRESS(uint hResourceContext, byte[] aiMAC_Address);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_V2_SLEEP_WAKE(uint hResourceContext, uint iMode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_SetModuleType(uint moduleType);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_V3_SET_MAC_ADDRESS(uint hResourceContext, byte[] aiMAC_Address);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_V3_CONT_TRANSMIT(uint hResourceContext, uint iMode, uint iFreq, uint iDataRate, uint iTxPwr, uint iAntenna, uint iEnANI, uint iScramblerOff, uint iAifsn, uint iPktSz, uint iTxPattern, uint iShortGuard, uint iNumPackets, uint iWlanMode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_V4_RECEIVE_REPORT(uint hResourceContext, ref uint iTotalPkt, ref double double_0, ref uint uint_0, ref uint uint_1);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_V3_CONT_RECEIVE(uint hResourceContext, uint iAction, uint iEnANI, uint iFreq, uint iAntenna);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_V3_SLEEP_WAKE(uint hResourceContext, byte mode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_V4_CONT_TRANSMIT(uint hResourceContext, uint iMode, uint iFreq, uint iDataRate, double iTxPwr, uint iAntenna, uint iEnANI, uint iScramblerOff, uint iAifsn, uint iPktSz, uint iTxPattern, uint iShortGuard, uint iNumPackets, uint iWlanMode, uint iTPCM);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_GET_THERM(uint hResourceContext, ref byte iThermAdc);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_WRITE_MAC_ADDRESS(uint hResourceContext, byte[] aiMAC_Address, int location);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_SET_OTP_MAC_ADDRESS(uint hResourceContext, byte[] aiMAC_Address);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_SET_NV_MAC_ADDRESS(uint hResourceContext, int nMac, byte[] aiMAC_Address);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_SELF_INIT_CAL(uint hResourceContext, short iChannel, short iChainMask);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_GET_SELF_INIT_CAL_RESULT(uint hResourceContext, short iChannel, short iChainMask, ref short iOlpcGainDelta, ref ushort iThermalCal, ref uint cmacOlpc, ref uint cmacPsat, ref short iCmacOlpcPcdac, ref short iCmacPsatPcdac, ref short iPsatParm);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_SELF_INIT_COMMIT(uint hResourceContext, byte iWriteOption);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_xtal_CAL_INIT(uint hResourceContext, int iXtalTargetPPM, uint iXtalTolerancePPM, int iXtalCapDelta, uint dXtalCalSaveOption, uint delayCapSettleMs, uint delayPostXtalMs);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_xtal_CAL(uint hResourceContext, asyncHandlerCWFreqErrCallBack cb, uint numAvg);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_xtal_CAL2(uint hResourceContext, asyncHandlerCWFreqErrCallBack2 cb, uint numAvg, bool ppmCD);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Tx_CALIBRATE_INIT(uint hResourceContext, byte[] DLLname, int calPoints, int calGainMode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Tx_CAL(uint hResourceContext, asyncHandlerPMCallBack cb, uint numAvg);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Gen_UTF_Cmd(uint hResourceContext, uint phyId, uint utfCmd, uint[] inParams, int iLen, uint[] outParams, int[] oLen, uint measurementCbType, asyncHandlerPMCallBack cbPm, asyncHandlerCWFreqErrCallBack cbFr, asyncHandlerDbgCallBack cbDbg, int[] status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Qmsl_Msg_Callback(uint hResourceContext, asyncHandlerQmslMsgCallBack asyncHandlerQmslMsgCallBack_0);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_TxSCPC_CAL(uint hResourceContext, asyncHandlerPMCallBack cb, uint numAvg);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_TxSCPC_CAL_V1(uint hResourceContext, asyncHandlerPMCallBack cb, uint numAvg);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_TxSCPC_PSATADJUST_CAL(uint hResourceContext, asyncHandlerPMCallBack cb, uint numAvg);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Tx_FW_CAL(uint hResourceContext, asyncHandlerSetChainCallBack pAsyncSetChainMessageCB, asyncHandlerPMCallBack cb, uint numAvg, bool AllChainOn, asyncHandlerRFSCallBack asyncHandlerRFSCallBack, bool DebugInfo);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Tx_FW_CAL2(uint hResourceContext, uint phyId, uint calScheme, double _1PtRangeDbUL, double _1PtRangeDbLL, uint totalNumOfChains, uint multiChainMask, uint numAverages, asyncHandlerSetChainCallBack pAsyncSetChainMessageCB, asyncHandlerPMCallBack2 cb2, asyncHandlerRFSCallBack asyncHandlerRFSCallBack);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_HWS_RD_Bench(uint hResourceContext, uint measureType, uint freq, uint bw, int dataRate, asyncHandlerGenMeasureCB cb, ref uint oFreq, ref double oPower);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Rx_FW_CAL(uint hResourceContext, asyncHandlerSigGenCallBack cbSG, asyncHandlerRxGainCalDoneCallBack cbRxGainCal, uint radioId, uint chainToCalibrate, uint band);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Rx_FW_CAL2(uint hResourceContext, asyncHandlerSigGenCallBack cbSG, asyncHandlerRxGainCalDoneCallBack cbRxGainCal, uint phyId, uint chainToCalibrate, uint band, uint rxMode, byte[] rx_mac_addr, byte[] bssid);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Tx_CALIBRATE(uint hResourceContext, uint iFreq, uint iDataRate, uint txChain, uint iPktSz, IntPtr intptr_0, double[] deltaTxPwrGoal, double slope, uint[] iMaxIteration, IntPtr gain, IntPtr dacGain, uint numAvg, asyncHandlerPMCallBack cb, ref uint thermCal, ref int correction);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Tx_CALIBRATE_V1(uint hResourceContext, uint iFreq, uint iDataRate, uint txChain, uint iPktSz, IntPtr intptr_0, double[] deltaTxPwrGoal, double slope, uint[] iMaxIteration, IntPtr gain, IntPtr dacGain, uint numAvg, asyncHandlerPMCallBack cb, ref uint thermCal, ref int correction);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Tx_CALIBRATE_Done(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_SELF_CAL_MEAS(uint hResourceContext, uint iFreq, uint iTxChainMask, uint iNumAvg, uint iPSatDAC, double dTargetPower, asyncHandlerPMCallBack cb, ref double double_0, ref double pdPSatOfdmDelta, ref uint thermCal);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_SELF_CAL_MEAS_V1(uint hResourceContext, uint iFreq, uint iTxChainMask, uint iNumAvg, uint iPSatDAC, double dTargetPower, asyncHandlerPMCallBack cb, ref double double_0, ref double pdPSatOfdmDelta, ref uint thermCal);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_SELF_CAL_SETUP(uint hResourceContext, byte[] byte_1);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_SELF_CAL_toBin(uint hResourceContext, byte[] binFName);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_ReadReg(uint hResourceContext, uint iRegAddr, ref uint pRegValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_WriteReg(uint hResourceContext, uint iRegAddr, uint pRegValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Tx_CALIBRATE_Done_MEM(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_MEM_COMMIT(uint hResourceContext, byte itemplate, byte iWriteOption, uint iMemSize, byte iCompress, byte iOverwrite, uint iSectionMask);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Save_BDF(uint hResourceContext, uint saveOption, string bdfFileName);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_SetInstance(uint hResourceContext, uint instance);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_TLV_Create(uint hResourceContext, byte iOPCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_TLV_AddParam(uint hResourceContext, byte[] pKey, byte[] pData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_TLV_AddMAC(uint hResourceContext, byte[] pKey, byte Mac0, byte Mac1, byte Mac2, byte Mac3, byte Mac4, byte Mac5);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_TLV_Complete(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_TLV_GetRspParam(uint hResourceContext, byte[] pKey, byte[] pData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_TLV2_Create16(uint hResourceContext, ushort iOPCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_TLV2_Create(uint hResourceContext, byte iOPCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_TLV2_AddParam(uint hResourceContext, byte[] pKey, byte[] pData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_TLV2_Complete(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_TLV2_AddMAC(uint hResourceContext, byte[] pKey, byte mac0, byte mac1, byte mac2, byte mac3, byte mac4, byte mac5);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_TLV2_GetRspParam(uint hResourceContext, byte[] pKey, byte[] pData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_TLV2_CreateQ5(uint hResourceContext, ushort iOPCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_TLV2_AddParamQ5(uint hResourceContext, byte[] pKey, byte[] pData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_TLV2_CompleteQ5(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_TLV2_GetRspParamQ5(uint hResourceContext, byte[] pKey, byte[] pData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GetFwVersion(uint hResourceContext, byte[] pData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_SetDFE(uint hResourceContext, byte enable);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_QCA_StickyWrite(uint hResourceContext, byte[] regField, uint regValue, int prePost);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_QCA_StickyClear(uint hResourceContext, byte[] regField);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_SendNartCmd(uint hResourceContext, byte[] nartCmd, byte[] nartResponse0, byte[] nartResponse1);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_LoadDUT(uint hResourceContext, byte[] DLLname, byte[] eepFName, int int_0, uint ssid);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_UNLoadDUT(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_LoadREF(uint hResourceContext, byte[] refDesignPath, byte[] refDesignName);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Tx_params(uint hResourceContext, uint iDpdMode, uint iAggr, uint iParam);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Tx(uint hResourceContext, uint iMode, uint iFreq, uint iDataRate, double iTxPwr, uint iAntenna, uint iEnANI, uint iScramblerOff, uint iAifsn, uint iPktSz, uint iTxPattern, uint iShortGuard, uint iNumPackets, uint iWlanMode, uint iTpcm, uint txChain);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_DevTx(uint hResourceContext, uint iMode, uint iFreq, uint[] iDataRate, uint iNRate, uint ir, IntPtr dTxPwr, uint iRetries, uint iAntenna, uint iBroadcast, uint iShortGi, uint iAggr, byte[] iPatternint, uint iPktCt, uint[] iPktLen, uint iWlanMode, uint iTpcm, uint iGain, uint iGainIndex, int iDacGain, uint txChain, uint iDPDMode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Rx(uint hResourceContext, uint iAction, uint iEnANI, uint iFreq, uint iAntenna, uint iRxChain);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Rx_HT(uint hResourceContext, uint iAction, uint iEnANI, uint iFreq, uint iWlanMode, uint iAntenna, uint iRxChain);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_Rx_Report(uint hResourceContext, ref uint iTotalPkt, ref double double_0, ref uint uint_0, ref uint uint_1);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_DevRxSetUp(uint hResourceContext, uint iFreq, uint iAntenna, uint iRxChain, uint[] iRate, uint iNRate, uint iWlanMode, uint iPromiscuous, uint iBroadcast, byte[] iBSSID, byte[] iDestination, uint iNumDescPerRate, uint iDatacheck);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_DevRx_Report(uint hResourceContext, ref uint iTotalPkt, ref double double_0, ref uint uint_0, ref uint uint_1);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_DevWriteReg(uint hResourceContext, uint iRegAddr, uint iHighBit, uint iLowBit, uint iRegValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_QCA_READ_XML_WRITE_NVBIN(string xmlfileName, string binfileName, string templatefileName, byte overwriteAllowed, IntPtr ErrorMessage);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_QCA_READ_NVBIN_WRITE_XML(string xmlfileName, string binfileName, string templatefileName, byte overwriteAllowed, IntPtr ErrorMessage);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_Atheros_DevReadReg(uint hResourceContext, uint iRegAddr, uint iHighBit, uint iLowBit, ref uint iRegValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_START(uint hResourceContext, int wlanID);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_STOP(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_SET_CHANNEL(uint hResourceContext, uint channel);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_SET_CHANNEL_V2(uint hResourceContext, uint channel, uint channelBondingState);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_xLNAcal(uint hResourceContext, ref byte lna, ref byte gm);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_SET_CLOSED_LOOP_POWER(uint hResourceContext, double powerDb);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_TX_PKT_START_STOP(uint hResourceContext, byte start);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_SET_RX_DISABLE_MODE(uint hResourceContext, byte agPktsDisabled, byte bPktsDisabled, byte slrPktsDisabled);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_SET_TX_FRAME(uint hResourceContext, uint numTestFrame, ushort payloadSize, uint frameSpacing, byte fcsCal, uint rate, uint preamble);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_SET_TX_FRAME_V2(uint hResourceContext, uint iNumTestFrame, ushort iPayloadSize, byte iPayloadType, byte iPayloadFillByte, uint iFrameSpacing, byte iFCSCal, uint iRate, uint iPreamble);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_GET_RX_PACKET_COUNTS(uint hResourceContext, ref uint rxFrameCounter, ref uint totalMacRxPackets, ref uint totalMacFcsErrPackets);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_GET_UNICAST_MAC_PKT_RSSI(uint hResourceContext, IntPtr rssiVals, ref ushort numRxChains);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_GET_RX_RSSI_VAL(uint hResourceContext, IntPtr rssiVals, ref ushort numRxChains);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_RESET_RX_PACKET_STATISTICS(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_ENABLE_CHAINS(uint hResourceContext, uint chain);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_WCN_ANTENNA_SELECT(uint hResourceContext, uint antenna);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_CLOSE_TPC_LOOP(uint hResourceContext, byte close);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_CLOSE_TPC_LOOP_V2(uint hResourceContext, byte close);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_RX_DCO_CAL(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_DISABLE_AGC_TABLES(uint hResourceContext, byte rx0gain, byte rx1gain);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_GRAB_RAM(uint hResourceContext, uint startSample, uint numSamples, IntPtr Irx0Ptr, IntPtr Qrx0Ptr, IntPtr Irx1Ptr, IntPtr Qrx1Ptr);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_GET_TX_POWER_REPORT(uint hResourceContext, ref uint rate, ref uint cbState, ref byte channelId, ref uint pwrTemplateIndex, ref byte gain, ref byte adc, ref ushort rawAdc, ref byte indexMinMatchLut, ref double indexMinMatchAbs, ref byte indexMaxMatchLut, ref double indexMaxMatchAbs, ref byte outputLut, ref double outputAbs);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_QUERY_TX_STATUS(uint hResourceContext, ref uint legacy, ref uint gfSimo20, ref uint gfMimo20, ref uint mmSimo20, ref uint mmMimo20, ref uint txbShort, ref uint txbLong, ref uint txbSlr, ref uint total, ref byte txStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_HDET_CAL(uint hResourceContext, ref ushort hdetDcoCode, ref ushort hdetDcoOffset);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_SET_PKT_TX_GAIN_INDEX(uint hResourceContext, byte index);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_FORCE_PKT_TX_GAIN(uint hResourceContext, byte chainNum, byte gain);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_GET_TEMP_ADC(uint hResourceContext, int sensorID, ref ushort adcValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_READ_REGISTER(uint hResourceContext, uint regAddr, ref uint regValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_SET_NV_TABLE(uint hResourceContext, uint tableId, IntPtr tableData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_SET_TX_WAVEFORM_GAIN(uint hResourceContext, byte gain);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_GEN_RF_CW(uint hResourceContext, int tone, uint ampl);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_START_RF_WAVEFORM(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_STOP_RF_WAVEFORM(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_SET_TX_WAVEFORM_GAIN_V2(uint hResourceContext, uint gain);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_FORCE_PKT_TX_GAIN_V2(uint hResourceContext, byte chainNum, uint gain);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_CLPC_CAL_SETUP(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_CLPC_CAL_RESTORE(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_TX_CARRIER_SUPPRESS_CAL(uint hResourceContext, IntPtr IdcoCorrection, IntPtr QdcoCorrection, uint gain);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_TX_IQ_CAL_V2(uint hResourceContext, int gain, IntPtr iqAmpImbCoeff, IntPtr loLeakageI, IntPtr loLeakageQ, IntPtr phaseImbalaceCoeffI, IntPtr phaseImbalaceCoeffQ);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_CLPC_CAL_EXTRA_MEASUREMENT(uint hResourceContext, ushort setup, ushort setupTxDmdPwrOffset, ushort measureTotalExtraPt, ushort measureCurrentPtIdx, byte plut);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_SET_MAC_ADDR(uint hResourceContext, byte[] macAddr);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_GET_MAC_ADDR(uint hResourceContext, IntPtr macAddr);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_ENABLE_DPD(uint hResourceContext, byte enable);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_READ_XML_WRITE_NV(uint hResourceContext, string fileName);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_READ_NV_WRITE_XML(uint hResourceContext, string fileName);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_SET_NV_TABLE(uint hResourceContext, int tableId, IntPtr tableData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_GET_NV_TABLE(uint hResourceContext, int tableId, IntPtr tableData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_SET_RX_DISABLE_MODE_V2(uint hResourceContext, uint rateMask);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_GET_NV_VERSION(uint hResourceContext, ref byte version);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_SET_PWR_INDEX_SOURCE(uint hResourceContext, uint source);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_TX_IQ_CORRECT(uint hResourceContext, int gainVal, short iqAmpImbCoeff, short txLoLeakageI, short txLoLeakageQ, IntPtr iqPhasenImbCoeffI, IntPtr iqPhasenImbCoeffQ);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_GET_TX_IQ_CORRECT(uint hResourceContext, int gainVal, IntPtr iqAmpImbCoeffOut, IntPtr txLoLeakageIOut, IntPtr txLoLeakageQOut, IntPtr intptr_0, IntPtr intptr_1);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_RX_DCO_CORRECT(uint hResourceContext, byte gainVal, byte dcoCorrectI, byte dcoCorrectQ, byte dcRange);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_GET_RX_DCO_CORRECT(uint hResourceContext, byte gainVal, IntPtr dcoCorrectIOut, IntPtr dcoCorrectQOut, IntPtr dcRangeOut);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SET_RX_IQ_CORRECT(uint hResourceContext, int gainVal, IntPtr iqCalValuesI, IntPtr iqCalValuesQ);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_GET_RX_IQ_CORRECT(uint hResourceContext, int gainVal, IntPtr iqCalValuesIOut, IntPtr iqCalValuesQOut);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_GEN_CW(uint hResourceContext, long tone, ulong ampl);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_START_WAVEFORM(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_STOP_WAVEFORM(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_NV3_GET_ENUM_VALUE_OFFLINE(uint enumFieldIndex, uint enumItemIndex, string inputBinFileName, string dictionaryFileName, IntPtr enumName, out uint enumValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_NV3_GET_ENUM_VALUE(uint hResourceContext, uint enumFieldIndex, uint enumItemIndex, IntPtr enumName, out uint enumValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WLAN_GEN6_GET_UNICAST_MAC_PKT_RSSI_CONF(uint hResourceContext, uint conf);
+
+	public void FTM_WLAN_SetInstance(uint instance)
+	{
+		string source = "QLIB_FTM_WLAN_SetInstance";
+		string format = "phoneHandle :{0}, instance :{1}";
+		string exceptionMessage = "instance must to follow tlv dictionary";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, instance)));
+		if (QLIB_FTM_WLAN_SetInstance(phoneHandle, instance) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_TLV_Create(byte iOPCode)
+	{
+		string source = "QLIB_FTM_WLAN_TLV_Create";
+		string format = "phoneHandle :{0},iOPCode :{1}";
+		string exceptionMessage = "iOPCode must to follow tlv dictionary";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iOPCode)));
+		if (QLIB_FTM_WLAN_TLV_Create(phoneHandle, iOPCode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_TLV_AddParam(byte[] pKey, byte[] pData)
+	{
+		string source = "QLIB_FTM_WLAN_TLV_AddParam";
+		string format = "phoneHandle :{0}, pKey :{1}, pData: {2}";
+		string exceptionMessage = "TLV_AddParam has error, Key must to follow tlv dictionary";
+		object arg = phoneHandle;
+		string text = Encoding.ASCII.GetString(pKey);
+		char[] trimChars = new char[1];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, arg, text.TrimEnd(trimChars), TranslateToString(pData))));
+		if (QLIB_FTM_WLAN_TLV_AddParam(phoneHandle, pKey, pData) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_TLV_AddMAC(byte[] pKey, byte Mac0, byte Mac1, byte Mac2, byte Mac3, byte Mac4, byte Mac5)
+	{
+		string source = "QLIB_FTM_WLAN_TLV_AddMAC";
+		string format = "phoneHandle :{0}, pKey :{1}, Mac0: {0}, Mac0: {1}, Mac0: {2}, Mac0: {3}, Mac0: {4}, Mac0: {5}";
+		string exceptionMessage = "TLV_AddParam has error, Key must to follow tlv dictionary";
+		object[] array = new object[8] { phoneHandle, null, null, null, null, null, null, null };
+		string text = Encoding.ASCII.GetString(pKey);
+		char[] trimChars = new char[1];
+		array[1] = text.TrimEnd(trimChars);
+		array[2] = Convert.ToString(Mac0);
+		array[3] = Convert.ToString(Mac1);
+		array[4] = Convert.ToString(Mac2);
+		array[5] = Convert.ToString(Mac3);
+		array[6] = Convert.ToString(Mac4);
+		array[7] = Convert.ToString(Mac5);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, array)));
+		byte[] pData = new byte[6] { Mac0, Mac1, Mac2, Mac3, Mac4, Mac5 };
+		if (QLIB_FTM_WLAN_TLV_AddParam(phoneHandle, pKey, pData) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_TLV_Complete()
+	{
+		string source = "QLIB_FTM_WLAN_TLV_Complete";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "TLV Complete has error - Target device != responding";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_TLV_Complete(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_TLV_GetRspParam(byte[] pKey, byte[] pData)
+	{
+		string source = "QLIB_FTM_WLAN_TLV_GetRspParam";
+		string format = "phoneHandle :{0}, pKey :{1}";
+		string exceptionMessage = "TLV_GetRspParam has error, Key must to follow tlv dictionary";
+		string text = "pData :";
+		object arg = phoneHandle;
+		string text2 = Encoding.ASCII.GetString(pKey);
+		char[] trimChars = new char[1];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, arg, text2.TrimEnd(trimChars))));
+		if (QLIB_FTM_WLAN_TLV_GetRspParam(phoneHandle, pKey, pData) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, text + TranslateToString(pData)));
+	}
+
+	public void FTM_WLAN_TLV2_Create16(ushort iOPCode)
+	{
+		string source = "QLIB_FTM_WLAN_TLV2_Create16";
+		string format = "phoneHandle :{0},iOPCode :{1}";
+		string exceptionMessage = "iOPCode must to follow tlv dictionary";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iOPCode)));
+		if (QLIB_FTM_WLAN_TLV2_Create16(phoneHandle, iOPCode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_TLV2_Create(byte iOPCode)
+	{
+		string source = "QLIB_FTM_WLAN_TLV2_Create";
+		string format = "phoneHandle :{0},iOPCode :{1}";
+		string exceptionMessage = "iOPCode must to follow tlv dictionary";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iOPCode)));
+		if (QLIB_FTM_WLAN_TLV2_Create(phoneHandle, iOPCode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_TLV2_AddParam(byte[] pKey, byte[] pData)
+	{
+		string source = "QLIB_FTM_WLAN_TLV2_AddParam";
+		string format = "phoneHandle :{0}, pKey :{1}, pData: {2}";
+		string exceptionMessage = "TLV_AddParam has error, Key must to follow tlv dictionary";
+		object arg = phoneHandle;
+		string text = Encoding.ASCII.GetString(pKey);
+		char[] trimChars = new char[1];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, arg, text.TrimEnd(trimChars), TranslateToString(pData))));
+		if (QLIB_FTM_WLAN_TLV2_AddParam(phoneHandle, pKey, pData) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_TLV2_AddMAC(byte[] pKey, byte mac0, byte mac1, byte mac2, byte mac3, byte mac4, byte mac5)
+	{
+		string source = "QLIB_FTM_WLAN_TLV2_AddMAC";
+		string format = "phoneHandle :{0}, pKey :{1}, mac0: {2}; mac1: {3}; mac2: {4}; mac3: {5};mac4: {6}; mac5: {7}";
+		string exceptionMessage = "TLV2_AddMAC has error, Key must to follow tlv dictionary";
+		object[] array = new object[8] { phoneHandle, null, null, null, null, null, null, null };
+		string text = Encoding.ASCII.GetString(pKey);
+		char[] trimChars = new char[1];
+		array[1] = text.TrimEnd(trimChars);
+		array[2] = mac0;
+		array[3] = mac1;
+		array[4] = mac2;
+		array[5] = mac3;
+		array[6] = mac4;
+		array[7] = mac5;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, array)));
+		byte[] pData = new byte[6] { mac0, mac1, mac2, mac3, mac4, mac5 };
+		if (QLIB_FTM_WLAN_TLV2_AddParam(phoneHandle, pKey, pData) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_TLV2_Complete()
+	{
+		string source = "QLIB_FTM_WLAN_TLV2_Complete";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "TLV2 Complete has error - Target device != responding";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_TLV2_Complete(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_TLV2_GetRspParam(byte[] pKey, byte[] pData)
+	{
+		string source = "QLIB_FTM_WLAN_TLV2_GetRspParam";
+		string format = "phoneHandle :{0}, pKey :{1}";
+		string exceptionMessage = "TLV2_GetRspParam has error, Key must to follow tlv dictionary";
+		string text = "pData :";
+		object arg = phoneHandle;
+		string text2 = Encoding.ASCII.GetString(pKey);
+		char[] trimChars = new char[1];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, arg, text2.TrimEnd(trimChars))));
+		if (QLIB_FTM_WLAN_TLV2_GetRspParam(phoneHandle, pKey, pData) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, text + TranslateToString(pData)));
+	}
+
+	public void FTM_WLAN_TLV2_CreateQ5(ushort iOPCode)
+	{
+		string source = "QLIB_FTM_WLAN_TLV2_CreateQ5";
+		string format = "phoneHandle :{0},iOPCode :{1}";
+		string exceptionMessage = "iOPCode must to follow tlv2 dictionary";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iOPCode)));
+		if (QLIB_FTM_WLAN_TLV2_CreateQ5(phoneHandle, iOPCode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_TLV2_AddParamQ5(byte[] pKey, byte[] pData)
+	{
+		string source = "QLIB_FTM_WLAN_TLV2_AddParamQ5";
+		string format = "phoneHandle :{0}, pKey :{1}, pData: {2}";
+		string exceptionMessage = "TLV2_AddParam has error, Key must to follow tlv dictionary";
+		object arg = phoneHandle;
+		string text = Encoding.ASCII.GetString(pKey);
+		char[] trimChars = new char[1];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, arg, text.TrimEnd(trimChars), TranslateToString(pData))));
+		if (QLIB_FTM_WLAN_TLV2_AddParamQ5(phoneHandle, pKey, pData) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_TLV2_CompleteQ5()
+	{
+		string source = "QLIB_FTM_WLAN_TLV2_CompleteQ5";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "TLV2 Complete has error";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_TLV2_CompleteQ5(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_TLV2_GetRspParamQ5(byte[] pKey, byte[] pData)
+	{
+		string source = "QLIB_FTM_WLAN_TLV2_GetRspParamQ5";
+		string format = "phoneHandle :{0}, pKey :{1}";
+		string exceptionMessage = "TLV2_GetRspParamQ5 has error, Key must to follow tlv dictionary";
+		string text = "pData :";
+		object arg = phoneHandle;
+		string text2 = Encoding.ASCII.GetString(pKey);
+		char[] trimChars = new char[1];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, arg, text2.TrimEnd(trimChars))));
+		if (QLIB_FTM_WLAN_TLV2_GetRspParam(phoneHandle, pKey, pData) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, text + TranslateToString(pData)));
+	}
+
+	public void FTM_WLAN_GetFwVersion(byte[] pData)
+	{
+		string source = "QLIB_FTM_WLAN_GetFwVersion";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "GetFwVersion has error, Key must to follow tlv dictionary";
+		string text = "pData :";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GetFwVersion(phoneHandle, pData) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, text + TranslateToString(pData)));
+	}
+
+	public void FTM_WLAN_SetDFE(byte enable)
+	{
+		string source = "QLIB_FTM_WLAN_SetDFE";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "SetDFE has error, Key must to follow tlv dictionary";
+		string format2 = "enable :{0}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_SetDFE(phoneHandle, enable) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, enable)));
+	}
+
+	public bool FTM_WLAN_QCA_StickyWrite(byte[] regField, uint regValue, int prePost)
+	{
+		string source = "QLIB_FTM_WLAN_QCA_StickyWrite";
+		string format = "phoneHandle :{0}, regField :{1}, regValue: {2}, prePost: {3}";
+		string exceptionMessage = "StickyWrite has error, Register.Field must be valid";
+		object[] array = new object[4] { phoneHandle, null, null, null };
+		string text = Encoding.ASCII.GetString(regField);
+		char[] trimChars = new char[1];
+		array[1] = text.TrimEnd(trimChars);
+		array[2] = regValue;
+		array[3] = prePost;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, array)));
+		if (QLIB_FTM_WLAN_QCA_StickyWrite(phoneHandle, regField, regValue, prePost) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return true;
+	}
+
+	public bool FTM_WLAN_QCA_StickyClear(byte[] regField)
+	{
+		string source = "QLIB_FTM_WLAN_QCA_StickyClear";
+		string format = "phoneHandle :{0}, regField :{1}";
+		string exceptionMessage = "StickyClear has error, Register.Field must be valid";
+		object arg = phoneHandle;
+		string text = Encoding.ASCII.GetString(regField);
+		char[] trimChars = new char[1];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, arg, text.TrimEnd(trimChars))));
+		if (QLIB_FTM_WLAN_QCA_StickyClear(phoneHandle, regField) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return true;
+	}
+
+	public bool FTM_WLAN_SendNartCmd(byte[] input, byte[] response0, byte[] response1)
+	{
+		string source = "QLIB_FTM_WLAN_SendNartCmd";
+		string format = "phoneHandle :{0}, regField :{1}";
+		string exceptionMessage = "SendNartCmd has error.";
+		object arg = phoneHandle;
+		string text = Encoding.ASCII.GetString(input);
+		char[] trimChars = new char[1];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, arg, text.TrimEnd(trimChars))));
+		if (QLIB_FTM_WLAN_SendNartCmd(phoneHandle, input, response0, response1) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return true;
+	}
+
+	public void FTM_WLAN_Atheros_LoadDUT(byte[] DLLname, byte[] eepFName, int int_0, uint ssid)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_LoadDUT";
+		string format = "phoneHandle :{0}, DLLname :{1}, eepFName :{2}, NVMemOption :{3}, ssid :{4}";
+		string exceptionMessage = "FTM_WLAN_Atheros_LoadDUT failed.";
+		object[] array = new object[5] { phoneHandle, null, null, null, null };
+		string text = Encoding.ASCII.GetString(DLLname);
+		char[] trimChars = new char[1];
+		array[1] = text.TrimEnd(trimChars);
+		string text2 = Encoding.ASCII.GetString(eepFName);
+		char[] trimChars2 = new char[1];
+		array[2] = text2.TrimEnd(trimChars2);
+		array[3] = int_0;
+		array[4] = ssid;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, array)));
+		if (QLIB_FTM_WLAN_Atheros_LoadDUT(phoneHandle, DLLname, eepFName, int_0, ssid) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_UNLoadDUT()
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_UNLoadDUT";
+		string format = "phoneHandle :{0}";
+		string exceptionMessage = "FTM_WLAN_Atheros_UNLoadDUT failed.";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_Atheros_UNLoadDUT(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_LoadREF(byte[] iRefDesignPath, byte[] iRefDesignName)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_LoadREF";
+		string format = "phoneHandle :{0}, iRefDesignPath: {1}, iRefDesignName: {2}";
+		string exceptionMessage = "FTM_WLAN_Atheros_LoadREF failed.";
+		object arg = phoneHandle;
+		string text = Encoding.ASCII.GetString(iRefDesignPath);
+		char[] trimChars = new char[1];
+		string arg2 = text.TrimEnd(trimChars);
+		string text2 = Encoding.ASCII.GetString(iRefDesignName);
+		char[] trimChars2 = new char[1];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, arg, arg2, text2.TrimEnd(trimChars2))));
+		if (QLIB_FTM_WLAN_Atheros_LoadREF(phoneHandle, iRefDesignPath, iRefDesignName) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_CONT_TRANSMIT(WLAN_TX_Mode iMode, uint iFreq, WLAN_DataRate iDataRate, uint iTxPwr, WLAN_Antenna iAntenna)
+	{
+		string exceptionMessage = "In modulated mode the transmit power must be in the 5-14dBm range.";
+		string exceptionMessage2 = "In unmodulated mode the transmit power must be in the 5-11dBm range.";
+		string source = "QLIB_FTM_WLAN_Atheros_CONT_TRANSMIT";
+		string format = "phoneHandle :{0},iMode :{1},iFreq :{2},iDataRate :{3},iTxPwr :{4},iAntenna :{5}";
+		switch (iMode)
+		{
+		default:
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iMode, iFreq, iDataRate, iTxPwr, iAntenna)));
+			break;
+		case WLAN_TX_Mode.EnablingContinuousUnmodulatedTX:
+			if ((long)iTxPwr < 5L || (long)iTxPwr > 11L)
+			{
+				throw new PhoneException(exceptionMessage2);
+			}
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iMode, iFreq, iDataRate, iTxPwr, iAntenna)));
+			break;
+		case WLAN_TX_Mode.EnablingContinuousModulatedTX:
+			if ((long)iTxPwr < 5L || (long)iTxPwr > 14L)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iMode, iFreq, iDataRate, iTxPwr, iAntenna)));
+			break;
+		}
+		QLIB_FTM_WLAN_Atheros_CONT_TRANSMIT(phoneHandle, (uint)iMode, iFreq, (uint)iDataRate, iTxPwr, (uint)iAntenna);
+	}
+
+	public void FTM_WLAN_Atheros_CONT_RECEIVE(WLAN_Action iAction, uint iFreq, WLAN_Antenna iAntenna)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_CONT_RECEIVE";
+		string format = "phoneHandle :{0},iAction :{1},iFreq :{2},iAntenna :{3}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iAction, iFreq, iAntenna)));
+		QLIB_FTM_WLAN_Atheros_CONT_RECEIVE(phoneHandle, (uint)iAction, iFreq, (uint)iAntenna);
+	}
+
+	public void FTM_WLAN_Atheros_RECEIVE_REPORT(out uint iTotalPkt, out uint iRSSI)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_RECEIVE_REPORT";
+		string format = "phoneHandle :{0}";
+		string format2 = "TotalPkt :{0}, RSSI :{1}";
+		uint[] array = new uint[1];
+		uint[] array2 = new uint[1];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		QLIB_FTM_WLAN_Atheros_RECEIVE_REPORT(phoneHandle, array, array2);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, array[0], array2[0])));
+		iTotalPkt = array[0];
+		iRSSI = array2[0];
+	}
+
+	public void WLAN_Atheros_SET_MAC_ADDRESS(byte[] aiMAC_Address)
+	{
+		string exceptionMessage = "The mac address must be 6 bytes.";
+		string source = "QLIB_FTM_WLAN_Atheros_SET_MAC_ADDRESS";
+		string format = "phoneHandle :{0}, aiMAC_Address :{1}";
+		if (aiMAC_Address.Length != 6)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BitConverter.ToString(aiMAC_Address, 0, aiMAC_Address.Length))));
+		QLIB_FTM_WLAN_Atheros_SET_MAC_ADDRESS(phoneHandle, aiMAC_Address);
+	}
+
+	public void FTM_WLAN_Atheros_SET_BD_ADDRESS_IN_OTP(byte[] aiBD_Address)
+	{
+		string exceptionMessage = "The BD address must be 6 bytes.";
+		string source = "QLIB_FTM_WLAN_Atheros_SET_BD_ADDRESS_IN_OTP";
+		string format = "phoneHandle :{0}, aiBD_Address :{1}";
+		if (aiBD_Address.Length != 6)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BitConverter.ToString(aiBD_Address, 0, aiBD_Address.Length))));
+		QLIB_FTM_WLAN_Atheros_SET_BD_ADDRESS_IN_OTP(phoneHandle, aiBD_Address);
+	}
+
+	public void FTM_WLAN_Atheros_GET_BD_ADDRESS_FROM_OTP(out byte[] aiBD_Address)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_GET_BD_ADDRESS_FROM_OTP";
+		string format = "phoneHandle: {0}";
+		string text = "aiMAC_Address :";
+		string exceptionMessage = "FTM_WLAN_Atheros_GET_BD_ADDRESS_FROM_OTP(): failed";
+		bool flag = false;
+		IntPtr intPtr = Marshal.AllocHGlobal(6);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_Atheros_GET_BD_ADDRESS_FROM_OTP(phoneHandle, intPtr) == 0)
+		{
+			flag = true;
+			aiBD_Address = new byte[6];
+		}
+		else
+		{
+			aiBD_Address = new byte[6];
+		}
+		Marshal.Copy(intPtr, aiBD_Address, 0, 6);
+		Marshal.FreeHGlobal(intPtr);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, text + BitConverter.ToString(aiBD_Address, 0, aiBD_Address.Length)));
+		if (flag)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_SET_OTP_REG_DOMAIN(uint[] aiRegDmn)
+	{
+		string exceptionMessage = "The reg domain must be 2 bytes.";
+		string source = "QLIB_FTM_WLAN_Atheros_SET_OTP_REG_DOMAIN";
+		string format = "phoneHandle :{0}, aiRegDmn[0] :{1}, aiRegDmn[1] :{2}";
+		if (aiRegDmn.Length != 2)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, aiRegDmn[0], aiRegDmn[1])));
+		QLIB_FTM_WLAN_Atheros_SET_OTP_REG_DOMAIN(phoneHandle, aiRegDmn);
+	}
+
+	public void FTM_WLAN_Atheros_GET_OTP_REG_DOMAIN(out int[] aiRegDmn)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_GET_OTP_REG_DOMAIN";
+		string format = "phoneHandle: {0}";
+		string format2 = "aiRegDmn[0]: {0}, aiRegDmn[1]: ";
+		string exceptionMessage = "FTM_WLAN_Atheros_GET_OTP_REG_DOMAIN(): failed";
+		bool flag = false;
+		IntPtr intPtr = Marshal.AllocHGlobal(8);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_Atheros_GET_OTP_REG_DOMAIN(phoneHandle, intPtr) != 0)
+		{
+			aiRegDmn = new int[2];
+			Marshal.Copy(intPtr, aiRegDmn, 0, 2);
+			Marshal.FreeHGlobal(intPtr);
+			Logger.Add(new Message((MessageType)2, source, string.Format(format2, aiRegDmn[0], aiRegDmn[1])));
+			if (flag)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			return;
+		}
+		flag = true;
+		aiRegDmn = new int[2];
+		Marshal.Copy(intPtr, aiRegDmn, 0, 2);
+		Marshal.FreeHGlobal(intPtr);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, aiRegDmn[0], aiRegDmn[1])));
+		throw new PhoneException(exceptionMessage);
+	}
+
+	public void FTM_WLAN_SET_PCIe_CONFIG_IN_OTP_STREAM(uint iAction, uint iValue)
+	{
+		string source = "QLIB_FTM_WLAN_SET_PCIe_CONFIG_IN_OTP_STREAM";
+		string format = "phoneHandle :{0},iAction :{1},iValue :{2}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iAction, iValue)));
+		QLIB_FTM_WLAN_SET_PCIe_CONFIG_IN_OTP_STREAM(phoneHandle, iAction, iValue);
+	}
+
+	public void FTM_WLAN_SET_TOP_CONFIG_IN_OTP_STREAM(uint iAction, uint iValue)
+	{
+		string source = "QLIB_FTM_WLAN_SET_TOP_CONFIG_IN_OTP_STREAM";
+		string format = "phoneHandle :{0},iAction :{1},iValue :{2}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iAction, iValue)));
+		QLIB_FTM_WLAN_SET_TOP_CONFIG_IN_OTP(phoneHandle, iAction, iValue);
+	}
+
+	public void FTM_WLAN_SET_BT_CONFIG_IN_OTP_STREAM(uint iAction, uint iValue)
+	{
+		string source = "QLIB_FTM_WLAN_SET_BT_CONFIG_IN_OTP_STREAM";
+		string format = "phoneHandle :{0},iAction :{1},iValue :{2}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iAction, iValue)));
+		QLIB_FTM_WLAN_SET_BT_CONFIG_IN_OTP(phoneHandle, iAction, iValue);
+	}
+
+	public void FTM_WLAN_GET_PCIe_CONFIG_FROM_OTP_STREAM(uint iAction, out uint iValue)
+	{
+		string source = "QLIB_FTM_WLAN_GET_PCIe_CONFIG_FROM_OTP_STREAM";
+		string format = "phoneHandle :{0},iAction :{1}";
+		string format2 = "Value read :{0}";
+		iValue = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iAction)));
+		QLIB_FTM_WLAN_GET_PCIe_CONFIG_FROM_OTP_STREAM(phoneHandle, iAction, ref iValue);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iValue)));
+	}
+
+	public void FTM_WLAN_GET_BT_CONFIG_FROM_OTP_STREAM(uint iAction, out uint iValue)
+	{
+		string source = "QLIB_FTM_WLAN_GET_BT_CONFIG_FROM_OTP_STREAM";
+		string format = "phoneHandle :{0},iAction :{1}";
+		string format2 = "Value read :{0}";
+		iValue = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iAction)));
+		QLIB_FTM_WLAN_GET_BT_CONFIG_FROM_OTP(phoneHandle, iAction, ref iValue);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iValue)));
+	}
+
+	public void FTM_WLAN_GET_TOP_CONFIG_FROM_OTP_STREAM(uint iAction, out uint iValue)
+	{
+		string source = "QLIB_FTM_WLAN_GET_TOP_CONFIG_FROM_OTP_STREAM";
+		string format = "phoneHandle :{0},iAction :{1},iValue :{2}";
+		string format2 = "Value read :{0}";
+		iValue = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iAction, iValue)));
+		QLIB_FTM_WLAN_GET_TOP_CONFIG_FROM_OTP(phoneHandle, iAction, ref iValue);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iValue)));
+	}
+
+	public void FTM_WLAN_Atheros_DumpOTPToFile(string iFilename)
+	{
+		string source = "FTM_WLAN_Atheros_DumpOTPToFile";
+		string format = "phoneHandle :{0},iFilename :{1}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iFilename)));
+		QLIB_FTM_WLAN_Atheros_DumpOTPToFile(phoneHandle, iFilename);
+	}
+
+	public void FTM_WLAN_Atheros_CompareOTPAgainstFile(string iFilename, string iResultsFilename, out uint iValue)
+	{
+		string source = "FTM_WLAN_Atheros_CompareOTPAgainstFile";
+		string format = "phoneHandle :{0},iFilename :{1},iResultsFilename :{2}";
+		string format2 = "Compare Results :{0}";
+		iValue = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iFilename, iResultsFilename)));
+		QLIB_FTM_WLAN_Atheros_CompareOTPAgainstFile(phoneHandle, iFilename, iResultsFilename, ref iValue);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, iValue)));
+	}
+
+	public void FTM_WLAN_Atheros_SLEEP_WAKE(WLAN_SleepMode iMode)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_SLEEP_WAKE";
+		string format = "phoneHandle :{0},iMode :{1}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iMode)));
+		QLIB_FTM_WLAN_Atheros_SLEEP_WAKE(phoneHandle, (byte)iMode);
+	}
+
+	public void FTM_WLAN_Atheros_V2_CONT_TRANSMIT(WLAN_TX_Mode iMode, uint iFreq, WLAN_DataRate iDataRate, uint iTxPwr, WLAN_Antenna iAntenna, WLAN_EnANI iEnANI, WLAN_ScramblerState iScramblerOff, uint iAifsn, ushort iPktSz, WLAN_TxPattern iTxPattern)
+	{
+		string exceptionMessage = "In modulated mode the transmit power must be in the 5-14dBm range.";
+		string exceptionMessage2 = "In unmodulated mode the transmit power must be in the 5-11dBm range.";
+		string exceptionMessage3 = "iAifsn must be a value from 0-252.";
+		string exceptionMessage4 = "iPktSz must be a value from 32-1500.";
+		string source = "QLIB_FTM_WLAN_Atheros_V2_CONT_TRANSMIT";
+		string format = "phoneHandle :{0},iMode :{1},iFreq :{2},iDataRate :{3},iTxPwr :{4},iAntenna :{5},iEnANI :{6},iScramblerOff :{7},iAifsn :{8},iPktSz :{9},iTxPattern :{10}";
+		bool flag;
+		switch (iMode)
+		{
+		default:
+			flag = (long)iAifsn > 252L;
+			goto IL_0099;
+		case WLAN_TX_Mode.EnablingContinuousUnmodulatedTX:
+			if ((long)iTxPwr < 5L)
+			{
+				throw new PhoneException(exceptionMessage2);
+			}
+			if ((long)iTxPwr > 11L)
+			{
+				throw new PhoneException(exceptionMessage2);
+			}
+			if (flag = (long)iAifsn > 252L)
+			{
+				throw new PhoneException(exceptionMessage3);
+			}
+			if (iPktSz < 32 || iPktSz > 1500)
+			{
+				throw new PhoneException(exceptionMessage4);
+			}
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iMode, iFreq, iDataRate, iTxPwr, iAntenna, iEnANI, iScramblerOff, iAifsn, iPktSz, iTxPattern)));
+			QLIB_FTM_WLAN_Atheros_V2_CONT_TRANSMIT(phoneHandle, (uint)iMode, iFreq, (uint)iDataRate, iTxPwr, (uint)iAntenna, (uint)iEnANI, (uint)iScramblerOff, iAifsn, iPktSz, (ushort)iTxPattern);
+			break;
+		case WLAN_TX_Mode.EnablingContinuousModulatedTX:
+			{
+				if ((long)iTxPwr < 5L || (long)iTxPwr > 14L)
+				{
+					throw new PhoneException(exceptionMessage);
+				}
+				flag = (long)iAifsn > 252L;
+				goto IL_0099;
+			}
+			IL_0099:
+			if (flag)
+			{
+				throw new PhoneException(exceptionMessage3);
+			}
+			if (iPktSz >= 32 && iPktSz <= 1500)
+			{
+				Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iMode, iFreq, iDataRate, iTxPwr, iAntenna, iEnANI, iScramblerOff, iAifsn, iPktSz, iTxPattern)));
+				QLIB_FTM_WLAN_Atheros_V2_CONT_TRANSMIT(phoneHandle, (uint)iMode, iFreq, (uint)iDataRate, iTxPwr, (uint)iAntenna, (uint)iEnANI, (uint)iScramblerOff, iAifsn, iPktSz, (ushort)iTxPattern);
+				break;
+			}
+			throw new PhoneException(exceptionMessage4);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_V2_CONT_RECEIVE(WLAN_Action iAction, uint iEnANI, uint iFreq, WLAN_Antenna iAntenna)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_V2_CONT_RECEIVE";
+		string format = "phoneHandle :{0},iAction :{1},iEnANI :{2},iFreq :{3},iAntenna :{4}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iAction, iEnANI, iFreq, iAntenna)));
+		QLIB_FTM_WLAN_Atheros_V2_CONT_RECEIVE(phoneHandle, (uint)iAction, iEnANI, iFreq, (uint)iAntenna);
+	}
+
+	public void FTM_WLAN_Atheros_V2_RECEIVE_REPORT(out uint iTotalPkt, out uint iRSSI)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_V2_RECEIVE_REPORT";
+		string format = "phoneHandle :{0}";
+		string format2 = "TotalPkt :{0}, RSSI :{1}";
+		uint[] array = new uint[1];
+		uint[] array2 = new uint[1];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		QLIB_FTM_WLAN_Atheros_V2_RECEIVE_REPORT(phoneHandle, array, array2);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, array[0], array2[0])));
+		iTotalPkt = array[0];
+		iRSSI = array2[0];
+	}
+
+	public void FTM_WLAN_Atheros_V2_SET_MAC_ADDRESS(byte[] aiMAC_Address)
+	{
+		string exceptionMessage = "The mac address must be 6 bytes.";
+		string source = "QLIB_FTM_WLAN_Atheros_V2_SET_MAC_ADDRESS";
+		string format = "phoneHandle :{0}, aiMAC_Address :{1}";
+		if (aiMAC_Address.Length != 6)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BitConverter.ToString(aiMAC_Address, 0, aiMAC_Address.Length))));
+		QLIB_FTM_WLAN_Atheros_V2_SET_MAC_ADDRESS(phoneHandle, aiMAC_Address);
+	}
+
+	public void FTM_WLAN_Atheros_V2_SLEEP_WAKE(WLAN_SleepMode iMode)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_V2_SLEEP_WAKE";
+		string format = "phoneHandle :{0},iMode :{1}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iMode)));
+		QLIB_FTM_WLAN_Atheros_V2_SLEEP_WAKE(phoneHandle, (uint)iMode);
+	}
+
+	public void FTM_WLAN_SetModuleType(WLAN_moduleType iMode)
+	{
+		string source = "QLIB_FTM_WLAN_SetModuleType";
+		string format = "iMode :{0}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, iMode)));
+		QLIB_FTM_WLAN_SetModuleType((uint)iMode);
+	}
+
+	public void FTM_WLAN_Atheros_V3_CONT_TRANSMIT(WLAN_TX_Mode iMode, uint iFreq, WLAN_Gen6_HAL_PHY_Rate rate, uint iTxPwr, WLAN_Antenna iAntenna, WLAN_EnANI iEnANI, WLAN_ScramblerState iScramblerOff, uint iAifsn, uint iPktSz, WLAN_TxPattern iTxPattern, bool useShortGuard, uint numPackets, TCMD_WLAN_MODE wlanMode)
+	{
+		string exceptionMessage = "Invalid data rate for target!";
+		string exceptionMessage2 = "In modulated mode the transmit power must be in the 5-30dBm range.";
+		string exceptionMessage3 = "In unmodulated mode the transmit power must be in the 5-11dBm range.";
+		string exceptionMessage4 = "iAifsn must be a value from 0-252.";
+		string exceptionMessage5 = "iPktSz must be a value from 32-1500.";
+		string exceptionMessage6 = "numPackets must be between 0 and 65535!";
+		string source = "QLIB_FTM_WLAN_Atheros_V3_CONT_TRANSMIT";
+		string format = "phoneHandle: {0},iMode: {1}, iFreq: {2},convertedRate: {3}, iTxPwr: {4},iAntenna: {5},iEnANI: {6},iScramblerOff: {7}, iAifsn: {8}, iPktSz: {9},iTxPattern: {10},useShortGuard: {11}, numPackets: {12},wlanMode: {13}";
+		string exceptionMessage7 = "FTM_WLAN_Atheros_V3_CONT_TRANSMIT(): failed";
+		int rate2 = getRate(rate);
+		if (rate2 < 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		if (iMode != WLAN_TX_Mode.DisablingContinuousMode)
+		{
+			switch (iMode)
+			{
+			case WLAN_TX_Mode.EnablingContinuousUnmodulatedTX:
+				if ((long)iTxPwr < 5L || (long)iTxPwr > 11L)
+				{
+					throw new PhoneException(exceptionMessage3);
+				}
+				break;
+			case WLAN_TX_Mode.EnablingContinuousModulatedTX:
+				if ((long)iTxPwr < 5L || (long)iTxPwr > 30L)
+				{
+					throw new PhoneException(exceptionMessage2);
+				}
+				break;
+			}
+			if ((long)iAifsn > 252L)
+			{
+				throw new PhoneException(exceptionMessage4);
+			}
+			if ((long)iPktSz < 32L || (long)iPktSz > 1500L)
+			{
+				throw new PhoneException(exceptionMessage5);
+			}
+			if ((long)numPackets > 65535L)
+			{
+				throw new PhoneException(exceptionMessage6);
+			}
+		}
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iMode, iFreq, rate2, iTxPwr, iAntenna, iEnANI, iScramblerOff, iAifsn, iPktSz, iTxPattern, useShortGuard, numPackets, wlanMode)));
+		if (QLIB_FTM_WLAN_Atheros_V3_CONT_TRANSMIT(phoneHandle, (uint)iMode, iFreq, (uint)rate2, iTxPwr, (uint)iAntenna, (uint)iEnANI, (uint)iScramblerOff, iAifsn, iPktSz, (uint)iTxPattern, useShortGuard ? 1u : 0u, numPackets, (uint)wlanMode) == 0)
+		{
+			throw new PhoneException(exceptionMessage7);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_V3_CONT_TRANSMIT(WLAN_TX_Mode iMode, uint iFreq, WLAN_DataRate rate, uint iTxPwr, WLAN_Antenna iAntenna, WLAN_EnANI iEnANI, WLAN_ScramblerState iScramblerOff, uint iAifsn, uint iPktSz, WLAN_TxPattern iTxPattern, bool useShortGuard, uint numPackets, TCMD_WLAN_MODE wlanMode)
+	{
+		string exceptionMessage = "Invalid data rate for target!";
+		string exceptionMessage2 = "In modulated mode the transmit power must be in the 5-30dBm range.";
+		string exceptionMessage3 = "In unmodulated mode the transmit power must be in the 5-11dBm range.";
+		string exceptionMessage4 = "iAifsn must be a value from 0-252.";
+		string exceptionMessage5 = "iPktSz must be a value from 32-1500.";
+		string exceptionMessage6 = "numPackets must be between 0 and 65535!";
+		string source = "QLIB_FTM_WLAN_Atheros_V3_CONT_TRANSMIT";
+		string format = "phoneHandle: {0},iMode: {1}, iFreq: {2},convertedRate: {3}, iTxPwr: {4},iAntenna: {5},iEnANI: {6},iScramblerOff: {7}, iAifsn: {8}, iPktSz: {9},iTxPattern: {10},useShortGuard: {11}, numPackets: {12},wlanMode: {13}";
+		string exceptionMessage7 = "FTM_WLAN_Atheros_V3_CONT_TRANSMIT(): failed";
+		int rate2 = getRate(rate, useShortGuard);
+		if (rate2 < 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		if (iMode != WLAN_TX_Mode.DisablingContinuousMode)
+		{
+			switch (iMode)
+			{
+			case WLAN_TX_Mode.EnablingContinuousUnmodulatedTX:
+				if ((long)iTxPwr < 5L || (long)iTxPwr > 11L)
+				{
+					throw new PhoneException(exceptionMessage3);
+				}
+				break;
+			case WLAN_TX_Mode.EnablingContinuousModulatedTX:
+				if ((long)iTxPwr < 5L || (long)iTxPwr > 30L)
+				{
+					throw new PhoneException(exceptionMessage2);
+				}
+				break;
+			}
+			if ((long)iAifsn > 252L)
+			{
+				throw new PhoneException(exceptionMessage4);
+			}
+			if ((long)iPktSz < 32L || (long)iPktSz > 1500L)
+			{
+				throw new PhoneException(exceptionMessage5);
+			}
+			if ((long)numPackets > 65535L)
+			{
+				throw new PhoneException(exceptionMessage6);
+			}
+		}
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iMode, iFreq, rate2, iTxPwr, iAntenna, iEnANI, iScramblerOff, iAifsn, iPktSz, iTxPattern, useShortGuard, numPackets, wlanMode)));
+		if (QLIB_FTM_WLAN_Atheros_V3_CONT_TRANSMIT(phoneHandle, (uint)iMode, iFreq, (uint)rate2, iTxPwr, (uint)iAntenna, (uint)iEnANI, (uint)iScramblerOff, iAifsn, iPktSz, (uint)iTxPattern, useShortGuard ? 1u : 0u, numPackets, (uint)wlanMode) == 0)
+		{
+			throw new PhoneException(exceptionMessage7);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_V4_CONT_TRANSMIT(WLAN_TX_Mode iMode, uint iFreq, WLAN_Gen6_HAL_PHY_Rate rate, double dTxPwr, WLAN_Antenna iAntenna, WLAN_EnANI iEnANI, WLAN_ScramblerState iScramblerOff, uint iAifsn, uint iPktSz, WLAN_TxPattern iTxPattern, bool useShortGuard, uint numPackets, TCMD_WLAN_MODE wlanMode, TCMD_TPC_TYPE tpcm)
+	{
+		string exceptionMessage = "Invalid data rate for target!";
+		double field_ = Class38.field_409;
+		double field_2 = Class38.field_5340;
+		string exceptionMessage2 = "In modulated mode the transmit power must be in the 5-30dBm range.";
+		double field_3 = Class38.field_5341;
+		string exceptionMessage3 = "In unmodulated mode the transmit power must be in the 5-11dBm range.";
+		string exceptionMessage4 = "iAifsn must be a value from 0-252.";
+		string exceptionMessage5 = "numPackets must be between 0 and 65535!";
+		string source = "QLIB_FTM_WLAN_Atheros_V4_CONT_TRANSMIT";
+		string format = "phoneHandle: {0},iMode: {1}, iFreq: {2},convertedRate: {3}, dTxPwr: {4},iAntenna: {5},iEnANI: {6},iScramblerOff: {7}, iAifsn: {8}, iPktSz: {9},iTxPattern: {10},useShortGuard: {11}, numPackets: {12},wlanMode: {13},tpcm: {14}";
+		string exceptionMessage6 = "FTM_WLAN_Atheros_V4_CONT_TRANSMIT(): failed";
+		string exceptionMessage7 = "iPktSz must be a value from 32-1500.";
+		int rate2 = getRate(rate);
+		if (rate2 < 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		switch (iMode)
+		{
+		case WLAN_TX_Mode.EnablingContinuousUnmodulatedTX:
+			if (!(dTxPwr >= field_) || dTxPwr > field_3)
+			{
+				throw new PhoneException(exceptionMessage3);
+			}
+			goto default;
+		case WLAN_TX_Mode.EnablingContinuousModulatedTX:
+			if (!(dTxPwr >= field_) || dTxPwr > field_2)
+			{
+				break;
+			}
+			goto default;
+		default:
+			if ((long)iAifsn <= 252L)
+			{
+				if ((long)iPktSz >= 32L && (long)iPktSz <= 1500L)
+				{
+					if ((long)numPackets > 65535L)
+					{
+						throw new PhoneException(exceptionMessage5);
+					}
+					Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iMode, iFreq, rate2, dTxPwr, iAntenna, iEnANI, iScramblerOff, iAifsn, iPktSz, iTxPattern, useShortGuard, numPackets, wlanMode, tpcm)));
+					if (QLIB_FTM_WLAN_Atheros_V4_CONT_TRANSMIT(phoneHandle, (uint)iMode, iFreq, (uint)rate2, dTxPwr, (uint)iAntenna, (uint)iEnANI, (uint)iScramblerOff, iAifsn, iPktSz, (uint)iTxPattern, useShortGuard ? 1u : 0u, numPackets, (uint)wlanMode, (uint)tpcm) == 0)
+					{
+						throw new PhoneException(exceptionMessage6);
+					}
+					return;
+				}
+				throw new PhoneException(exceptionMessage7);
+			}
+			throw new PhoneException(exceptionMessage4);
+		}
+		throw new PhoneException(exceptionMessage2);
+	}
+
+	public void FTM_WLAN_Atheros_V4_CONT_TRANSMIT(WLAN_TX_Mode iMode, uint iFreq, WLAN_DataRate rate, double dTxPwr, WLAN_Antenna iAntenna, WLAN_EnANI iEnANI, WLAN_ScramblerState iScramblerOff, uint iAifsn, uint iPktSz, WLAN_TxPattern iTxPattern, bool useShortGuard, uint numPackets, TCMD_WLAN_MODE wlanMode, TCMD_TPC_TYPE tpcm)
+	{
+		string exceptionMessage = "Invalid data rate for target!";
+		double field_ = Class38.field_409;
+		double field_2 = Class38.field_5340;
+		string exceptionMessage2 = "In modulated mode the transmit power must be in the 5-30dBm range.";
+		double field_3 = Class38.field_5341;
+		string exceptionMessage3 = "In unmodulated mode the transmit power must be in the 5-11dBm range.";
+		string exceptionMessage4 = "iAifsn must be a value from 0-252.";
+		string exceptionMessage5 = "numPackets must be between 0 and 65535!";
+		string source = "QLIB_FTM_WLAN_Atheros_V4_CONT_TRANSMIT";
+		string format = "phoneHandle: {0},iMode: {1}, iFreq: {2},convertedRate: {3}, dTxPwr: {4},iAntenna: {5},iEnANI: {6},iScramblerOff: {7}, iAifsn: {8}, iPktSz: {9},iTxPattern: {10},useShortGuard: {11}, numPackets: {12},wlanMode: {13},tpcm: {14}";
+		string exceptionMessage6 = "FTM_WLAN_Atheros_V4_CONT_TRANSMIT(): failed";
+		string exceptionMessage7 = "iPktSz must be a value from 32-1500.";
+		int rate2 = getRate(rate, useShortGuard);
+		if (rate2 >= 0)
+		{
+			switch (iMode)
+			{
+			case WLAN_TX_Mode.EnablingContinuousUnmodulatedTX:
+				if (dTxPwr < field_ || dTxPwr > field_3)
+				{
+					throw new PhoneException(exceptionMessage3);
+				}
+				goto default;
+			case WLAN_TX_Mode.EnablingContinuousModulatedTX:
+				if (!(dTxPwr >= field_) || dTxPwr > field_2)
+				{
+					break;
+				}
+				goto default;
+			default:
+				if ((long)iAifsn <= 252L)
+				{
+					if ((long)iPktSz >= 32L && (long)iPktSz <= 1500L)
+					{
+						if ((long)numPackets > 65535L)
+						{
+							throw new PhoneException(exceptionMessage5);
+						}
+						Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iMode, iFreq, rate2, dTxPwr, iAntenna, iEnANI, iScramblerOff, iAifsn, iPktSz, iTxPattern, useShortGuard, numPackets, wlanMode, tpcm)));
+						if (QLIB_FTM_WLAN_Atheros_V4_CONT_TRANSMIT(phoneHandle, (uint)iMode, iFreq, (uint)rate2, dTxPwr, (uint)iAntenna, (uint)iEnANI, (uint)iScramblerOff, iAifsn, iPktSz, (uint)iTxPattern, useShortGuard ? 1u : 0u, numPackets, (uint)wlanMode, (uint)tpcm) == 0)
+						{
+							throw new PhoneException(exceptionMessage6);
+						}
+						return;
+					}
+					throw new PhoneException(exceptionMessage7);
+				}
+				throw new PhoneException(exceptionMessage4);
+			}
+			throw new PhoneException(exceptionMessage2);
+		}
+		throw new PhoneException(exceptionMessage);
+	}
+
+	public void FTM_WLAN_Atheros_V3_CONT_RECEIVE(WLAN_Action iAction, uint iEnANI, uint iFreq, WLAN_Antenna iAntenna)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_V3_CONT_RECEIVE";
+		string format = "phoneHandle: {0},iAction: {1}, iEnANI: {2}, iFreq: {3},iAntenna: {4}";
+		string exceptionMessage = "FTM_WLAN_Atheros_V3_CONT_RECEIVE(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iAction, iEnANI, iFreq, iAntenna)));
+		if (QLIB_FTM_WLAN_Atheros_V3_CONT_RECEIVE(phoneHandle, (uint)iAction, iEnANI, iFreq, (uint)iAntenna) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_V4_RECEIVE_REPORT(out uint totalPktCount, out double rssiInDbm, out uint crcErrPktCount, out uint secErrPktCount)
+	{
+		double field_ = Class38.field_543;
+		string source = "QLIB_FTM_WLAN_Atheros_V4_RECEIVE_REPORT";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_Atheros_V4_RECEIVE_REPORT(): failed";
+		string format2 = "ref totalPktCount :{0} ref rssiInDbm :{1}, ref crcErrPktCount :{2}, ref secErrPktCount :{3}";
+		secErrPktCount = 0u;
+		crcErrPktCount = 0u;
+		totalPktCount = 0u;
+		rssiInDbm = field_;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_Atheros_V4_RECEIVE_REPORT(phoneHandle, ref totalPktCount, ref rssiInDbm, ref crcErrPktCount, ref secErrPktCount) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, totalPktCount, rssiInDbm, crcErrPktCount, secErrPktCount)));
+	}
+
+	public void FTM_WLAN_Atheros_V3_SET_MAC_ADDRESS(byte[] macAddress)
+	{
+		string exceptionMessage = "The mac address must be 6 bytes.";
+		string source = "QLIB_FTM_WLAN_Atheros_V3_SET_MAC_ADDRESS";
+		string format = "phoneHandle: {0}, macAddress: {1}";
+		string exceptionMessage2 = "FTM_WLAN_Atheros_V3_SET_MAC_ADDRESS(): failed";
+		if (macAddress.Length != 6)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BitConverter.ToString(macAddress, 0, macAddress.Length))));
+		if (QLIB_FTM_WLAN_Atheros_V3_SET_MAC_ADDRESS(phoneHandle, macAddress) == 0)
+		{
+			throw new PhoneException(exceptionMessage2);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_V3_SLEEP_WAKE(WLAN_SleepMode mode)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_V3_SLEEP_WAKE";
+		string format = "phoneHandle: {0},mode: {1}";
+		string exceptionMessage = "FTM_WLAN_Atheros_V3_SLEEP_WAKE(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, mode)));
+		if (QLIB_FTM_WLAN_Atheros_V3_SLEEP_WAKE(phoneHandle, (byte)mode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public byte FTM_WLAN_Atheros_GET_THERM()
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_GET_THERM";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_Atheros_GET_THERM(): failed";
+		byte iThermAdc = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_Atheros_GET_THERM(phoneHandle, ref iThermAdc) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return iThermAdc;
+	}
+
+	public void FTM_WLAN_Atheros_WRITE_MAC_ADDRESS(byte[] aiMAC_Address, int location)
+	{
+		string exceptionMessage = "The mac address must be 6 bytes.";
+		string source = "QLIB_FTM_WLAN_Atheros_WRITE_MAC_ADDRESS";
+		string format = "phoneHandle :{0}, aiMAC_Address :{1}, location:{2}";
+		if (aiMAC_Address.Length != 6)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BitConverter.ToString(aiMAC_Address, 0, aiMAC_Address.Length), location)));
+		QLIB_FTM_WLAN_Atheros_WRITE_MAC_ADDRESS(phoneHandle, aiMAC_Address, location);
+	}
+
+	public void FTM_WLAN_Atheros_SET_OTP_MAC_ADDRESS(byte[] aiMAC_Address)
+	{
+		string exceptionMessage = "The mac address must be 6 bytes.";
+		string source = "QLIB_FTM_WLAN_Atheros_SET_OTP_MAC_ADDRESS";
+		string format = "phoneHandle :{0}, aiMAC_Address :{1}";
+		if (aiMAC_Address.Length != 6)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BitConverter.ToString(aiMAC_Address, 0, aiMAC_Address.Length))));
+		QLIB_FTM_WLAN_Atheros_SET_OTP_MAC_ADDRESS(phoneHandle, aiMAC_Address);
+	}
+
+	public byte FTM_WLAN_Atheros_SET_NV_MAC_ADDRESS(int nMac, byte[] aiMAC_Address)
+	{
+		string exceptionMessage = "The mac address must be multiple of 6 bytes.";
+		string source = "QLIB_FTM_WLAN_Atheros_SET_NV_MAC_ADDRESS";
+		string format = "phoneHandle :{0}, nMac :{1}, aiMAC_Address :{2}";
+		if (aiMAC_Address.Length == 0 || aiMAC_Address.Length % 6 != 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, nMac, BitConverter.ToString(aiMAC_Address, 0, aiMAC_Address.Length))));
+		return QLIB_FTM_WLAN_Atheros_SET_NV_MAC_ADDRESS(phoneHandle, nMac, aiMAC_Address);
+	}
+
+	public void FTM_WLAN_Atheros_SELF_CAL_MEAS(uint iFreq, WLAN_SINGLE_CHAIN_MASK txChainMask, uint numAvg, uint iPSatDAC, double dTargetPower, asyncHandlerPMCallBack pAsyncPMHandlerCB, out double double_0, out double pdPSatOfdmDelta, out uint thermCal)
+	{
+		double field_ = Class38.field_543;
+		string source = "QLIB_FTM_WLAN_Atheros_SELF_CAL_MEAS";
+		string format = "phoneHandle :{0}, txChainMask :{1}, numAvg :{2}, iPSatDAC :{3}, dTargetPower :{4:0.00}, pAsyncPMHandlerCB : Callback Function";
+		string exceptionMessage = "FTM_WLAN_Atheros_Tx_SelfInitCAL_MEAS(): failed";
+		string format2 = "phoneHandle :{0}, pdPSatPwr :{1:0.00}, pdPSatOfdmDelta :{2:0.00}, thermCal :{3}";
+		thermCal = 0u;
+		double_0 = field_;
+		pdPSatOfdmDelta = field_;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, txChainMask, numAvg, iPSatDAC, dTargetPower)));
+		if (QLIB_FTM_WLAN_Atheros_SELF_CAL_MEAS(phoneHandle, iFreq, (uint)txChainMask, numAvg, iPSatDAC, dTargetPower, pAsyncPMHandlerCB, ref double_0, ref pdPSatOfdmDelta, ref thermCal) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle, double_0, pdPSatOfdmDelta, thermCal)));
+	}
+
+	public void FTM_WLAN_Atheros_SELF_CAL_MEAS_V1(uint iFreq, WLAN_SINGLE_CHAIN_MASK txChainMask, uint numAvg, uint iPSatDAC, double dTargetPower, asyncHandlerPMCallBack pAsyncPMHandlerCB, out double double_0, out double pdPSatOfdmDelta, out uint thermCal)
+	{
+		double field_ = Class38.field_543;
+		string source = "QLIB_FTM_WLAN_Atheros_SELF_CAL_MEAS_V1";
+		string format = "phoneHandle :{0}, txChainMask :{1}, numAvg :{2}, iPSatDAC :{3}, dTargetPower :{4:0.00}, pAsyncPMHandlerCB : Callback Function";
+		string exceptionMessage = "FTM_WLAN_Atheros_Tx_SelfInitCAL_MEAS_V1(): failed";
+		string format2 = "phoneHandle :{0}, pdPSatPwr :{1:0.00}, pdPSatOfdmDelta :{2:0.00}, thermCal :{3}";
+		thermCal = 0u;
+		double_0 = field_;
+		pdPSatOfdmDelta = field_;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, txChainMask, numAvg, iPSatDAC, dTargetPower)));
+		if (QLIB_FTM_WLAN_Atheros_SELF_CAL_MEAS_V1(phoneHandle, iFreq, (uint)txChainMask, numAvg, iPSatDAC, dTargetPower, pAsyncPMHandlerCB, ref double_0, ref pdPSatOfdmDelta, ref thermCal) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle, double_0, pdPSatOfdmDelta, thermCal)));
+	}
+
+	public void FTM_WLAN_Atheros_SELF_CAL_SETUP(byte[] byte_1)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_SELF_CAL_SETUP";
+		string format = "phoneHandle :{0}, SelfInitSetUpFName :{1}";
+		string exceptionMessage = "QLIB_FTM_WLAN_Atheros_SELF_CAL_SETUP(): failed";
+		object arg = phoneHandle;
+		string text = Encoding.ASCII.GetString(byte_1);
+		char[] trimChars = new char[1];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, arg, text.TrimEnd(trimChars))));
+		if (QLIB_FTM_WLAN_Atheros_SELF_CAL_SETUP(phoneHandle, byte_1) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_SELF_CAL_toBin(byte[] binFName)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_SELF_CAL_toBin";
+		string format = "phoneHandle :{0}, binFName :{1}";
+		string exceptionMessage = "FTM_WLAN_Atheros_SELF_CAL_toBin(): failed";
+		object arg = phoneHandle;
+		string text = Encoding.ASCII.GetString(binFName);
+		char[] trimChars = new char[1];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, arg, text.TrimEnd(trimChars))));
+		if (QLIB_FTM_WLAN_Atheros_SELF_CAL_toBin(phoneHandle, binFName) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_SELF_CAL(short iChannel, short iChainMask, out short iOlpcGainDelta, out ushort iThermalCal, out uint cmacOlpc, out uint cmacPsat, out short iCmacOlpcPcdac, out short iCmacPsatPcdac, out short iPsatParm)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_SELF_CAL";
+		string format = "phoneHandle :{0}, iChannel :{1}, iChainMask :{2} ";
+		string exceptionMessage = "QLIB_FTM_WLAN_Atheros_SELF_INIT_CAL(): failed";
+		string exceptionMessage2 = "QLIB_FTM_WLAN_Atheros_GET_SELF_INIT_CAL_RESULT(): failed";
+		string format2 = "phoneHandle :{0}, iOlpcGainDelta :{1}, iThermalCal :{2}, cmacOlpc :{3}, cmacPsat :{4}, iCmacOlpcPcdac :{5}, iCmacPsatPcdac :{6}, iPsatParm :{7} ";
+		iOlpcGainDelta = 0;
+		iThermalCal = 0;
+		cmacOlpc = 0u;
+		cmacPsat = 0u;
+		iCmacOlpcPcdac = 0;
+		iCmacPsatPcdac = 0;
+		iPsatParm = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iChannel, iChainMask)));
+		if (QLIB_FTM_WLAN_Atheros_SELF_INIT_CAL(phoneHandle, iChannel, iChainMask) != 0)
+		{
+			if (QLIB_FTM_WLAN_Atheros_GET_SELF_INIT_CAL_RESULT(phoneHandle, iChannel, iChainMask, ref iOlpcGainDelta, ref iThermalCal, ref cmacOlpc, ref cmacPsat, ref iCmacOlpcPcdac, ref iCmacPsatPcdac, ref iPsatParm) == 0)
+			{
+				throw new PhoneException(exceptionMessage2);
+			}
+			Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle, iOlpcGainDelta, iThermalCal, cmacOlpc, cmacPsat, iCmacOlpcPcdac, iCmacPsatPcdac, iPsatParm)));
+			return;
+		}
+		throw new PhoneException(exceptionMessage);
+	}
+
+	public void FTM_WLAN_Atheros_SELF_INIT_COMMIT(byte iWriteOption)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_SELF_INIT_COMMIT";
+		string format = "phoneHandle :{0}, iWriteOption :{1}";
+		string exceptionMessage = "QLIB_FTM_WLAN_Atheros_SELF_INIT_COMMIT(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iWriteOption)));
+		if (QLIB_FTM_WLAN_Atheros_SELF_INIT_COMMIT(phoneHandle, iWriteOption) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_xtal_CAL_INIT(int iXtalTargetPPM, uint iXtalTolerancePPM, int iXtalCapDelta, WLAN_XTAL_STORAGE_OTP dXtalCalSaveOption, uint delayCapSettleMs = 1000u, uint delayPostXtalMs = 2000u)
+	{
+		string source = "FTM_WLAN_Atheros_xtal_CAL_INIT";
+		string format = "phoneHandle :{0},XtalTargetPPM :{1}, XtalTolerancePPM :{2}, {3} {4}";
+		string exceptionMessage = "FTM_WLAN_Atheros_xtal_CAL_INIT(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iXtalTargetPPM, iXtalTolerancePPM, delayCapSettleMs, delayPostXtalMs)));
+		if (QLIB_FTM_WLAN_Atheros_xtal_CAL_INIT(phoneHandle, iXtalTargetPPM, iXtalTolerancePPM, iXtalCapDelta, (uint)dXtalCalSaveOption, delayCapSettleMs, delayPostXtalMs) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_xtal_CAL(asyncHandlerCWFreqErrCallBack pAsyncCWFreqErrHandlerCB, uint numAvg)
+	{
+		string source = "FTM_WLAN_Atheros_xtal_CAL";
+		string format = "phoneHandle :{0}, pAsyncCWFreqErrHandlerCB : Callback Function, UInt32 numAvg :{1}";
+		string exceptionMessage = "FTM_WLAN_Atheros_xtal_CAL(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, numAvg)));
+		if (QLIB_FTM_WLAN_Atheros_xtal_CAL(phoneHandle, pAsyncCWFreqErrHandlerCB, numAvg) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_xtal_CAL2(asyncHandlerCWFreqErrCallBack2 pAsyncCWFreqErrHandlerCB2, uint numAvg, bool ppmCD)
+	{
+		string source = "FTM_WLAN_Atheros_xtal_CAL2";
+		string format = "phoneHandle :{0}, pAsyncCWFreqErrHandlerCB : Callback Function, UInt32 numAvg :{1}";
+		string exceptionMessage = "FTM_WLAN_Atheros_xtal_CAL2(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, numAvg)));
+		if (QLIB_FTM_WLAN_Atheros_xtal_CAL2(phoneHandle, pAsyncCWFreqErrHandlerCB2, numAvg, ppmCD) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_Tx_CALIBRATE_INIT(byte[] DLLname, int calPoints, int calGainMode)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_Tx_CALIBRATE_INIT";
+		string format = "phoneHandle :{0},DLLname :{1}, calPoints :{2}, calGainMode :{3}";
+		string exceptionMessage = "FTM_WLAN_Atheros_Tx_CALIBRATE_INIT(): failed";
+		m_calPoints = calPoints;
+		object[] array = new object[4] { phoneHandle, null, null, null };
+		string text = Encoding.ASCII.GetString(DLLname);
+		char[] trimChars = new char[1];
+		array[1] = text.TrimEnd(trimChars);
+		array[2] = calPoints;
+		array[3] = calGainMode;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, array)));
+		if (QLIB_FTM_WLAN_Atheros_Tx_CALIBRATE_INIT(phoneHandle, DLLname, calPoints, calGainMode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_Tx_CAL(asyncHandlerPMCallBack pAsyncPMHandlerCB, uint numAvg)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_Tx_CAL";
+		string format = "phoneHandle :{0}, pAsyncPMHandlerCB : Callback Function, UInt32 numAvg :{1}";
+		string exceptionMessage = "QLIB_FTM_WLAN_Atheros_Tx_CAL(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, numAvg)));
+		if (QLIB_FTM_WLAN_Atheros_Tx_CAL(phoneHandle, pAsyncPMHandlerCB, numAvg) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_Gen_UTF_Cmd(uint phyId, uint utfCmd, uint[] inParams, int iLen, uint[] outParams, int[] oLen, uint measurementCallbackType, asyncHandlerPMCallBack asyncHandlerPMCallBack_0, asyncHandlerCWFreqErrCallBack asyncFreqErrCB, asyncHandlerDbgCallBack asyncHandlerDbgCallBack_0, int[] status)
+	{
+		string source = "FTM_WLAN_Atheros_Gen_UTF_Cmd";
+		string format = "phoneHandle :{0}, pAsyncPMHandlerCB : utfCmd :{1}";
+		string exceptionMessage = "FTM_WLAN_Atheros_Gen_UTF_CmdL(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, utfCmd)));
+		if (QLIB_FTM_WLAN_Atheros_Gen_UTF_Cmd(phoneHandle, phyId, utfCmd, inParams, iLen, outParams, oLen, measurementCallbackType, asyncHandlerPMCallBack_0, asyncFreqErrCB, asyncHandlerDbgCallBack_0, status) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_Qmsl_Msg_Callback(asyncHandlerQmslMsgCallBack asyncQmslMsgCB)
+	{
+		string source = "FTM_WLAN_Atheros_Qmsl_Msg_Callback";
+		string format = "phoneHandle :{0}, pAsyncQmslMsgCB : ";
+		string exceptionMessage = "FTM_WLAN_Atheros_Qmsl_Msg_Callback(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_Atheros_Qmsl_Msg_Callback(phoneHandle, asyncQmslMsgCB) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_TxSCPC_CAL(asyncHandlerPMCallBack pAsyncPMHandlerCB, uint numAvg)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_TxSCPC_CAL";
+		string format = "phoneHandle :{0}, pAsyncPMHandlerCB : Callback Function, UInt32 numAvg :{1}";
+		string exceptionMessage = "QLIB_FTM_WLAN_Atheros_TxSCPC_CAL(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, numAvg)));
+		if (QLIB_FTM_WLAN_Atheros_TxSCPC_CAL(phoneHandle, pAsyncPMHandlerCB, numAvg) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_TxSCPC_CAL_V1(asyncHandlerPMCallBack pAsyncPMHandlerCB, uint numAvg)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_TxSCPC_CAL_V1";
+		string format = "phoneHandle :{0}, pAsyncPMHandlerCB : Callback Function, UInt32 numAvg :{1}";
+		string exceptionMessage = "QLIB_FTM_WLAN_Atheros_TxSCPC_CAL_V1(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, numAvg)));
+		if (QLIB_FTM_WLAN_Atheros_TxSCPC_CAL_V1(phoneHandle, pAsyncPMHandlerCB, numAvg) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_TxSCPC_PSATADJUST_CAL(asyncHandlerPMCallBack pAsyncPMHandlerCB, uint numAvg)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_TxSCPC_PSATADJUST_CAL";
+		string format = "phoneHandle :{0}, pAsyncPMHandlerCB : Callback Function, UInt32 numAvg :{1}";
+		string exceptionMessage = "QLIB_FTM_WLAN_Atheros_TxSCPC_PSATADJUST_CAL(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, numAvg)));
+		if (QLIB_FTM_WLAN_Atheros_TxSCPC_PSATADJUST_CAL(phoneHandle, pAsyncPMHandlerCB, numAvg) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_Tx_FW_CAL(asyncHandlerSetChainCallBack pAsyncSetChainHandlerCB, asyncHandlerPMCallBack pAsyncPMHandlerCB, uint numAvg, bool AllChainOn, asyncHandlerRFSCallBack asyncHandlerRFSCallBack_0, bool DebugInfo)
+	{
+		string source = "FTM_WLAN_Atheros_Tx_FW_CAL";
+		string format = "phoneHandle :{0}, asyncHandlerSetChainCallBack, pAsyncPMHandlerCB and asyncHandlerRFSCallBack : Callback Function, UInt32 numAvg :{1}, AllChainOn :{2}, DebugInfo{3}";
+		string exceptionMessage = "FTM_WLAN_Atheros_Tx_FW_CAL(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, numAvg, AllChainOn, DebugInfo)));
+		if (QLIB_FTM_WLAN_Atheros_Tx_FW_CAL(phoneHandle, pAsyncSetChainHandlerCB, pAsyncPMHandlerCB, numAvg, AllChainOn, asyncHandlerRFSCallBack_0, DebugInfo) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_Tx_FW_CAL2(uint phyId, uint calScheme, double _1PtRangeDbUL, double _1PtRangeDbLL, uint totalNumOfChains, uint multiChainMask, uint numAverages, asyncHandlerSetChainCallBack pAsyncSetChainMessageCB, asyncHandlerPMCallBack2 cb2, asyncHandlerRFSCallBack asyncHandlerRFSCallBack)
+	{
+		string source = "FTM_WLAN_Atheros_Tx_FW_CAL2";
+		string format = "phoneHandle :{0}, asyncHandlerSetChainCallBack, pAsyncPMHandlerCB2 and asyncHandlerRFSCallBack : Callback Function, phyId:{1}, calScheme:{2}, 1ptRangeUL:{3}, 1ptRangeLL:{4}, totalNumOfChains:{5}, multiChainMask:{6}, numAverages:{7}";
+		string exceptionMessage = "FTM_WLAN_Atheros_Tx_FW_CAL2(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, phyId, calScheme, _1PtRangeDbUL, _1PtRangeDbLL, totalNumOfChains, multiChainMask, numAverages)));
+		if (QLIB_FTM_WLAN_Atheros_Tx_FW_CAL2(phoneHandle, phyId, calScheme, _1PtRangeDbUL, _1PtRangeDbLL, totalNumOfChains, multiChainMask, numAverages, pAsyncSetChainMessageCB, cb2, asyncHandlerRFSCallBack) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_HWS_RD_Bench(uint measureType, uint freq, uint bw, int datarate, asyncHandlerGenMeasureCB cb, out uint oFreq, out double oPower)
+	{
+		string source = "FTM_WLAN_Atheros_HWS_RD_Bench";
+		string format = "phoneHandle :{0}, freq{1}, BW :{2}";
+		double field_ = Class38.field_543;
+		string exceptionMessage = "FTM_WLAN_Atheros_HWS_RD_Bench(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, freq, bw)));
+		oFreq = 0u;
+		oPower = field_;
+		if (QLIB_FTM_WLAN_Atheros_HWS_RD_Bench(phoneHandle, measureType, freq, bw, datarate, cb, ref oFreq, ref oPower) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_Rx_FW_CAL(asyncHandlerSigGenCallBack pAsyncSigGenHandlerCB, asyncHandlerRxGainCalDoneCallBack pAsyncHandlerRxGainCalDoneCB, uint radioId, uint chainToCalibrate, uint band)
+	{
+		string source = "FTM_WLAN_Atheros_Rx_FW_CAL in PhoneWLAN";
+		string format = "phoneHandle :{0}, pAsyncSGHandlerCB : Callback Function";
+		string exceptionMessage = "FTM_WLAN_Atheros_Rx_FW_CAL(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_Atheros_Rx_FW_CAL(phoneHandle, pAsyncSigGenHandlerCB, pAsyncHandlerRxGainCalDoneCB, radioId, chainToCalibrate, band) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_Rx_FW_CAL2(asyncHandlerSigGenCallBack pAsyncSigGenHandlerCB, asyncHandlerRxGainCalDoneCallBack pAsyncHandlerRxGainCalDoneCB, uint phyId, uint chainToCalibrate, uint band, uint rxMode, byte[] rx_mac_addr, byte[] bssid)
+	{
+		string source = "FTM_WLAN_Atheros_Rx_FW_CAL2 in PhoneWLAN";
+		string format = "phoneHandle :{0}, pAsyncSGHandlerCB : Callback Function";
+		string exceptionMessage = "FTM_WLAN_Atheros_Rx_FW_CAL2(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_Atheros_Rx_FW_CAL2(phoneHandle, pAsyncSigGenHandlerCB, pAsyncHandlerRxGainCalDoneCB, phyId, chainToCalibrate, band, rxMode, rx_mac_addr, bssid) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_Tx_CALIBRATE(uint iFreq, WLAN_DataRate rate, WLAN_SINGLE_CHAIN_MASK txChainMask, uint iPktSz, double[] double_0, double[] deltaTxPwrGoal, double slope, uint[] iMaxIteration, uint[] gainInit, int[] dacGainInit, uint numAvg, asyncHandlerPMCallBack pAsyncPMHandlerCB, out uint thermCal, out int correction, out uint[] gain, out int[] dacGain, out double[] power)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_Tx_CALIBRATE";
+		string format = "phoneHandle :{0}, iFreq :{1}, rate :{2}, txChainMask :{3}, iPktSz :{4}, dTxPwrGoal :{5:0.00}, deltaTxPwrGoal :{6:0.00}, slope :{7:0.00}, iMaxIteration :{8:0.0}, gainInit :{9:0.00}, dacGainInit :{10:0.00}, numAvg :{11}, pAsyncPMHandlerCB :Callback Function";
+		string exceptionMessage = "Invalid data rate for target!";
+		double field_ = Class38.field_409;
+		double field_2 = Class38.field_5340;
+		string exceptionMessage2 = "FTM_WLAN_Atheros_Tx_CALIBRATE_V1(): failed";
+		string exceptionMessage3 = "FTM_WLAN_Atheros_Tx_CALIBRATE(): failed";
+		string format2 = "phoneHandle :{0}, thermCal :{1}, correction :{2}, gain :{3}, dacGain :{4}, power :{5} ";
+		string exceptionMessage4 = "iPktSz must be a value from 32-1500.";
+		string exceptionMessage5 = "In modulated mode the transmit power must be in the 5-30dBm range.";
+		IntPtr intPtr = Marshal.AllocHGlobal(m_calPoints * 8);
+		Marshal.Copy(double_0, 0, intPtr, m_calPoints);
+		int[] array = new int[m_calPoints];
+		int i = 0;
+		for (int num = m_calPoints - 1; i <= num; i++)
+		{
+			array[i] = (int)gainInit[i];
+		}
+		IntPtr intPtr2 = Marshal.AllocHGlobal(m_calPoints * 4);
+		Marshal.Copy(array, 0, intPtr2, m_calPoints);
+		IntPtr intPtr3 = Marshal.AllocHGlobal(m_calPoints * 4);
+		Marshal.Copy(dacGainInit, 0, intPtr3, m_calPoints);
+		thermCal = 0u;
+		correction = 0;
+		int rate2 = getRate(rate, short11b_nGuard: false);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iFreq, rate, txChainMask, iPktSz, double_0[0], deltaTxPwrGoal[0], slope, iMaxIteration[0], gainInit[0], dacGainInit[0], numAvg)));
+		if (rate2 < 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		if (!(double_0[0] < field_) && double_0[0] <= field_2)
+		{
+			if ((long)iPktSz >= 32L && (long)iPktSz <= 1500L)
+			{
+				if (wlanIdField != 6006)
+				{
+					if (QLIB_FTM_WLAN_Atheros_Tx_CALIBRATE(phoneHandle, iFreq, (uint)rate2, (uint)txChainMask, iPktSz, intPtr, deltaTxPwrGoal, slope, iMaxIteration, intPtr2, intPtr3, numAvg, pAsyncPMHandlerCB, ref thermCal, ref correction) == 0)
+					{
+						throw new PhoneException(exceptionMessage3);
+					}
+				}
+				else if (QLIB_FTM_WLAN_Atheros_Tx_CALIBRATE_V1(phoneHandle, iFreq, (uint)rate2, (uint)txChainMask, iPktSz, intPtr, deltaTxPwrGoal, slope, iMaxIteration, intPtr2, intPtr3, numAvg, pAsyncPMHandlerCB, ref thermCal, ref correction) == 0)
+				{
+					throw new PhoneException(exceptionMessage2);
+				}
+				gain = new uint[m_calPoints];
+				dacGain = new int[m_calPoints];
+				power = new double[m_calPoints];
+				Marshal.Copy(intPtr2, array, 0, m_calPoints);
+				Marshal.Copy(intPtr3, dacGain, 0, m_calPoints);
+				Marshal.Copy(intPtr, power, 0, m_calPoints);
+				int j = 0;
+				for (int num2 = m_calPoints - 1; j <= num2; j++)
+				{
+					gain[j] = (uint)array[j];
+				}
+				Marshal.FreeHGlobal(intPtr2);
+				Marshal.FreeHGlobal(intPtr3);
+				Marshal.FreeHGlobal(intPtr);
+				Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle, thermCal, correction, gain[0], dacGain[0], power[0])));
+				return;
+			}
+			throw new PhoneException(exceptionMessage4);
+		}
+		throw new PhoneException(exceptionMessage5);
+	}
+
+	public void FTM_WLAN_Atheros_ReadReg(uint iRegAddr, out uint pRegValue)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_ReadReg";
+		string format = "phoneHandle :{0}, iRegAddr :{1} ";
+		string exceptionMessage = "QLIB_FTM_WLAN_Atheros_ReadReg(): failed";
+		string format2 = "phoneHandle :{0}, pRegValue :{1} ";
+		pRegValue = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iRegAddr)));
+		if (QLIB_FTM_WLAN_Atheros_ReadReg(phoneHandle, iRegAddr, ref pRegValue) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle, pRegValue)));
+	}
+
+	public void FTM_WLAN_Atheros_WriteReg(uint iRegAddr, uint pRegValue)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_WriteReg";
+		string format = "phoneHandle :{0}, iRegAddr :{1}, pRegValue :{2} ";
+		string exceptionMessage = "QLIB_FTM_WLAN_Atheros_WriteReg(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iRegAddr, pRegValue)));
+		if (QLIB_FTM_WLAN_Atheros_WriteReg(phoneHandle, iRegAddr, pRegValue) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_Tx_CALIBRATE_Done()
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_Tx_CALIBRATE_Done";
+		string format = "phoneHandle :{0} ";
+		string exceptionMessage = "FTM_WLAN_Atheros_Tx_CALIBRATE_Done(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_Atheros_Tx_CALIBRATE_Done(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_MEM_COMMIT(byte itemplate, byte iWriteOption, uint iMemSize, byte iCompress, byte iOverwrite, uint iSectionMask)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_MEM_COMMIT";
+		string format = "phoneHandle :{0}, itemplate :{1}, iWriteOption :{2}, iMemSize :{3}, iCompress :{4}, iOverwrite :{5}, iSectionMask :{6} ";
+		string exceptionMessage = "FTM_WLAN_Atheros_MEM_COMMIT(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, itemplate, iWriteOption, iMemSize, iCompress, iOverwrite, iSectionMask)));
+		if (QLIB_FTM_WLAN_Atheros_MEM_COMMIT(phoneHandle, itemplate, iWriteOption, iMemSize, iCompress, iOverwrite, iSectionMask) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_Save_BDF(uint saveOption, string bdfFileName)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_Save_BDF";
+		string format = "phoneHandle :{0}, saveOption :{1}, bdfFileName :{2} ";
+		string exceptionMessage = "FTM_WLAN_Atheros_Save_BDF(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, saveOption, bdfFileName)));
+		if (QLIB_FTM_WLAN_Atheros_Save_BDF(phoneHandle, saveOption, bdfFileName) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_Tx(WLAN_TX_Mode iMode, uint iFreq, WLAN_Gen6_HAL_PHY_Rate rate, double dTxPwr, WLAN_Antenna iAntenna, WLAN_EnANI iEnANI, WLAN_ScramblerState iScramblerOff, uint iAifsn, uint iPktSz, WLAN_TxPattern iTxPattern, bool useShortGuard, uint numPackets, TCMD_WLAN_MODE wlanMode, TCMD_TPC_TYPE tpcm, int txChain)
+	{
+		string exceptionMessage = "Invalid data rate for target!";
+		double field_ = Class38.field_409;
+		double field_2 = Class38.field_5340;
+		string exceptionMessage2 = "In modulated mode the transmit power must be in the 5-30dBm range.";
+		double field_3 = Class38.field_5341;
+		string exceptionMessage3 = "In unmodulated mode the transmit power must be in the 5-11dBm range.";
+		string exceptionMessage4 = "iAifsn must be a value from 0-252.";
+		string exceptionMessage5 = "iPktSz must be a value from 32-1500.";
+		string exceptionMessage6 = "numPackets must be between 0 and 65535!";
+		string source = "QLIB_FTM_WLAN_Atheros_Tx";
+		string format = "phoneHandle: {0},iMode: {1}, iFreq: {2},convertedRate: {3}, dTxPwr: {4},iAntenna: {5},iEnANI: {6},iScramblerOff: {7}, iAifsn: {8}, iPktSz: {9},iTxPattern: {10},useShortGuard: {11}, numPackets: {12},wlanMode: {13},tpcm: {14},txChain: {15}";
+		string exceptionMessage7 = "FTM_WLAN_Atheros_Tx(): failed";
+		int rate2 = getRate(rate);
+		if (rate2 < 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		if (iMode != WLAN_TX_Mode.DisablingContinuousMode)
+		{
+			switch (iMode)
+			{
+			case WLAN_TX_Mode.EnablingContinuousUnmodulatedTX:
+				if (!(dTxPwr >= field_) || dTxPwr > field_3)
+				{
+					throw new PhoneException(exceptionMessage3);
+				}
+				break;
+			case WLAN_TX_Mode.EnablingContinuousModulatedTX:
+				if (!(dTxPwr >= field_) || dTxPwr > field_2)
+				{
+					throw new PhoneException(exceptionMessage2);
+				}
+				break;
+			}
+			if ((long)iAifsn > 252L)
+			{
+				throw new PhoneException(exceptionMessage4);
+			}
+			if ((long)iPktSz < 32L || (long)iPktSz > 1500L)
+			{
+				throw new PhoneException(exceptionMessage5);
+			}
+			if ((long)numPackets > 65535L)
+			{
+				throw new PhoneException(exceptionMessage6);
+			}
+		}
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iMode, iFreq, rate2, dTxPwr, iAntenna, iEnANI, iScramblerOff, iAifsn, iPktSz, iTxPattern, useShortGuard, numPackets, wlanMode, tpcm, txChain)));
+		if (QLIB_FTM_WLAN_Atheros_Tx(phoneHandle, (uint)iMode, iFreq, (uint)rate2, dTxPwr, (uint)iAntenna, (uint)iEnANI, (uint)iScramblerOff, iAifsn, iPktSz, (uint)iTxPattern, useShortGuard ? 1u : 0u, numPackets, (uint)wlanMode, (uint)tpcm, (uint)txChain) == 0)
+		{
+			throw new PhoneException(exceptionMessage7);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_TxTargetPower(WLAN_TX_Mode iMode, uint iFreq, WLAN_DataRate rate, TCMD_WLAN_MODE wlanMode, uint txChain, uint numPackets, uint PktLen, WLAN_Antenna iAntenna, bool useShortGuard, uint iAggr, uint iDPDMode, WLAN_TxPattern iTxPattern, out double[] tgtPwr)
+	{
+		double field_ = Class38.field_5450;
+		string source = "QLIB_FTM_WLAN_Atheros_TxTargetPower";
+		string format = "phoneHandle :{0}, iMode :{1}, iFreq :{2}, rate :{3}, wlanMode :{4}, txChain :{5}, numPackets :{6}, PktLen :{7}, iAntenna :{8}, useShortGuard :{9}, iAggr :{10}, iDPDMode :{11}, iTxPattern :{12} ";
+		string exceptionMessage = "FTM_WLAN_Atheros_DevTx(): failed";
+		double field_2 = Class38.field_543;
+		string format2 = "phoneHandle :{0},  tgtPwr :{1}";
+		uint[] iDataRate = new uint[1] { (uint)rate };
+		byte[] iPatternint = new byte[1] { (byte)iTxPattern };
+		uint[] iPktLen = new uint[1] { PktLen };
+		double[] source2 = new double[1] { field_ };
+		IntPtr intPtr = Marshal.AllocHGlobal(8);
+		Marshal.Copy(source2, 0, intPtr, 1);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iMode, iFreq, rate, wlanMode, txChain, numPackets, PktLen, iAntenna, useShortGuard, iAggr, iDPDMode, iTxPattern)));
+		uint hResourceContext = phoneHandle;
+		bool flag;
+		int num;
+		if (!useShortGuard)
+		{
+			flag = QLIB_FTM_WLAN_Atheros_DevTx(hResourceContext, (uint)iMode, iFreq, iDataRate, 1u, 0u, intPtr, 0u, (uint)iAntenna, 1u, 0u, iAggr, iPatternint, numPackets, iPktLen, (uint)wlanMode, 0u, 0u, 0u, 0, txChain, iDPDMode) == 0;
+			num = 203752271;
+		}
+		else
+		{
+			flag = QLIB_FTM_WLAN_Atheros_DevTx(hResourceContext, (uint)iMode, iFreq, iDataRate, 1u, 0u, intPtr, 0u, (uint)iAntenna, 1u, 1u, iAggr, iPatternint, numPackets, iPktLen, (uint)wlanMode, 0u, 0u, 0u, 0, txChain, iDPDMode) == 0;
+			num = 203752271;
+		}
+		_ = num ^ -317625210;
+		if (flag)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		tgtPwr = new double[1];
+		tgtPwr[0] = field_2;
+		Marshal.Copy(intPtr, tgtPwr, 0, 1);
+		Marshal.FreeHGlobal(intPtr);
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle, tgtPwr)));
+	}
+
+	public void FTM_WLAN_Atheros_Tx_params(uint iDpdMode, uint iAggr, uint iParam)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_Tx_params";
+		string format = "phoneHandle: {0},iDpdMode: {1}, iAggr: {2},iParam: {3}";
+		string exceptionMessage = "FTM_WLAN_Atheros_Tx(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iDpdMode, iAggr, iParam)));
+		if (QLIB_FTM_WLAN_Atheros_Tx_params(phoneHandle, iDpdMode, iAggr, iParam) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_Tx(WLAN_TX_Mode iMode, uint iFreq, WLAN_DataRate rate, double dTxPwr, WLAN_Antenna iAntenna, WLAN_EnANI iEnANI, WLAN_ScramblerState iScramblerOff, uint iAifsn, uint iPktSz, WLAN_TxPattern iTxPattern, bool useShortGuard, uint numPackets, TCMD_WLAN_MODE wlanMode, TCMD_TPC_TYPE tpcm, int txChain)
+	{
+		string exceptionMessage = "Invalid data rate for target!";
+		double field_ = Class38.field_409;
+		double field_2 = Class38.field_5340;
+		string exceptionMessage2 = "In modulated mode the transmit power must be in the 5-30dBm range.";
+		double field_3 = Class38.field_5341;
+		string exceptionMessage3 = "In unmodulated mode the transmit power must be in the 5-11dBm range.";
+		string exceptionMessage4 = "iAifsn must be a value from 0-252.";
+		string exceptionMessage5 = "iPktSz must be a value from 32-1500.";
+		string exceptionMessage6 = "numPackets must be between 0 and 65535!";
+		string source = "QLIB_FTM_WLAN_Atheros_Tx";
+		string format = "phoneHandle: {0},iMode: {1}, iFreq: {2},convertedRate: {3}, dTxPwr: {4},iAntenna: {5},iEnANI: {6},iScramblerOff: {7}, iAifsn: {8}, iPktSz: {9},iTxPattern: {10},useShortGuard: {11}, numPackets: {12},wlanMode: {13},tpcm: {14},txChain: {15}";
+		string exceptionMessage7 = "FTM_WLAN_Atheros_Tx(): failed";
+		int rate2 = getRate(rate, useShortGuard);
+		if (rate2 >= 0)
+		{
+			bool flag2;
+			if (iMode != WLAN_TX_Mode.DisablingContinuousMode)
+			{
+				bool flag;
+				switch (iMode)
+				{
+				default:
+					flag = (long)iAifsn > 252L;
+					goto IL_0208;
+				case WLAN_TX_Mode.EnablingContinuousUnmodulatedTX:
+					if (dTxPwr < field_ || dTxPwr > field_3)
+					{
+						throw new PhoneException(exceptionMessage3);
+					}
+					flag = (long)iAifsn > 252L;
+					goto IL_0208;
+				case WLAN_TX_Mode.EnablingContinuousModulatedTX:
+					{
+						if (dTxPwr < field_ || dTxPwr > field_2)
+						{
+							throw new PhoneException(exceptionMessage2);
+						}
+						flag = (long)iAifsn > 252L;
+						goto IL_0208;
+					}
+					IL_0208:
+					if (flag)
+					{
+						throw new PhoneException(exceptionMessage4);
+					}
+					if ((long)iPktSz >= 32L && (long)iPktSz <= 1500L)
+					{
+						if ((long)numPackets > 65535L)
+						{
+							throw new PhoneException(exceptionMessage6);
+						}
+						Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iMode, iFreq, rate2, dTxPwr, iAntenna, iEnANI, iScramblerOff, iAifsn, iPktSz, iTxPattern, useShortGuard, numPackets, wlanMode, tpcm, txChain)));
+						uint hResourceContext = phoneHandle;
+						int num;
+						if (!useShortGuard)
+						{
+							flag2 = QLIB_FTM_WLAN_Atheros_Tx(hResourceContext, (uint)iMode, iFreq, (uint)rate2, dTxPwr, (uint)iAntenna, (uint)iEnANI, (uint)iScramblerOff, iAifsn, iPktSz, (uint)iTxPattern, 0u, numPackets, (uint)wlanMode, (uint)tpcm, (uint)txChain) == 0;
+							num = 586103387;
+						}
+						else
+						{
+							flag2 = QLIB_FTM_WLAN_Atheros_Tx(hResourceContext, (uint)iMode, iFreq, (uint)rate2, dTxPwr, (uint)iAntenna, (uint)iEnANI, (uint)iScramblerOff, iAifsn, iPktSz, (uint)iTxPattern, 1u, numPackets, (uint)wlanMode, (uint)tpcm, (uint)txChain) == 0;
+							num = 586103387;
+						}
+						_ = num ^ -1350129563;
+						if (flag2)
+						{
+							throw new PhoneException(exceptionMessage7);
+						}
+						break;
+					}
+					throw new PhoneException(exceptionMessage5);
+				}
+				return;
+			}
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iMode, iFreq, rate2, dTxPwr, iAntenna, iEnANI, iScramblerOff, iAifsn, iPktSz, iTxPattern, useShortGuard, numPackets, wlanMode, tpcm, txChain)));
+			uint hResourceContext2 = phoneHandle;
+			int num2;
+			if (!useShortGuard)
+			{
+				flag2 = QLIB_FTM_WLAN_Atheros_Tx(hResourceContext2, (uint)iMode, iFreq, (uint)rate2, dTxPwr, (uint)iAntenna, (uint)iEnANI, (uint)iScramblerOff, iAifsn, iPktSz, (uint)iTxPattern, 0u, numPackets, (uint)wlanMode, (uint)tpcm, (uint)txChain) == 0;
+				num2 = 586103387;
+			}
+			else
+			{
+				flag2 = QLIB_FTM_WLAN_Atheros_Tx(hResourceContext2, (uint)iMode, iFreq, (uint)rate2, dTxPwr, (uint)iAntenna, (uint)iEnANI, (uint)iScramblerOff, iAifsn, iPktSz, (uint)iTxPattern, 1u, numPackets, (uint)wlanMode, (uint)tpcm, (uint)txChain) == 0;
+				num2 = 586103387;
+			}
+			_ = num2 ^ -1350129563;
+			if (flag2)
+			{
+				throw new PhoneException(exceptionMessage7);
+			}
+			return;
+		}
+		throw new PhoneException(exceptionMessage);
+	}
+
+	public void FTM_WLAN_Atheros_Rx(WLAN_Action iAction, uint iEnANI, uint iFreq, WLAN_Antenna iAntenna, int rxChain)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_Rx";
+		string format = "phoneHandle: {0},iAction: {1}, iEnANI: {2}, iFreq: {3},iAntenna: {4},rxChain: {5}";
+		string exceptionMessage = "FTM_WLAN_Atheros_Rx(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iAction, iEnANI, iFreq, iAntenna, rxChain)));
+		if (QLIB_FTM_WLAN_Atheros_Rx(phoneHandle, (uint)iAction, iEnANI, iFreq, (uint)iAntenna, (uint)rxChain) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_Rx_HT(WLAN_Action iAction, uint iEnANI, uint iFreq, uint iWlanMode, WLAN_Antenna iAntenna, int rxChain)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_Rx_HT";
+		string format = "phoneHandle: {0},iAction: {1}, iEnANI: {2}, iFreq: {3},iAntenna: {4},rxChain: {5}";
+		string exceptionMessage = "FTM_WLAN_Atheros_Rx_HT(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iAction, iEnANI, iFreq, iAntenna, rxChain)));
+		if (QLIB_FTM_WLAN_Atheros_Rx_HT(phoneHandle, (uint)iAction, iEnANI, iFreq, iWlanMode, (uint)iAntenna, (uint)rxChain) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_Rx_Report(out uint totalPktCount, out double rssiInDbm, out uint crcErrPktCount, out uint secErrPktCount)
+	{
+		double field_ = Class38.field_543;
+		string source = "QLIB_FTM_WLAN_Atheros_Rx_Report";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_Atheros_Rx_Report(): failed";
+		string format2 = "ref totalPktCount :{0}, ref rssiInDbm :{1}, ref crcErrPktCount :{2}, ref secErrPktCount :{3}";
+		secErrPktCount = 0u;
+		crcErrPktCount = 0u;
+		totalPktCount = 0u;
+		rssiInDbm = field_;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_Atheros_Rx_Report(phoneHandle, ref totalPktCount, ref rssiInDbm, ref crcErrPktCount, ref secErrPktCount) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, totalPktCount, rssiInDbm, crcErrPktCount, secErrPktCount)));
+	}
+
+	public void FTM_WLAN_Atheros_DevRxSetUp(uint iFreq, WLAN_Antenna iAntenna, uint iRxChain, WLAN_DataRate iRate, TCMD_WLAN_MODE iWlanMode, uint iPromiscuous, uint iBroadcast, byte[] iBSSID, byte[] iDestination, uint iNumDescPerRate, uint iDatacheck)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_DevRxSetUp";
+		string format = "phoneHandle :{0}, iFreq :{1}, iAntenna :{2}, iRxChain :{3}, iRate :{4}, iWlanMode :{5}, iPromiscuous :{6}, iBroadcast :{7}, iBSSID :{8}, iDestination :{9}, iNumDescPerRate :{10}, iDatacheck :{11}";
+		string exceptionMessage = "FTM_WLAN_Atheros_DevRxSetUp(): failed";
+		uint[] iRate2 = new uint[1] { (uint)iRate };
+		object[] array = new object[12]
+		{
+			phoneHandle, iFreq, iAntenna, iRxChain, iRate, iWlanMode, iPromiscuous, iBroadcast, null, null,
+			null, null
+		};
+		string text = Encoding.ASCII.GetString(iBSSID);
+		char[] trimChars = new char[1];
+		array[8] = text.TrimEnd(trimChars);
+		string text2 = Encoding.ASCII.GetString(iDestination);
+		char[] trimChars2 = new char[1];
+		array[9] = text2.TrimEnd(trimChars2);
+		array[10] = iNumDescPerRate;
+		array[11] = iDatacheck;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, array)));
+		if (QLIB_FTM_WLAN_Atheros_DevRxSetUp(phoneHandle, iFreq, (uint)iAntenna, iRxChain, iRate2, 1u, (uint)iWlanMode, iPromiscuous, iBroadcast, iBSSID, iDestination, iNumDescPerRate, iDatacheck) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_DevRx_Report(out uint totalPktCount, out double rssiInDbm, out uint crcErrPktCount, out uint secErrPktCount)
+	{
+		double field_ = Class38.field_543;
+		string exceptionMessage = "QLIB_FTM_WLAN_Atheros_DevRx_Report(): failed";
+		string source = "QLIB_FTM_WLAN_Atheros_DevRx_Report";
+		string format = "phoneHandle: {0}, totalPktCount :{1}, rssiInDbm :{2:0.00}, crcErrPktCount :{3}, secErrPktCount :{4}";
+		secErrPktCount = 0u;
+		crcErrPktCount = 0u;
+		totalPktCount = 0u;
+		rssiInDbm = field_;
+		if (QLIB_FTM_WLAN_Atheros_DevRx_Report(phoneHandle, ref totalPktCount, ref rssiInDbm, ref crcErrPktCount, ref secErrPktCount) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format, phoneHandle, totalPktCount, rssiInDbm, crcErrPktCount, secErrPktCount)));
+	}
+
+	public void FTM_WLAN_Atheros_DevWriteReg(uint iRegAddr, uint iHighBit, uint iLowBit, uint iRegValue)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_DevWriteReg";
+		string format = "phoneHandle: {0}, iRegAddr :{1}, iHighBit :{2}, iLowBit :{3}, iRegValue :{4}";
+		string exceptionMessage = "QLIB_FTM_WLAN_Atheros_DevRx_Report(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iRegAddr, iHighBit, iLowBit, iRegValue)));
+		if (QLIB_FTM_WLAN_Atheros_DevWriteReg(phoneHandle, iRegAddr, iHighBit, iLowBit, iRegValue) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_Atheros_DevReadReg(uint iRegAddr, uint iHighBit, uint iLowBit, ref uint iRegValue)
+	{
+		string source = "QLIB_FTM_WLAN_Atheros_DevReadReg";
+		string format = "phoneHandle: {0}, iRegAddr :{1}, iHighBit :{2}, iLowBit :{3}";
+		string exceptionMessage = "QLIB_FTM_WLAN_Atheros_DevRx_Report(): failed";
+		string format2 = "phoneHandle: {0}, iRegValue :{1}";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iRegAddr, iHighBit, iLowBit)));
+		if (QLIB_FTM_WLAN_Atheros_DevReadReg(phoneHandle, iRegAddr, iHighBit, iLowBit, ref iRegValue) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle, iRegValue)));
+	}
+
+	public void FTM_WLAN_QCA_READ_XML_WRITE_NVBIN(string xmlfileName, string binfileName, string templatefileName, byte overwriteAllowed, out string ErrorMessage)
+	{
+		string text = "";
+		string exceptionMessage = "QLIB_FTM_WLAN_QCA_READ_XML_WRITE_NVBIN(): failed";
+		ErrorMessage = text;
+		IntPtr intPtr = Marshal.AllocHGlobal(8196);
+		if (QLIB_FTM_WLAN_QCA_READ_XML_WRITE_NVBIN(xmlfileName, binfileName, templatefileName, overwriteAllowed, intPtr) == 0)
+		{
+			byte[] array = new byte[1024];
+			int i = 0;
+			for (int num = array.Length - 1; i <= num; i++)
+			{
+				byte[] array2 = new byte[i + 1];
+				Marshal.Copy(intPtr, array2, 0, i + 1);
+				array2.CopyTo(array, 0);
+				if (array2[i] == 0)
+				{
+					break;
+				}
+			}
+			ErrorMessage = Encoding.ASCII.GetString(array);
+			string text2 = ErrorMessage;
+			char[] trimChars = new char[1];
+			ErrorMessage = text2.TrimEnd(trimChars);
+			Marshal.FreeHGlobal(intPtr);
+			throw new PhoneException(exceptionMessage);
+		}
+		Marshal.FreeHGlobal(intPtr);
+	}
+
+	public void FTM_WLAN_QCA_READ_NVBIN_WRITE_XML(string xmlfileName, string binfileName, string templatefileName, byte overwriteAllowed, out string ErrorMessage)
+	{
+		string text = "";
+		string exceptionMessage = "QLIB_FTM_WLAN_QCA_READ_NVBIN_WRITE_XML(): failed";
+		ErrorMessage = text;
+		IntPtr intPtr = Marshal.AllocHGlobal(8196);
+		if (QLIB_FTM_WLAN_QCA_READ_NVBIN_WRITE_XML(xmlfileName, binfileName, templatefileName, overwriteAllowed, intPtr) == 0)
+		{
+			byte[] array = new byte[1024];
+			int i = 0;
+			for (int num = array.Length - 1; i <= num; i++)
+			{
+				byte[] array2 = new byte[i + 1];
+				Marshal.Copy(intPtr, array2, 0, i + 1);
+				array2.CopyTo(array, 0);
+				if (array2[i] == 0)
+				{
+					break;
+				}
+			}
+			ErrorMessage = Encoding.ASCII.GetString(array);
+			string text2 = ErrorMessage;
+			char[] trimChars = new char[1];
+			ErrorMessage = text2.TrimEnd(trimChars);
+			Marshal.FreeHGlobal(intPtr);
+			throw new PhoneException(exceptionMessage);
+		}
+		Marshal.FreeHGlobal(intPtr);
+	}
+
+	public byte GET_RETVALUE_FTM_WLAN_GEN6_START(int wlanID)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_START";
+		string format = "phoneHandle: {0}, wlanID: {1}";
+		wlanIdField = wlanID;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, wlanID)));
+		return QLIB_FTM_WLAN_GEN6_START(phoneHandle, wlanID);
+	}
+
+	public void FTM_WLAN_GEN6_START(int wlanID)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_START";
+		string format = "phoneHandle: {0}, wlanID: {1}";
+		wlanIdField = wlanID;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, wlanID)));
+		QLIB_FTM_WLAN_GEN6_START(phoneHandle, wlanID);
+	}
+
+	public void FTM_WLAN_GEN6_STOP()
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_STOP";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_GEN6_STOP(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GEN6_STOP(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_SET_CHANNEL(uint channel)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_SET_CHANNEL";
+		string format = "phoneHandle: {0}, channel: {1}";
+		string exceptionMessage = "FTM_WLAN_GEN6_SET_CHANNEL(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, channel)));
+		if (QLIB_FTM_WLAN_GEN6_SET_CHANNEL(phoneHandle, channel) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_SET_CHANNEL_V2(uint channel, WLAN_Gen6_ChannelBondingState state)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_SET_CHANNEL_V2";
+		string format = "phoneHandle: {0}, channel: {1}, cbState: {2}";
+		string exceptionMessage = "FTM_WLAN_GEN6_SET_CHANNEL_V2(): failed";
+		uint num = 0u;
+		switch (state)
+		{
+		case WLAN_Gen6_ChannelBondingState.none:
+			num = 0u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.primaryLow:
+			num = 1u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.const_2:
+			num = 2u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.primaryHigh:
+			num = 3u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.BW80_20_40Low_40_80Center:
+			num = 4u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.BW80_20_40Center_40_80Center:
+			num = 5u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.BW80_20_40High_40_80Center:
+			num = 6u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.BW80_20_40Low_40_80Low:
+			num = 7u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.BW80_20_40High_40_80Low:
+			num = 8u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.BW80_20_40Low_40_80High:
+			num = 9u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.BW80_20_40GHigh_40_80High:
+			num = 10u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.BW80p80:
+			num = 12u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.BW160:
+			num = 13u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.BW165:
+			num = 14u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_1st_20_in_BW80p80:
+			num = 21u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_2nd_20_in_BW80p80:
+			num = 22u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_3rd_20_in_BW80p80:
+			num = 23u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_4th_20_in_BW80p80:
+			num = 24u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_5th_20_in_BW80p80:
+			num = 25u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_6th_20_in_BW80p80:
+			num = 26u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_7th_20_in_BW80p80:
+			num = 27u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_8th_20_in_BW80p80:
+			num = 28u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_1st_20_in_BW160:
+			num = 29u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_2nd_20_in_BW160:
+			num = 30u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_3rd_20_in_BW160:
+			num = 31u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_4th_20_in_BW160:
+			num = 32u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_5th_20_in_BW160:
+			num = 33u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_6th_20_in_BW160:
+			num = 34u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_7th_20_in_BW160:
+			num = 35u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_8th_20_in_BW160:
+			num = 36u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_1st_20_in_BW165:
+			num = 37u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_2nd_20_in_BW165:
+			num = 38u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_3rd_20_in_BW165:
+			num = 39u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_4th_20_in_BW165:
+			num = 40u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_5th_20_in_BW165:
+			num = 41u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_6th_20_in_BW165:
+			num = 42u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_7th_20_in_BW165:
+			num = 43u;
+			break;
+		case WLAN_Gen6_ChannelBondingState.Primary_8th_20_in_BW165:
+			num = 44u;
+			break;
+		}
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, channel, num)));
+		if (QLIB_FTM_WLAN_GEN6_SET_CHANNEL_V2(phoneHandle, channel, num) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public WLANGen6XLNA FTM_WLAN_GEN6_xLNAcal(uint channel, WLAN_Gen6_ChannelBondingState state)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_xLNAcal";
+		string format = "phoneHandle: {0}";
+		string format2 = "phoneHandle: {0}, ref LNA: {1}, ref gm: {2}";
+		string exceptionMessage = "FTM_WLAN_GEN6_xLNAcal(): failed";
+		FTM_WLAN_GEN6_SET_CHANNEL_V2(channel, state);
+		bool flag = false;
+		byte lna = 0;
+		byte gm = 0;
+		WLANGen6XLNA result = default(WLANGen6XLNA);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GEN6_xLNAcal(phoneHandle, ref lna, ref gm) == 0)
+		{
+			flag = true;
+			Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle, lna, gm)));
+		}
+		else
+		{
+			Logger.Add(new Message((MessageType)2, source, string.Format(format2, phoneHandle, lna, gm)));
+		}
+		result.lna = lna;
+		result.gm = gm;
+		if (flag)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return result;
+	}
+
+	public void FTM_WLAN_GEN6_SET_CLOSED_LOOP_POWER(double powerDb)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_SET_CLOSED_LOOP_POWER";
+		string format = "phoneHandle: {0}, powerDb: {1}";
+		string exceptionMessage = "FTM_WLAN_GEN6_SET_CLOSED_LOOP_POWER(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, powerDb)));
+		if (QLIB_FTM_WLAN_GEN6_SET_CLOSED_LOOP_POWER(phoneHandle, powerDb) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_TX_PKT_START_STOP(bool start)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_TX_PKT_START_STOP";
+		string format = "phoneHandle: {0},(start ? 1 : 0): {1}";
+		string exceptionMessage = "FTM_WLAN_GEN6_TX_PKT_START_STOP(): failed";
+		object arg = phoneHandle;
+		int num;
+		if (!start)
+		{
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, arg, 0)));
+			num = 962040479;
+		}
+		else
+		{
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, arg, 1)));
+			num = 962040479;
+		}
+		_ = num ^ -2033539987;
+		uint hResourceContext = phoneHandle;
+		bool flag;
+		int num2;
+		if (!start)
+		{
+			flag = QLIB_FTM_WLAN_GEN6_TX_PKT_START_STOP(hResourceContext, 0) == 0;
+			num2 = 1328527058;
+		}
+		else
+		{
+			flag = QLIB_FTM_WLAN_GEN6_TX_PKT_START_STOP(hResourceContext, 1) == 0;
+			num2 = 1328527058;
+		}
+		_ = num2 ^ -2033539987;
+		if (flag)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_SET_RX_DISABLE_MODE(bool disableAGpackets, bool disableBpackets, bool disableSlrPackets)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_SET_RX_DISABLE_MODE";
+		string format = " phoneHandle: {0},(disableAGpackets ? 1 : 0): {1},(disableBpackets ? 1 : 0): {2},(disableSlrPackets ? 1 : 0): {3}";
+		string exceptionMessage = "FTM_WLAN_GEN6_SET_RX_DISABLE_MODE(): failed";
+		object[] obj = new object[4] { phoneHandle, null, null, null };
+		object[] obj2;
+		int num;
+		if (!disableAGpackets)
+		{
+			obj[1] = 0;
+			obj2 = obj;
+			num = 2;
+			if (disableBpackets)
+			{
+				goto IL_004b;
+			}
+		}
+		else
+		{
+			obj[1] = 1;
+			obj2 = obj;
+			num = 2;
+			if (disableBpackets)
+			{
+				goto IL_004b;
+			}
+		}
+		obj2[num] = 0;
+		object[] obj3 = obj;
+		int num2 = 3;
+		if (disableSlrPackets)
+		{
+			goto IL_0067;
+		}
+		goto IL_0084;
+		IL_009f:
+		int num3;
+		_ = num3 ^ -2136814567;
+		uint hResourceContext = phoneHandle;
+		bool flag;
+		int num4;
+		if (!disableAGpackets)
+		{
+			if (!disableBpackets)
+			{
+				if (!disableSlrPackets)
+				{
+					flag = QLIB_FTM_WLAN_GEN6_SET_RX_DISABLE_MODE(hResourceContext, 0, 0, 0) == 0;
+					num4 = 143901136;
+				}
+				else
+				{
+					flag = QLIB_FTM_WLAN_GEN6_SET_RX_DISABLE_MODE(hResourceContext, 0, 0, 1) == 0;
+					num4 = 143901136;
+				}
+			}
+			else if (!disableSlrPackets)
+			{
+				flag = QLIB_FTM_WLAN_GEN6_SET_RX_DISABLE_MODE(hResourceContext, 0, 1, 0) == 0;
+				num4 = 143901136;
+			}
+			else
+			{
+				flag = QLIB_FTM_WLAN_GEN6_SET_RX_DISABLE_MODE(hResourceContext, 0, 1, 1) == 0;
+				num4 = 143901136;
+			}
+		}
+		else if (!disableBpackets)
+		{
+			if (!disableSlrPackets)
+			{
+				flag = QLIB_FTM_WLAN_GEN6_SET_RX_DISABLE_MODE(hResourceContext, 1, 0, 0) == 0;
+				num4 = 143901136;
+			}
+			else
+			{
+				flag = QLIB_FTM_WLAN_GEN6_SET_RX_DISABLE_MODE(hResourceContext, 1, 0, 1) == 0;
+				num4 = 143901136;
+			}
+		}
+		else if (!disableSlrPackets)
+		{
+			flag = QLIB_FTM_WLAN_GEN6_SET_RX_DISABLE_MODE(hResourceContext, 1, 1, 0) == 0;
+			num4 = 143901136;
+		}
+		else
+		{
+			flag = QLIB_FTM_WLAN_GEN6_SET_RX_DISABLE_MODE(hResourceContext, 1, 1, 1) == 0;
+			num4 = 143901136;
+		}
+		_ = num4 ^ -2136814567;
+		if (flag)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		return;
+		IL_0084:
+		obj3[num2] = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, obj)));
+		num3 = 1784481295;
+		goto IL_009f;
+		IL_004b:
+		obj2[num] = 1;
+		obj3 = obj;
+		num2 = 3;
+		if (disableSlrPackets)
+		{
+			goto IL_0067;
+		}
+		goto IL_0084;
+		IL_0067:
+		obj3[num2] = 1;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, obj)));
+		num3 = 1784481295;
+		goto IL_009f;
+	}
+
+	public void FTM_WLAN_GEN6_SET_RX_DISABLE_MODE_V2(uint mask)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_SET_RX_DISABLE_MODE_V2";
+		string format = "phoneHandle: {0}, mask: {1}";
+		string exceptionMessage = "FTM_WLAN_GEN6_SET_RX_DISABLE_MODE_V2(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, mask)));
+		if (QLIB_FTM_WLAN_GEN6_SET_RX_DISABLE_MODE_V2(phoneHandle, mask) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_SET_TX_FRAME_V2(uint iNumTestFrame, ushort iPayloadSize, byte iPayloadType, byte iPayloadFillByte, uint iFrameSpacing, byte iFCSCal, uint iRate, uint iPreamble)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_SET_TX_FRAME_V2";
+		string format = "phoneHandle: {0}, numTestFrame: {1}, payloadSize: {2}, frameSpacing: {3},(FCScalc ? 1 : 0): {4},convertedRate: {5},preamble: {6}";
+		string exceptionMessage = "QLIB_FTM_WLAN_GEN6_SET_TX_FRAME_V2(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iNumTestFrame, iPayloadSize, iFrameSpacing, iFCSCal, iRate, iPreamble)));
+		if (QLIB_FTM_WLAN_GEN6_SET_TX_FRAME_V2(phoneHandle, iNumTestFrame, iPayloadSize, iPayloadType, iPayloadFillByte, iFrameSpacing, iFCSCal, iRate, iPreamble) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_SET_TX_FRAME_ORIGIN_PARAMS(uint numTestFrame, ushort payloadSize, uint frameSpacing, byte fcsCal, uint rate, uint preamble)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_SET_TX_FRAME_V2";
+		string format = "phoneHandle: {0}, numTestFrame: {1}, payloadSize: {2}, frameSpacing: {3},(FCScalc ? 1 : 0): {4},convertedRate: {5},preamble: {6}";
+		string exceptionMessage = "QLIB_FTM_WLAN_GEN6_SET_TX_FRAME(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, numTestFrame, payloadSize, frameSpacing, fcsCal, rate, preamble)));
+		if (QLIB_FTM_WLAN_GEN6_SET_TX_FRAME(phoneHandle, numTestFrame, payloadSize, frameSpacing, fcsCal, rate, preamble) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_SET_TX_FRAME(uint numTestFrame, ushort payloadSize, uint frameSpacing, bool FCScalc, WLAN_Gen6_HAL_PHY_Rate rate, WLAN_Gen6_PHYDBG_PreambleRate preamble)
+	{
+		string text = "FTM_WLAN_GEN6_SET_TX_FRAME(): rate parameter no supported by target, WLANID: ";
+		string source = "QLIB_FTM_WLAN_GEN6_SET_TX_FRAME";
+		string format = "phoneHandle: {0}, numTestFrame: {1}, payloadSize: {2}, frameSpacing: {3},(FCScalc ? 1 : 0): {4},convertedRate: {5},preamble: {6}";
+		string exceptionMessage = "FTM_WLAN_GEN6_SET_TX_FRAME(): failed";
+		int rate2 = getRate(rate);
+		if (rate2 < 0)
+		{
+			throw new PhoneException(text + WlanId);
+		}
+		object[] obj = new object[7] { phoneHandle, numTestFrame, payloadSize, frameSpacing, null, null, null };
+		int num;
+		if (!FCScalc)
+		{
+			obj[4] = 0;
+			obj[5] = rate2;
+			obj[6] = preamble;
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, obj)));
+			num = 1808208922;
+		}
+		else
+		{
+			obj[4] = 1;
+			obj[5] = rate2;
+			obj[6] = preamble;
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, obj)));
+			num = 1808208922;
+		}
+		_ = num ^ 0x4DE731D6;
+		uint hResourceContext = phoneHandle;
+		bool flag;
+		int num2;
+		if (!FCScalc)
+		{
+			flag = QLIB_FTM_WLAN_GEN6_SET_TX_FRAME(hResourceContext, numTestFrame, payloadSize, frameSpacing, 0, (uint)rate2, (uint)preamble) == 0;
+			num2 = 1356220176;
+		}
+		else
+		{
+			flag = QLIB_FTM_WLAN_GEN6_SET_TX_FRAME(hResourceContext, numTestFrame, payloadSize, frameSpacing, 1, (uint)rate2, (uint)preamble) == 0;
+			num2 = 1356220176;
+		}
+		_ = num2 ^ 0x4DE731D6;
+		if (flag)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_SET_TX_FRAME(uint numTestFrame, ushort payloadSize, uint frameSpacing, bool FCScalc, WLAN_DataRate rate, bool short11b_nGuard, WLAN_Gen6_PHYDBG_PreambleRate preamble)
+	{
+		string text = "FTM_WLAN_GEN6_SET_TX_FRAME(): rate parameter no supported by target, WLANID: ";
+		string source = "QLIB_FTM_WLAN_GEN6_SET_TX_FRAME";
+		string format = "phoneHandle: {0}, numTestFrame: {1}, payloadSize: {2}, frameSpacing: {3},(FCScalc ? 1 : 0): {4},convertedRate: {5},preamble: {6}";
+		string exceptionMessage = "FTM_WLAN_GEN6_SET_TX_FRAME(): failed";
+		int rate2 = getRate(rate, short11b_nGuard);
+		if (rate2 < 0)
+		{
+			throw new PhoneException(text + WlanId);
+		}
+		object[] obj = new object[7] { phoneHandle, numTestFrame, payloadSize, frameSpacing, null, null, null };
+		int num;
+		if (!FCScalc)
+		{
+			obj[4] = 0;
+			obj[5] = rate2;
+			obj[6] = preamble;
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, obj)));
+			num = 1256886499;
+		}
+		else
+		{
+			obj[4] = 1;
+			obj[5] = rate2;
+			obj[6] = preamble;
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, obj)));
+			num = 1256886499;
+		}
+		_ = num ^ -1319617810;
+		uint hResourceContext = phoneHandle;
+		bool flag;
+		int num2;
+		if (!FCScalc)
+		{
+			flag = QLIB_FTM_WLAN_GEN6_SET_TX_FRAME(hResourceContext, numTestFrame, payloadSize, frameSpacing, 0, (uint)rate2, (uint)preamble) == 0;
+			num2 = 1649151762;
+		}
+		else
+		{
+			flag = QLIB_FTM_WLAN_GEN6_SET_TX_FRAME(hResourceContext, numTestFrame, payloadSize, frameSpacing, 1, (uint)rate2, (uint)preamble) == 0;
+			num2 = 1649151762;
+		}
+		_ = num2 ^ -1319617810;
+		if (flag)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_SET_TX_FRAME(uint numTestFrame, ushort payloadSize, uint frameSpacing, bool FCScalc, WLAN_DataRate rate, bool short11b_nGuard, WLAN_Gen6_PHYDBG_PreambleRate preamble, bool ldpcRate)
+	{
+		string text = "FTM_WLAN_GEN6_SET_TX_FRAME(): rate parameter no supported by target, WLANID: ";
+		string source = "QLIB_FTM_WLAN_GEN6_SET_TX_FRAME";
+		string format = "phoneHandle: {0}, numTestFrame: {1}, payloadSize: {2}, frameSpacing: {3},(FCScalc ? 1 : 0): {4},convertedRate: {5},preamble: {6}";
+		string exceptionMessage = "FTM_WLAN_GEN6_SET_TX_FRAME(): failed";
+		int rate2 = getRate(rate, short11b_nGuard);
+		if (rate2 < 0)
+		{
+			throw new PhoneException(text + WlanId);
+		}
+		uint num = (uint)preamble;
+		if (ldpcRate)
+		{
+			num = (uint)((ulong)num + 16uL);
+			object[] obj = new object[7] { phoneHandle, numTestFrame, payloadSize, frameSpacing, null, null, null };
+			int num2;
+			if (!FCScalc)
+			{
+				obj[4] = 0;
+				obj[5] = rate2;
+				obj[6] = preamble;
+				Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, obj)));
+				num2 = 1560112509;
+			}
+			else
+			{
+				obj[4] = 1;
+				obj[5] = rate2;
+				obj[6] = preamble;
+				Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, obj)));
+				num2 = 1560112509;
+			}
+			_ = num2 ^ -131558863;
+			uint hResourceContext = phoneHandle;
+			bool flag;
+			int num3;
+			if (!FCScalc)
+			{
+				flag = QLIB_FTM_WLAN_GEN6_SET_TX_FRAME(hResourceContext, numTestFrame, payloadSize, frameSpacing, 0, (uint)rate2, num) == 0;
+				num3 = 158277103;
+			}
+			else
+			{
+				flag = QLIB_FTM_WLAN_GEN6_SET_TX_FRAME(hResourceContext, numTestFrame, payloadSize, frameSpacing, 1, (uint)rate2, num) == 0;
+				num3 = 158277103;
+			}
+			_ = num3 ^ -131558863;
+			if (flag)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		else
+		{
+			object[] obj2 = new object[7] { phoneHandle, numTestFrame, payloadSize, frameSpacing, null, null, null };
+			int num4;
+			if (!FCScalc)
+			{
+				obj2[4] = 0;
+				obj2[5] = rate2;
+				obj2[6] = preamble;
+				Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, obj2)));
+				num4 = 1560112509;
+			}
+			else
+			{
+				obj2[4] = 1;
+				obj2[5] = rate2;
+				obj2[6] = preamble;
+				Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, obj2)));
+				num4 = 1560112509;
+			}
+			_ = num4 ^ -131558863;
+			uint hResourceContext2 = phoneHandle;
+			bool flag;
+			int num5;
+			if (!FCScalc)
+			{
+				flag = QLIB_FTM_WLAN_GEN6_SET_TX_FRAME(hResourceContext2, numTestFrame, payloadSize, frameSpacing, 0, (uint)rate2, num) == 0;
+				num5 = 158277103;
+			}
+			else
+			{
+				flag = QLIB_FTM_WLAN_GEN6_SET_TX_FRAME(hResourceContext2, numTestFrame, payloadSize, frameSpacing, 1, (uint)rate2, num) == 0;
+				num5 = 158277103;
+			}
+			_ = num5 ^ -131558863;
+			if (flag)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+	}
+
+	public uint FTM_WLAN_GEN6_GET_RX_PACKET_COUNTS()
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_GET_RX_PACKET_COUNTS";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_GEN6_GET_RX_PACKET_COUNTS(): failed";
+		string format2 = " ref pktCount: {0}, ref totalMacRxPackets: {1}, ref totalMacFcsErrPackets: {2}";
+		uint rxFrameCounter = 0u;
+		uint totalMacRxPackets = 0u;
+		uint totalMacFcsErrPackets = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GEN6_GET_RX_PACKET_COUNTS(phoneHandle, ref rxFrameCounter, ref totalMacRxPackets, ref totalMacFcsErrPackets) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, rxFrameCounter, totalMacRxPackets, totalMacFcsErrPackets)));
+		return rxFrameCounter;
+	}
+
+	public void FTM_WLAN_GEN6_GET_RX_PACKET_COUNTS(out uint pktCount, out uint totalMacRxPackets, out uint totalMacFcsErrPackets)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_GET_RX_PACKET_COUNTS";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_GEN6_GET_RX_PACKET_COUNTS(): failed";
+		string format2 = " ref pktCount: {0}, ref totalMacRxPackets: {1}, ref totalMacFcsErrPackets: {2}";
+		pktCount = 0u;
+		totalMacRxPackets = 0u;
+		totalMacFcsErrPackets = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GEN6_GET_RX_PACKET_COUNTS(phoneHandle, ref pktCount, ref totalMacRxPackets, ref totalMacFcsErrPackets) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, pktCount, totalMacRxPackets, totalMacFcsErrPackets)));
+	}
+
+	public short[] FTM_WLAN_GEN6_GET_UNICAST_MAC_PKT_RSSI()
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_GET_UNICAST_MAC_PKT_RSSI";
+		string format = "phoneHandle: {0}, rawRssiPtr: {1}";
+		string exceptionMessage = "QLIB_FTM_WLAN_GEN6_GET_UNICAST_MAC_PKT_RSSI: failed";
+		string format2 = " ref numRxChains: {0}";
+		IntPtr intPtr = Marshal.AllocHGlobal(2);
+		ushort numRxChains = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, intPtr)));
+		if (QLIB_FTM_WLAN_GEN6_GET_UNICAST_MAC_PKT_RSSI(phoneHandle, intPtr, ref numRxChains) == 0)
+		{
+			Marshal.FreeHGlobal(intPtr);
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, numRxChains)));
+		short[] array = new short[numRxChains];
+		Marshal.Copy(intPtr, array, 0, numRxChains);
+		Marshal.FreeHGlobal(intPtr);
+		return array;
+	}
+
+	public short[] FTM_WLAN_GEN6_GET_RX_RSSI_VAL()
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_GET_RX_RSSI_VAL";
+		string format = "phoneHandle: {0}, rawRssiPtr: {1}";
+		string exceptionMessage = "FTM_WLAN_GEN6_GET_RX_RSSI_VAL(): failed";
+		string format2 = " ref numRxChains: {0}";
+		IntPtr intPtr = Marshal.AllocHGlobal(2);
+		ushort numRxChains = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, intPtr)));
+		if (QLIB_FTM_WLAN_GEN6_GET_RX_RSSI_VAL(phoneHandle, intPtr, ref numRxChains) == 0)
+		{
+			Marshal.FreeHGlobal(intPtr);
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, numRxChains)));
+		short[] array = new short[numRxChains];
+		Marshal.Copy(intPtr, array, 0, numRxChains);
+		Marshal.FreeHGlobal(intPtr);
+		return array;
+	}
+
+	public void FTM_WLAN_GEN6_RESET_RX_PACKET_STATISTICS()
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_RESET_RX_PACKET_STATISTICS";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_GEN6_RESET_RX_PACKET_STATISTICS(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GEN6_RESET_RX_PACKET_STATISTICS(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_ENABLE_CHAINS(WLAN_Gen6_PHY_ChainSelect chain)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_ENABLE_CHAINS";
+		string format = "phoneHandle: {0}, chain: {1}";
+		string exceptionMessage = "FTM_WLAN_GEN6_ENABLE_CHAINS(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, chain)));
+		if (QLIB_FTM_WLAN_GEN6_ENABLE_CHAINS(phoneHandle, (uint)chain) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_WCN_ANTENNA_SELECT(uint antenna)
+	{
+		string source = "QLIB_FTM_WLAN_WCN_ANTENNA_SELECT";
+		string format = "phoneHandle: {0}, antenna: {1}";
+		string exceptionMessage = "FTM_WLAN_WCN_ANTENNA_SELECT(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, antenna)));
+		if (QLIB_FTM_WLAN_WCN_ANTENNA_SELECT(phoneHandle, antenna) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_CLOSE_TPC_LOOP(bool close)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_CLOSE_TPC_LOOP";
+		string format = "phoneHandle: {0},(close ? 1 : 0): {1}";
+		string exceptionMessage = "FTM_WLAN_GEN6_CLOSE_TPC_LOOP(): failed";
+		object arg = phoneHandle;
+		int num;
+		if (!close)
+		{
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, arg, 0)));
+			num = 706831195;
+		}
+		else
+		{
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, arg, 1)));
+			num = 706831195;
+		}
+		_ = num ^ 0x302F9CB8;
+		uint hResourceContext = phoneHandle;
+		bool flag;
+		int num2;
+		if (!close)
+		{
+			flag = QLIB_FTM_WLAN_GEN6_CLOSE_TPC_LOOP(hResourceContext, 0) == 0;
+			num2 = 1771162782;
+		}
+		else
+		{
+			flag = QLIB_FTM_WLAN_GEN6_CLOSE_TPC_LOOP(hResourceContext, 1) == 0;
+			num2 = 1771162782;
+		}
+		_ = num2 ^ 0x302F9CB8;
+		if (flag)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_CLOSE_TPC_LOOP_V2(byte mode)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_CLOSE_TPC_LOOP_V2";
+		string format = "phoneHandle: {0}, mode: {1}";
+		string exceptionMessage = "FTM_WLAN_GEN6_CLOSE_TPC_LOOP_V2(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, mode)));
+		if (QLIB_FTM_WLAN_GEN6_CLOSE_TPC_LOOP_V2(phoneHandle, mode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_RX_DCO_CAL()
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_RX_DCO_CAL";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_GEN6_RX_DCO_CAL(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GEN6_RX_DCO_CAL(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_DISABLE_AGC_TABLES(byte rx0gain, byte rx1gain)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_DISABLE_AGC_TABLES";
+		string format = "phoneHandle: {0}, rx0gain: {1}, rx1gain: {2}";
+		string exceptionMessage = "FTM_WLAN_GEN6_DISABLE_AGC_TABLES(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, rx0gain, rx1gain)));
+		if (QLIB_FTM_WLAN_GEN6_DISABLE_AGC_TABLES(phoneHandle, rx0gain, rx1gain) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_GRAB_RAM(out short[] Irx0buff, out short[] Qrx0buff, out short[] Irx1buff, out short[] Qrx1buff)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_GRAB_RAM";
+		string format = "phoneHandle :{0}, i :{1}, NUM_SAMPLES_PER_CALL :{2}, Irx0Ptr :{3}, Qrx0Ptr :{4}, Irx1Ptr :{5}, Qrx1Ptr :{6}";
+		IntPtr intPtr = Marshal.AllocHGlobal(128);
+		IntPtr intPtr2 = Marshal.AllocHGlobal(128);
+		IntPtr intPtr3 = Marshal.AllocHGlobal(128);
+		IntPtr intPtr4 = Marshal.AllocHGlobal(128);
+		try
+		{
+			Irx0buff = new short[4096];
+			Qrx0buff = new short[4096];
+			Irx1buff = new short[4096];
+			Qrx1buff = new short[4096];
+			for (uint num = 0u; num <= 4095; num += 64)
+			{
+				Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, num, 64u, intPtr, intPtr2, intPtr3, intPtr4)));
+				QLIB_FTM_WLAN_GEN6_GRAB_RAM(phoneHandle, num, 64u, intPtr, intPtr2, intPtr3, intPtr4);
+				Marshal.Copy(intPtr, Irx0buff, (int)num, 64);
+				Marshal.Copy(intPtr2, Qrx0buff, (int)num, 64);
+				Marshal.Copy(intPtr3, Irx1buff, (int)num, 64);
+				Marshal.Copy(intPtr4, Qrx1buff, (int)num, 64);
+			}
+		}
+		finally
+		{
+			Marshal.FreeHGlobal(intPtr);
+			Marshal.FreeHGlobal(intPtr2);
+			Marshal.FreeHGlobal(intPtr3);
+			Marshal.FreeHGlobal(intPtr4);
+		}
+	}
+
+	public WLANGen6TxReport FTM_WLAN_GEN6_GET_TX_POWER_REPORT()
+	{
+		double field_ = Class38.field_543;
+		string source = "QLIB_FTM_WLAN_GEN6_GET_TX_POWER_REPORT";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_GEN6_GET_TX_POWER_REPORT(): failed";
+		string format2 = " ref rate: {0},ref cbState: {1}, ref channelId: {2}, ref pwrTemplateIndex: {3},ref gain: {4}, ref adc: {5}, ref rawAdc: {6}, ref indexMinMatchLut: {7},ref indexMinMatchAbs: {8}, ref indexMaxMatchLut: {9}, ref indexMaxMatchAbs: {10},ref outputLut: {11}, ref outputAbs: {12}";
+		uint rate = 0u;
+		uint cbState = 0u;
+		byte channelId = 0;
+		uint pwrTemplateIndex = 0u;
+		byte gain = 0;
+		byte adc = 0;
+		ushort rawAdc = 0;
+		byte indexMinMatchLut = 0;
+		double indexMinMatchAbs = field_;
+		byte indexMaxMatchLut = 0;
+		double indexMaxMatchAbs = field_;
+		byte outputLut = 0;
+		double outputAbs = field_;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GEN6_GET_TX_POWER_REPORT(phoneHandle, ref rate, ref cbState, ref channelId, ref pwrTemplateIndex, ref gain, ref adc, ref rawAdc, ref indexMinMatchLut, ref indexMinMatchAbs, ref indexMaxMatchLut, ref indexMaxMatchAbs, ref outputLut, ref outputAbs) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, rate, cbState, channelId, pwrTemplateIndex, gain, adc, rawAdc, indexMinMatchLut, indexMinMatchAbs, indexMaxMatchLut, indexMaxMatchAbs, outputLut, outputAbs)));
+		return new WLANGen6TxReport
+		{
+			rate = (WLAN_Gen6_HAL_PHY_Rate)rate,
+			cbState = cbState,
+			channelID = channelId,
+			pwrTemplateIndex = pwrTemplateIndex,
+			gain = gain,
+			adc = adc,
+			rawAdc = rawAdc,
+			indexMinMatchLut = indexMinMatchLut,
+			indexMinMatchAbs = indexMinMatchAbs,
+			indexMaxMatchLut = indexMaxMatchLut,
+			indexMaxMatchAbs = indexMaxMatchAbs,
+			outputLut = outputLut,
+			outputAbs = outputAbs
+		};
+	}
+
+	public WLANGen6TxStatus FTM_WLAN_GEN6_QUERY_TX_STATUS()
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_QUERY_TX_STATUS";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_GEN6_QUERY_TX_STATUS(): failed";
+		string format2 = "ref legacy: {0},ref gfSimo20: {1}, ref gfSimo20: {2}, ref mmSimo20: {3},ref mmMimo20: {4}, ref txbShort: {5}, ref txbLong: {6}, ref txbSlr: {7},ref total: {8}, ref txStatus: {9}";
+		uint legacy = 0u;
+		uint gfSimo = 0u;
+		uint mmSimo = 0u;
+		uint mmMimo = 0u;
+		uint txbShort = 0u;
+		uint txbLong = 0u;
+		uint txbSlr = 0u;
+		uint total = 0u;
+		byte txStatus = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GEN6_QUERY_TX_STATUS(phoneHandle, ref legacy, ref gfSimo, ref gfSimo, ref mmSimo, ref mmMimo, ref txbShort, ref txbLong, ref txbSlr, ref total, ref txStatus) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, legacy, gfSimo, gfSimo, mmSimo, mmMimo, txbShort, txbLong, txbSlr, total, txStatus)));
+		return new WLANGen6TxStatus
+		{
+			legacy = legacy,
+			gfSimo20 = gfSimo,
+			gfMimo20 = 0u,
+			mmSimo20 = mmSimo,
+			mmMimo20 = mmMimo,
+			txbShort = txbShort,
+			txbLong = txbLong,
+			txbSlr = txbSlr,
+			total = total,
+			txStatus = txStatus
+		};
+	}
+
+	public WLANGen6HdetDco FTM_WLAN_GEN6_HDET_CAL()
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_HDET_CAL";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_GEN6_HDET_CAL(): failed";
+		string format2 = " ref code: {0}, ref offset: {1}";
+		ushort hdetDcoCode = 0;
+		ushort hdetDcoOffset = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GEN6_HDET_CAL(phoneHandle, ref hdetDcoCode, ref hdetDcoOffset) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, hdetDcoCode, hdetDcoOffset)));
+		return new WLANGen6HdetDco
+		{
+			hdetDcoCode = hdetDcoCode,
+			hdetDcoOffset = hdetDcoOffset
+		};
+	}
+
+	public ushort FTM_WLAN_GEN6_GET_TEMP_ADC(int sensorID)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_GET_TEMP_ADC";
+		string format = "phoneHandle: {0}, sensorID: {1}";
+		string exceptionMessage = "QLIB_FTM_WLAN_GEN6_GET_TEMP_ADC(): failed";
+		string format2 = " ref adcValue: {0}";
+		ushort adcValue = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, sensorID)));
+		if (QLIB_FTM_WLAN_GEN6_GET_TEMP_ADC(phoneHandle, sensorID, ref adcValue) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, adcValue)));
+		return adcValue;
+	}
+
+	public byte FTM_WLAN_GEN6_GET_NV_VERSION()
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_GET_NV_VERSION";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_WLAN_GEN6_GET_NV_VERSION(): failed";
+		string format2 = " ref version: {0}";
+		byte version = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GEN6_GET_NV_VERSION(phoneHandle, ref version) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, version)));
+		return version;
+	}
+
+	public void FTM_WLAN_GEN6_SET_PKT_TX_GAIN_INDEX(byte index)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_SET_PKT_TX_GAIN_INDEX";
+		string format = "phoneHandle: {0}, index: {1}";
+		string exceptionMessage = "FTM_WLAN_GEN6_SET_PKT_TX_GAIN_INDEX(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, index)));
+		if (QLIB_FTM_WLAN_GEN6_SET_PKT_TX_GAIN_INDEX(phoneHandle, index) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_FORCE_PKT_TX_GAIN(byte chainNum, byte gain)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_FORCE_PKT_TX_GAIN";
+		string format = "phoneHandle: {0}, chainNum: {1}, gain: {2}";
+		string exceptionMessage = "FTM_WLAN_GEN6_FORCE_PKT_TX_GAIN(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, chainNum, gain)));
+		if (QLIB_FTM_WLAN_GEN6_FORCE_PKT_TX_GAIN(phoneHandle, chainNum, gain) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_READ_REGISTER(uint regAddr, out uint regValue)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_READ_REGISTER";
+		string format = "phoneHandle: {0}, regAddr: {1}";
+		string exceptionMessage = "FTM_WLAN_GEN6_READ_REGISTER(): failed";
+		string format2 = " ref regValue: {0}";
+		regValue = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, regAddr)));
+		if (QLIB_FTM_WLAN_GEN6_READ_REGISTER(phoneHandle, regAddr, ref regValue) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, regValue)));
+	}
+
+	public void FTM_WLAN_GEN6_SET_TX_WAVEFORM_AMPLITUDE_GAIN(byte gain)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_SET_TX_WAVEFORM_GAIN";
+		string format = "phoneHandle: {0}, gain: {1}";
+		string exceptionMessage = "FTM_WLAN_GEN6_SET_TX_WAVEFORM_GAIN(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, gain)));
+		if (QLIB_FTM_WLAN_GEN6_SET_TX_WAVEFORM_GAIN(phoneHandle, gain) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_SET_TX_WAVEFORM_GAIN(uint rfGain, uint digitalGain)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_SET_TX_WAVEFORM_GAIN";
+		string format = "phoneHandle: {0}, gain: {1}";
+		string exceptionMessage = "FTM_WLAN_GEN6_SET_TX_WAVEFORM_GAIN(): failed";
+		string source2 = "QLIB_FTM_WLAN_GEN6_SET_TX_WAVEFORM_GAIN_V2";
+		if (WlanId == 3660)
+		{
+			bool flag = false;
+			uint num = 0u;
+			num = (rfGain << 16) | digitalGain;
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source2, string.Format(format, phoneHandle, num)));
+			if (QLIB_FTM_WLAN_GEN6_SET_TX_WAVEFORM_GAIN_V2(phoneHandle, num) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		else if (WlanId != 3680 && WlanId != 3620)
+		{
+			byte b = 0;
+			b = (byte)((rfGain << 4) | digitalGain);
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, b)));
+			if (QLIB_FTM_WLAN_GEN6_SET_TX_WAVEFORM_GAIN(phoneHandle, b) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		else
+		{
+			uint num = 0u;
+			num = (rfGain << 16) | digitalGain;
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source2, string.Format(format, phoneHandle, num)));
+			if (QLIB_FTM_WLAN_GEN6_SET_TX_WAVEFORM_GAIN_V2(phoneHandle, num) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+	}
+
+	public void FTM_WLAN_GEN6_SET_TX_WAVEFORM_GAIN_V2(uint rfGain, uint digitalGain)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_SET_TX_WAVEFORM_GAIN_V2";
+		string format = "phoneHandle: {0}, gain: {1}";
+		string exceptionMessage = "FTM_WLAN_GEN6_SET_TX_WAVEFORM_GAIN(): failed";
+		uint num = 0u;
+		num = (rfGain << 16) | digitalGain;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, num)));
+		if (QLIB_FTM_WLAN_GEN6_SET_TX_WAVEFORM_GAIN_V2(phoneHandle, num) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void writePlutFileData(string filename)
+	{
+		string value = "pdadc_offset=";
+		string message = "Input File Invalid!";
+		string source = "QLIB_FTM_WLAN_GEN6_SET_NV_TABLE";
+		string format = "phoneHandle: {0}, 6: {1}, dPtr: {2}";
+		string message2 = "Write PDADC table to Phone failed!";
+		string value2 = "plut";
+		string format2 = "phoneHandle: {0}, 5: {1}, dPtr: {2}";
+		string message3 = "Write PLUT table to Phone failed!";
+		StreamReader streamReader = new StreamReader(filename);
+		fileStates fileStates = fileStates.init;
+		byte[] array = new byte[1792];
+		try
+		{
+			while (streamReader.Peek() >= 0)
+			{
+				string text = streamReader.ReadLine();
+				switch (fileStates)
+				{
+				case fileStates.plut:
+				{
+					if (!text.StartsWith(value2))
+					{
+						break;
+					}
+					string[] array5 = text.Split('=');
+					if (array5.Length != 2)
+					{
+						break;
+					}
+					string[] array6 = array5[1].Split(',');
+					string[] array7 = array5[0].Split('_');
+					if (array7.Length == 2 && array6.Length == 14)
+					{
+						int num = Convert.ToInt32(array7[1]);
+						for (int j = 0; j <= 13; j++)
+						{
+							array[num + j * 128] = Convert.ToByte(array6[j]);
+						}
+						if (num == 127)
+						{
+							IntPtr intPtr2 = Marshal.AllocHGlobal(1792);
+							Marshal.Copy(array, 0, intPtr2, 1792);
+							Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format2, phoneHandle, 5, intPtr2)));
+							if (QLIB_FTM_WLAN_GEN6_SET_NV_TABLE(phoneHandle, 5, intPtr2) == 0)
+							{
+								Marshal.FreeHGlobal(intPtr2);
+								throw new Exception(message3);
+							}
+							Marshal.FreeHGlobal(intPtr2);
+							fileStates = fileStates.done;
+						}
+						break;
+					}
+					throw new Exception(message);
+				}
+				case fileStates.init:
+				{
+					if (!text.StartsWith(value))
+					{
+						break;
+					}
+					string[] array2 = text.Split('=');
+					if (array2.Length == 2)
+					{
+						string[] array3 = array2[1].Split(',');
+						if (array3.Length != 14)
+						{
+							throw new Exception(message);
+						}
+						short[] array4 = new short[14];
+						for (int i = 0; i <= 13; i++)
+						{
+							array4[i] = Convert.ToInt16(array3[i]);
+						}
+						IntPtr intPtr = Marshal.AllocHGlobal(28);
+						Marshal.Copy(array4, 0, intPtr, 14);
+						Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, 6, intPtr)));
+						if (QLIB_FTM_WLAN_GEN6_SET_NV_TABLE(phoneHandle, 6, intPtr) == 0)
+						{
+							Marshal.FreeHGlobal(intPtr);
+							throw new Exception(message2);
+						}
+						Marshal.FreeHGlobal(intPtr);
+						fileStates = fileStates.plut;
+					}
+					break;
+				}
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+		finally
+		{
+			streamReader?.Close();
+		}
+	}
+
+	public void FTM_WLAN_GEN6_FORCE_PKT_TX_GAIN_V2(byte chainNum, uint gain)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_FORCE_PKT_TX_GAIN_V2";
+		string format = "phoneHandle: {0}, chainNum: {1}, gain: {2}";
+		string exceptionMessage = "FTM_WLAN_GEN6_FORCE_PKT_TX_GAIN_V2(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, chainNum, gain)));
+		if (QLIB_FTM_WLAN_GEN6_FORCE_PKT_TX_GAIN_V2(phoneHandle, chainNum, gain) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_CLPC_CAL_SETUP()
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_CLPC_CAL_SETUP";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_GEN6_CLPC_CAL_SETUP(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GEN6_CLPC_CAL_SETUP(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_CLPC_CAL_RESTORE()
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_CLPC_CAL_RESTORE";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_GEN6_CLPC_CAL_RESTORE(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GEN6_CLPC_CAL_RESTORE(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_SET_MAC_ADDRESS(byte[] address)
+	{
+		string exceptionMessage = "The MAC address must be 6 bytes.";
+		string source = "QLIB_FTM_WLAN_GEN6_SET_MAC_ADDR";
+		string format = "phoneHandle :{0}, address :{1}";
+		if (address.Length != 6)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, BitConverter.ToString(address, 0, address.Length))));
+		QLIB_FTM_WLAN_GEN6_SET_MAC_ADDR(phoneHandle, address);
+	}
+
+	public byte[] FTM_WLAN_GEN6_GET_MAC_ADDRESS()
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_GET_MAC_ADDR";
+		string format = "phoneHandle: {0}, macaddr: {1}";
+		string exceptionMessage = "FTM_WLAN_GEN6_GET_MAC_ADDRESS(): failed";
+		bool flag = false;
+		byte[] array = new byte[6];
+		IntPtr intPtr = Marshal.AllocHGlobal(6);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, intPtr)));
+		if (QLIB_FTM_WLAN_GEN6_GET_MAC_ADDR(phoneHandle, intPtr) != 0)
+		{
+			Marshal.Copy(intPtr, array, 0, 6);
+			Marshal.FreeHGlobal(intPtr);
+			if (flag)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			return array;
+		}
+		flag = true;
+		Marshal.Copy(intPtr, array, 0, 6);
+		Marshal.FreeHGlobal(intPtr);
+		throw new PhoneException(exceptionMessage);
+	}
+
+	public void FTM_WLAN_GEN6_TX_IQ_CAL_V2(int gain)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_TX_IQ_CAL_V2";
+		string format = "phoneHandle: {0}, gain: {1}, iqAmpImbCoeff: {2}, loLeakageI: {3}, loLeakageQ: {4}, phaseImbalaceCoeffI: {5}, phaseImbalaceCoeffQ: {6}";
+		string exceptionMessage = "FTM_WLAN_GEN6_TX_IQ_CAL_V2(): failed";
+		bool flag = false;
+		IntPtr intPtr = Marshal.AllocHGlobal(2);
+		IntPtr intPtr2 = Marshal.AllocHGlobal(2);
+		IntPtr intPtr3 = Marshal.AllocHGlobal(2);
+		IntPtr intPtr4 = Marshal.AllocHGlobal(10);
+		IntPtr intPtr5 = Marshal.AllocHGlobal(10);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, gain, intPtr, intPtr2, intPtr3, intPtr4, intPtr5)));
+		if (QLIB_FTM_WLAN_GEN6_TX_IQ_CAL_V2(phoneHandle, gain, intPtr, intPtr2, intPtr3, intPtr4, intPtr5) != 0)
+		{
+			Marshal.FreeHGlobal(intPtr);
+		}
+		else
+		{
+			flag = true;
+			Marshal.FreeHGlobal(intPtr);
+		}
+		Marshal.FreeHGlobal(intPtr2);
+		Marshal.FreeHGlobal(intPtr3);
+		Marshal.FreeHGlobal(intPtr4);
+		Marshal.FreeHGlobal(intPtr5);
+		if (flag)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_TX_CARRIER_SUPPRESS_CAL(uint rfGain, uint digitalGain)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_TX_CARRIER_SUPPRESS_CAL";
+		string format = "phoneHandle: {0}, iDcoCorr: {1}, qDcoCorr: {2}, gain: {3}";
+		string exceptionMessage = "QLIB_FTM_WLAN_GEN6_TX_CARRIER_SUPPRESS_CAL(): failed";
+		bool flag = false;
+		uint num = 0u;
+		num = (rfGain << 16) | digitalGain;
+		IntPtr intPtr = Marshal.AllocHGlobal(1);
+		IntPtr intPtr2 = Marshal.AllocHGlobal(1);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, intPtr, intPtr2, num)));
+		if (QLIB_FTM_WLAN_GEN6_TX_CARRIER_SUPPRESS_CAL(phoneHandle, intPtr, intPtr2, num) != 0)
+		{
+			Marshal.FreeHGlobal(intPtr);
+			Marshal.FreeHGlobal(intPtr2);
+			if (flag)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			return;
+		}
+		flag = true;
+		Marshal.FreeHGlobal(intPtr);
+		Marshal.FreeHGlobal(intPtr2);
+		throw new PhoneException(exceptionMessage);
+	}
+
+	public void FTM_WLAN_GEN6_CLPC_CAL_EXTRA_MEASUREMENT(ushort setup, ushort setupTxDmdPwrOffset, ushort measureTotalExtraPt, ushort measureCurrentPtIdx, byte plut)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_CLPC_CAL_EXTRA_MEASUREMENT";
+		string format = "phoneHandle: {0}, setup: {1}, setupTxDmdPwrOffset: {2}, measureTotalExtraPt: {3}, measureCurrentPtIdx: {4}, plut: {5}";
+		string exceptionMessage = "FTM_WLAN_GEN6_CLPC_CAL_EXTRA_MEASUREMENT(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, setup, setupTxDmdPwrOffset, measureTotalExtraPt, measureCurrentPtIdx, plut)));
+		if (QLIB_FTM_WLAN_GEN6_CLPC_CAL_EXTRA_MEASUREMENT(phoneHandle, setup, setupTxDmdPwrOffset, measureTotalExtraPt, measureCurrentPtIdx, plut) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_ENABLE_DPD(byte enable)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_ENABLE_DPD";
+		string format = "phoneHandle: {0}, enable: {1}";
+		string exceptionMessage = "QLIB_FTM_WLAN_GEN6_ENABLE_DPD(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, enable)));
+		if (QLIB_FTM_WLAN_GEN6_ENABLE_DPD(phoneHandle, enable) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_READ_XML_WRITE_NV(string filename)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_READ_XML_WRITE_NV";
+		string format = "phoneHandle: {0}, filename: {1}";
+		string exceptionMessage = "QLIB_FTM_WLAN_GEN6_READ_XML_WRITE_NV(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, filename)));
+		if (QLIB_FTM_WLAN_GEN6_READ_XML_WRITE_NV(phoneHandle, filename) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_READ_NV_WRITE_XML(string filename)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_READ_NV_WRITE_XML";
+		string format = "phoneHandle: {0}, filename: {1}";
+		string exceptionMessage = "QLIB_FTM_WLAN_GEN6_READ_NV_WRITE_XML(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, filename)));
+		if (QLIB_FTM_WLAN_GEN6_READ_NV_WRITE_XML(phoneHandle, filename) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_SET_PWR_INDEX_SOURCE(uint source)
+	{
+		string source2 = "QLIB_FTM_WLAN_GEN6_SET_PWR_INDEX_SOURCE";
+		string format = "phoneHandle: {0}, source: {1}";
+		string exceptionMessage = "QLIB_FTM_WLAN_GEN6_SET_PWR_INDEX_SOURCE(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source2, string.Format(format, phoneHandle, source)));
+		if (QLIB_FTM_WLAN_GEN6_SET_PWR_INDEX_SOURCE(phoneHandle, source) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_GET_COUPLER_TYPE(out byte coupleType)
+	{
+		string path = "c:\\temp";
+		string text = "c:\\temp\\x.xml";
+		if (Directory.Exists(path))
+		{
+			FTM_WLAN_GEN6_READ_NV_WRITE_XML(text);
+			coupleType = GetCouplerTypeFromXmlFile(text);
+		}
+		else
+		{
+			Directory.CreateDirectory(path);
+			FTM_WLAN_GEN6_READ_NV_WRITE_XML(text);
+			coupleType = GetCouplerTypeFromXmlFile(text);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_SET_COUPLER_TYPE(byte couplerType)
+	{
+		string path = "c:\\temp";
+		string text = "c:\\temp\\x.xml";
+		if (Directory.Exists(path))
+		{
+			FTM_WLAN_GEN6_READ_NV_WRITE_XML(text);
+			SetCouplerTypeToXmlFile(text, couplerType);
+			FTM_WLAN_GEN6_READ_XML_WRITE_NV(text);
+		}
+		else
+		{
+			Directory.CreateDirectory(path);
+			FTM_WLAN_GEN6_READ_NV_WRITE_XML(text);
+			SetCouplerTypeToXmlFile(text, couplerType);
+			FTM_WLAN_GEN6_READ_XML_WRITE_NV(text);
+		}
+	}
+
+	public void FTM_SET_TX_IQ_CORRECT(int gainVal, short iqAmpImbCoeff, short txLoLeakageI, short txLoLeakageQ, short[] iqPhasenImbCoeffI, short[] iqPhasenImbCoeffQ)
+	{
+		string format = "[{0},{1},{2},{3},{4}]";
+		string source = "QLIB_FTM_SET_TX_IQ_CORRECT";
+		string format2 = "phoneHandle: {0}, gainVal: {1}, iqAmpImbCoeff: {2}, txLoLeakageI: {3}, txLoLeakageQ: {4}, iqPhasenImbCoeffI: {5}, iqPhasenImbCoeffQ: {6}";
+		string exceptionMessage = "FTM_SET_TX_IQ_CORRECT(): failed";
+		bool flag = false;
+		IntPtr intPtr = Marshal.AllocHGlobal(Marshal.SizeOf((object)iqPhasenImbCoeffI[0]) * iqPhasenImbCoeffI.Length);
+		IntPtr intPtr2 = Marshal.AllocHGlobal(Marshal.SizeOf((object)iqPhasenImbCoeffQ[0]) * iqPhasenImbCoeffQ.Length);
+		try
+		{
+			Marshal.Copy(iqPhasenImbCoeffI, 0, intPtr, iqPhasenImbCoeffI.Length);
+			Marshal.Copy(iqPhasenImbCoeffQ, 0, intPtr2, iqPhasenImbCoeffQ.Length);
+			string text = string.Format(format, iqPhasenImbCoeffI[0], iqPhasenImbCoeffI[1], iqPhasenImbCoeffI[2], iqPhasenImbCoeffI[3], iqPhasenImbCoeffI[4]);
+			string text2 = string.Format(format, iqPhasenImbCoeffQ[0], iqPhasenImbCoeffQ[1], iqPhasenImbCoeffQ[2], iqPhasenImbCoeffQ[3], iqPhasenImbCoeffQ[4]);
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format2, phoneHandle, gainVal, iqAmpImbCoeff, txLoLeakageI, txLoLeakageQ, text, text2)));
+			if (QLIB_FTM_SET_TX_IQ_CORRECT(phoneHandle, gainVal, iqAmpImbCoeff, txLoLeakageI, txLoLeakageQ, intPtr, intPtr2) == 0)
+			{
+				flag = true;
+			}
+			if (flag)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		finally
+		{
+			Marshal.FreeHGlobal(intPtr);
+			Marshal.FreeHGlobal(intPtr2);
+		}
+	}
+
+	public void FTM_GET_TX_IQ_CORRECT(int gainVal, out short iqAmpImbCoeff, out short txLoLeakageI, out short txLoLeakageQ, out short[] iqPhasenImbCoeffI, out short[] iqPhasenImbCoeffQ)
+	{
+		string source = "QLIB_ FTM_GET_TX_IQ_CORRECT";
+		string format = "phoneHandle: {0}, gainVal: {1},";
+		string format2 = "[{0},{1},{2},{3},{4}]";
+		string source2 = "QLIB_FTM_GET_TX_IQ_CORRECT ";
+		string format3 = "iqAmpImbCoeff: {0}, txLoLeakageI: {1}, txLoLeakageQ: {2}, iqPhasenImbCoeffI: {3}, iqPhasenImbCoeffQ: {4}";
+		string exceptionMessage = "FTM_GET_TX_IQ_CORRECT: failed";
+		bool flag = false;
+		short[] array = new short[1];
+		short[] array2 = new short[1];
+		short[] array3 = new short[1];
+		iqAmpImbCoeff = -999;
+		txLoLeakageI = -999;
+		txLoLeakageQ = -999;
+		iqPhasenImbCoeffI = new short[5] { -999, -999, -999, -999, -999 };
+		iqPhasenImbCoeffQ = new short[5] { -999, -999, -999, -999, -999 };
+		IntPtr intPtr = Marshal.AllocHGlobal(2);
+		IntPtr intPtr2 = Marshal.AllocHGlobal(2);
+		IntPtr intPtr3 = Marshal.AllocHGlobal(2);
+		IntPtr intPtr4 = Marshal.AllocHGlobal(10);
+		IntPtr intPtr5 = Marshal.AllocHGlobal(10);
+		try
+		{
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, gainVal)));
+			if (QLIB_FTM_GET_TX_IQ_CORRECT(phoneHandle, gainVal, intPtr, intPtr2, intPtr3, intPtr4, intPtr5) == 0)
+			{
+				flag = true;
+			}
+			Marshal.Copy(intPtr, array, 0, array.Length);
+			Marshal.Copy(intPtr2, array2, 0, array2.Length);
+			Marshal.Copy(intPtr3, array3, 0, array3.Length);
+			Marshal.Copy(intPtr4, iqPhasenImbCoeffI, 0, iqPhasenImbCoeffI.Length);
+			Marshal.Copy(intPtr5, iqPhasenImbCoeffQ, 0, iqPhasenImbCoeffQ.Length);
+			iqAmpImbCoeff = array[0];
+			txLoLeakageI = array2[0];
+			txLoLeakageQ = array3[0];
+			string text = string.Format(format2, iqPhasenImbCoeffI[0], iqPhasenImbCoeffI[1], iqPhasenImbCoeffI[2], iqPhasenImbCoeffI[3], iqPhasenImbCoeffI[4]);
+			string text2 = string.Format(format2, iqPhasenImbCoeffQ[0], iqPhasenImbCoeffQ[1], iqPhasenImbCoeffQ[2], iqPhasenImbCoeffQ[3], iqPhasenImbCoeffQ[4]);
+			Logger.Add(new Message((MessageType)2, source2, string.Format(format3, iqAmpImbCoeff, txLoLeakageI, txLoLeakageQ, text, text2)));
+			if (flag)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		finally
+		{
+			Marshal.FreeHGlobal(intPtr);
+			Marshal.FreeHGlobal(intPtr2);
+			Marshal.FreeHGlobal(intPtr3);
+			Marshal.FreeHGlobal(intPtr4);
+			Marshal.FreeHGlobal(intPtr5);
+		}
+	}
+
+	public void FTM_SET_RX_DCO_CORRECT(byte gainVal, byte dcoCorrectI, byte dcoCorrectQ, byte dcRange)
+	{
+		string source = "QLIB_FTM_SET_TX_IQ_CORRECT";
+		string format = "phoneHandle: {0}, gainVal: {1}, dcoCorrectI: {2}, dcoCorrectQ: {3}, dcRange: {4}";
+		string exceptionMessage = "QLIB_ FTM_SET_RX_DCO_CORRECT (): failed";
+		bool flag = false;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, gainVal, dcoCorrectI, dcoCorrectQ, dcRange)));
+		if (QLIB_FTM_SET_RX_DCO_CORRECT(phoneHandle, gainVal, dcoCorrectI, dcoCorrectQ, dcRange) != 0)
+		{
+			if (flag)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			return;
+		}
+		flag = true;
+		throw new PhoneException(exceptionMessage);
+	}
+
+	public void FTM_GET_RX_DCO_CORRECT(byte gainVal, out byte dcoCorrectI, out byte dcoCorrectQ, out byte dcRange)
+	{
+		string source = "QLIB_FTM_GET_RX_DCO_CORRECT";
+		string format = "phoneHandle: {0}, gainVal: {1},";
+		string format2 = "{0}";
+		string source2 = "QLIB_FTM_GET_RX_DCO_CORRECT ";
+		string format3 = "dcoCorrectI: {0}, dcoCorrectQ: {1}, dcRange: {2}";
+		string exceptionMessage = "FTM_GET_RX_DCO_CORRECT: failed";
+		bool flag = false;
+		byte[] array = new byte[1];
+		byte[] array2 = new byte[1];
+		byte[] array3 = new byte[1];
+		dcoCorrectI = byte.MaxValue;
+		dcoCorrectQ = byte.MaxValue;
+		dcRange = byte.MaxValue;
+		IntPtr intPtr = Marshal.AllocHGlobal(1);
+		IntPtr intPtr2 = Marshal.AllocHGlobal(1);
+		IntPtr intPtr3 = Marshal.AllocHGlobal(1);
+		try
+		{
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, gainVal)));
+			if (QLIB_FTM_GET_RX_DCO_CORRECT(phoneHandle, gainVal, intPtr, intPtr2, intPtr3) == 0)
+			{
+				flag = true;
+			}
+			Marshal.Copy(intPtr, array, 0, array.Length);
+			Marshal.Copy(intPtr2, array2, 0, array2.Length);
+			Marshal.Copy(intPtr3, array3, 0, array3.Length);
+			dcoCorrectI = array[0];
+			dcoCorrectQ = array2[0];
+			dcRange = array3[0];
+			string.Format(format2, array[0]);
+			string.Format(format2, array2[0]);
+			string.Format(format2, array3[0]);
+			Logger.Add(new Message((MessageType)2, source2, string.Format(format3, dcoCorrectI, dcoCorrectQ, dcRange)));
+			if (flag)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		finally
+		{
+			Marshal.FreeHGlobal(intPtr);
+			Marshal.FreeHGlobal(intPtr2);
+			Marshal.FreeHGlobal(intPtr3);
+		}
+	}
+
+	public void FTM_SET_RX_IQ_CORRECT(int gainVal, short[] iqCalValuesI, short[] iqCalValuesQ)
+	{
+		string format = "[{0},{1},{2},{3},{4}]";
+		string source = "QLIB_FTM_SET_RX_IQ_CORRECT";
+		string format2 = "phoneHandle: {0}, gainVal: {1}, iqCalValuesI: {2}, iqCalValuesQ: {3}";
+		string exceptionMessage = "FTM_SET_RX_IQ_CORRECT: failed";
+		bool flag = false;
+		IntPtr intPtr = Marshal.AllocHGlobal(Marshal.SizeOf((object)iqCalValuesI[0]) * iqCalValuesI.Length);
+		IntPtr intPtr2 = Marshal.AllocHGlobal(Marshal.SizeOf((object)iqCalValuesQ[0]) * iqCalValuesQ.Length);
+		try
+		{
+			Marshal.Copy(iqCalValuesI, 0, intPtr, iqCalValuesI.Length);
+			Marshal.Copy(iqCalValuesQ, 0, intPtr2, iqCalValuesQ.Length);
+			string text = string.Format(format, iqCalValuesI[0], iqCalValuesI[1], iqCalValuesI[2], iqCalValuesI[3], iqCalValuesI[4]);
+			string text2 = string.Format(format, iqCalValuesQ[0], iqCalValuesQ[1], iqCalValuesQ[2], iqCalValuesQ[3], iqCalValuesQ[4]);
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format2, phoneHandle, gainVal, text, text2)));
+			if (QLIB_FTM_SET_RX_IQ_CORRECT(phoneHandle, gainVal, intPtr, intPtr2) == 0)
+			{
+				flag = true;
+			}
+			if (flag)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		finally
+		{
+			Marshal.FreeHGlobal(intPtr);
+			Marshal.FreeHGlobal(intPtr2);
+		}
+	}
+
+	public void FTM_GET_RX_IQ_CORRECT(int gainVal, out short[] iqCalValuesI, out short[] iqCalValuesQ)
+	{
+		string source = "QLIB_FTM_GET_RX_IQ_CORRECT ";
+		string format = "phoneHandle: {0}, gainVal: {1},";
+		string format2 = "[{0},{1},{2},{3},{4}]";
+		string text = "iqCalValuesI: ";
+		string text2 = ", iqCalValuesQ: ";
+		string text3 = ",";
+		string exceptionMessage = "FTM_GET_RX_IQ_CORRECT: failed";
+		bool flag = false;
+		iqCalValuesI = new short[5] { -999, -999, -999, -999, -999 };
+		iqCalValuesQ = new short[5] { -999, -999, -999, -999, -999 };
+		IntPtr intPtr = Marshal.AllocHGlobal(10);
+		IntPtr intPtr2 = Marshal.AllocHGlobal(10);
+		try
+		{
+			Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, gainVal)));
+			if (QLIB_FTM_GET_RX_IQ_CORRECT(phoneHandle, gainVal, intPtr, intPtr2) == 0)
+			{
+				flag = true;
+			}
+			Marshal.Copy(intPtr, iqCalValuesI, 0, iqCalValuesI.Length);
+			Marshal.Copy(intPtr2, iqCalValuesQ, 0, iqCalValuesQ.Length);
+			string text4 = string.Format(format2, iqCalValuesI[0], iqCalValuesI[1], iqCalValuesI[2], iqCalValuesI[3], iqCalValuesI[4]);
+			string text5 = string.Format(format2, iqCalValuesQ[0], iqCalValuesQ[1], iqCalValuesQ[2], iqCalValuesQ[3], iqCalValuesQ[4]);
+			Logger.Add(new Message((MessageType)2, source, text + text4 + text2 + text5 + text3));
+			if (flag)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		finally
+		{
+			Marshal.FreeHGlobal(intPtr);
+			Marshal.FreeHGlobal(intPtr2);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_STOP_RF_WAVEFORM()
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_STOP_RF_WAVEFORM";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_GEN6_STOP_RF_WAVEFORM: failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GEN6_STOP_RF_WAVEFORM(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_START_RF_WAVEFORM()
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_START_RF_WAVEFORM";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_GEN6_START_RF_WAVEFORM: failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GEN6_START_RF_WAVEFORM(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_GEN_RF_CW(int tone, uint ampl)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_GEN_RF_CW ";
+		string format = "phoneHandle: {0}, tone: {1}, ampl: {2}";
+		string exceptionMessage = "FTM_WLAN_GEN6_GEN_RF_CW: failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, tone, ampl)));
+		if (QLIB_FTM_WLAN_GEN6_GEN_RF_CW(phoneHandle, tone, ampl) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_GEN_CW(long tone, ulong ampl)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_GEN_CW ";
+		string format = "phoneHandle: {0}, tone: {1}, ampl: {2}";
+		string exceptionMessage = "FTM_WLAN_GEN6_GEN_CW: failed";
+		bool flag = false;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, tone, ampl)));
+		if (QLIB_FTM_WLAN_GEN6_GEN_CW(phoneHandle, tone, ampl) == 0)
+		{
+			flag = true;
+			throw new PhoneException(exceptionMessage);
+		}
+		if (flag)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_START_WAVEFORM()
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_START_WAVEFORM";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_GEN6_START_WAVEFORM: failed";
+		bool flag = false;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GEN6_START_WAVEFORM(phoneHandle) != 0)
+		{
+			if (flag)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			return;
+		}
+		flag = true;
+		throw new PhoneException(exceptionMessage);
+	}
+
+	public void FTM_WLAN_GEN6_STOP_WAVEFORM()
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_STOP_WAVEFORM";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "FTM_WLAN_GEN6_STOP_WAVEFORM: failed";
+		bool flag = false;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_WLAN_GEN6_STOP_WAVEFORM(phoneHandle) != 0)
+		{
+			if (flag)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			return;
+		}
+		flag = true;
+		throw new PhoneException(exceptionMessage);
+	}
+
+	public void FTM_WLAN_GEN6_GET_NV_TABLE_3660PLUT_TABLE(out byte[][] table)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_GET_NV_TABLE";
+		string format = "phoneHandle :{0}, 5 :{1}, tblPtr :{2}";
+		table = new byte[80][];
+		IntPtr intPtr = Marshal.AllocHGlobal(20480);
+		byte[] array = new byte[20480];
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, 5, intPtr)));
+		QLIB_FTM_WLAN_GEN6_GET_NV_TABLE(phoneHandle, 5, intPtr);
+		Marshal.Copy(intPtr, array, 0, 20480);
+		int location = 0;
+		for (int i = 0; i <= 79; i++)
+		{
+			table[i] = new byte[256];
+			for (int j = 0; j <= 255; j++)
+			{
+				table[i][j] = array[Math.Min(Interlocked.Increment(ref location), location - 1)];
+			}
+		}
+		Marshal.FreeHGlobal(intPtr);
+	}
+
+	public void FTM_WLAN_GEN6_SET_NV_TABLE_3660PLUT_TABLE(byte[][] table)
+	{
+		string source = "QLIB_FTM_WLAN_GEN6_SET_NV_TABLE";
+		string format = "phoneHandle :{0}, 5 :{1}, tblPtr :{2}";
+		byte[] array = new byte[20480];
+		int location = 0;
+		for (int i = 0; i <= 79; i++)
+		{
+			for (int j = 0; j <= 255; j++)
+			{
+				array[Math.Min(Interlocked.Increment(ref location), location - 1)] = table[i][j];
+			}
+		}
+		IntPtr intPtr = Marshal.AllocHGlobal(20480);
+		Marshal.Copy(array, 0, intPtr, 20480);
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, 5, intPtr)));
+		QLIB_FTM_WLAN_GEN6_SET_NV_TABLE(phoneHandle, 5, intPtr);
+		Marshal.FreeHGlobal(intPtr);
+	}
+
+	public void FTM_WLAN_NV3_GET_ENUM_VALUE_OFFLINE(uint enumFieldIndex, uint enumItemIndex, string inputBinFileName, string dictionaryFileName, out string enumName, out uint enumValue)
+	{
+		string text = "";
+		enumName = text;
+		IntPtr intPtr = Marshal.AllocHGlobal(256);
+		QLIB_FTM_WLAN_NV3_GET_ENUM_VALUE_OFFLINE(enumFieldIndex, enumItemIndex, inputBinFileName, dictionaryFileName, intPtr, out enumValue);
+		enumName = Marshal.PtrToStringAnsi(intPtr);
+		Marshal.FreeHGlobal(intPtr);
+	}
+
+	public void FTM_WLAN_NV3_GET_ENUM_VALUE(uint enumFieldIndex, uint enumItemIndex, out string enumName, out uint enumValue)
+	{
+		string text = "";
+		string exceptionMessage = "FTM_WLAN_NV3_GET_ENUM_VALUE: failed";
+		bool flag = false;
+		enumName = text;
+		IntPtr intPtr = Marshal.AllocHGlobal(256);
+		if (QLIB_FTM_WLAN_NV3_GET_ENUM_VALUE(phoneHandle, enumFieldIndex, enumItemIndex, intPtr, out enumValue) == 0 && (long)enumValue != 999L)
+		{
+			flag = true;
+			enumName = Marshal.PtrToStringAnsi(intPtr);
+			Marshal.FreeHGlobal(intPtr);
+			throw new PhoneException(exceptionMessage);
+		}
+		enumName = Marshal.PtrToStringAnsi(intPtr);
+		Marshal.FreeHGlobal(intPtr);
+		if (flag)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_WLAN_GEN6_GET_UNICAST_MAC_PKT_RSSI_CONF(uint conf)
+	{
+		string source = "FTM_WLAN_GEN6_GET_UNICAST_MAC_PKT_RSSI_CONF";
+		string format = "phoneHandle: {0}, conf: {1}";
+		string exceptionMessage = "FTM_WLAN_GEN6_GET_UNICAST_MAC_PKT_RSSI_CONF(): failed";
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, conf)));
+		if (QLIB_FTM_WLAN_GEN6_GET_UNICAST_MAC_PKT_RSSI_CONF(phoneHandle, conf) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	private int getRate(WLAN_Gen6_HAL_PHY_Rate rate)
+	{
+		if (WlanId != 3660)
+		{
+			if (wlanIdField != 6003)
+			{
+				return rate switch
+				{
+					WLAN_Gen6_HAL_PHY_Rate.RATE_11B_LONG_1_MBPS => 0, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_11B_LONG_2_MBPS => 1, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_11B_LONG_5_5_MBPS => 2, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_11B_LONG_11_MBPS => 3, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_11B_SHORT_2_MBPS => 4, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_11B_SHORT_5_5_MBPS => 2, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_11B_SHORT_11_MBPS => 6, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_SLR_0_25_MBPS => 7, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_SLR_0_5_MBPS => 8, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_11A_6_MBPS => 9, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_11A_9_MBPS => 10, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_11A_12_MBPS => 11, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_11A_18_MBPS => 12, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_11A_24_MBPS => 13, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_11A_36_MBPS => 14, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_11A_48_MBPS => 15, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_11A_54_MBPS => 16, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_6_5_MBPS => 17, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_13_MBPS => 18, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_19_5_MBPS => 19, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_26_MBPS => 20, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_39_MBPS => 21, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_52_MBPS => 22, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_58_5_MBPS => 23, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_65_MBPS => 24, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_7_2_MBPS => 25, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_14_4_MBPS => 26, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_21_7_MBPS => 27, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_28_9_MBPS => 28, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_43_3_MBPS => 29, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_57_8_MBPS => 30, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_65_MBPS => 31, 
+					WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_72_2_MBPS => 32, 
+					_ => -1, 
+				};
+			}
+			switch (rate)
+			{
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11B_LONG_1_MBPS:
+				return 0;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11B_LONG_2_MBPS:
+				return 1;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11B_LONG_5_5_MBPS:
+				return 2;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11B_LONG_11_MBPS:
+				return 3;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11B_SHORT_2_MBPS:
+				return 1;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11B_SHORT_5_5_MBPS:
+				return 2;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11B_SHORT_11_MBPS:
+				return 3;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11A_6_MBPS:
+				return 4;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11A_9_MBPS:
+				return 5;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11A_12_MBPS:
+				return 6;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11A_18_MBPS:
+				return 7;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11A_24_MBPS:
+				return 8;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11A_36_MBPS:
+				return 9;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11A_48_MBPS:
+				return 10;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11A_54_MBPS:
+				return 11;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_6_5_MBPS:
+				return 12;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_13_MBPS:
+				return 13;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_19_5_MBPS:
+				return 14;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_26_MBPS:
+				return 15;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_39_MBPS:
+				return 16;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_52_MBPS:
+				return 17;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_58_5_MBPS:
+				return 18;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_65_MBPS:
+				return 19;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_7_2_MBPS:
+				return 12;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_14_4_MBPS:
+				return 13;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_21_7_MBPS:
+				return 14;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_28_9_MBPS:
+				return 15;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_43_3_MBPS:
+				return 16;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_57_8_MBPS:
+				return 17;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_65_MBPS:
+				return 18;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_72_2_MBPS:
+				return 19;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_CB_13_5_MBPS:
+				return 20;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_CB_27_MBPS:
+				return 21;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_CB_40_5_MBPS:
+				return 22;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_CB_54_MBPS:
+				return 23;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_CB_81_MBPS:
+				return 24;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_CB_108_MBPS:
+				return 25;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_CB_121_5_MBPS:
+				return 26;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_CB_135_MBPS:
+				return 27;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_CB_15_MBPS:
+				return 20;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_CB_30_MBPS:
+				return 21;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_CB_45_MBPS:
+				return 22;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_CB_60_MBPS:
+				return 23;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_CB_90_MBPS:
+				return 24;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_CB_120_MBPS:
+				return 25;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_CB_135_MBPS:
+				return 26;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_CB_150_MBPS:
+				return 27;
+			}
+		}
+		else
+		{
+			switch (rate)
+			{
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11B_LONG_1_MBPS:
+				return 0;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11B_LONG_2_MBPS:
+				return 1;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11B_LONG_5_5_MBPS:
+				return 2;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11B_LONG_11_MBPS:
+				return 3;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11B_SHORT_2_MBPS:
+				return 4;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11B_SHORT_5_5_MBPS:
+				return 5;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11B_SHORT_11_MBPS:
+				return 6;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11A_6_MBPS:
+				return 7;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11A_9_MBPS:
+				return 8;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11A_12_MBPS:
+				return 9;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11A_18_MBPS:
+				return 10;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11A_24_MBPS:
+				return 11;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11A_36_MBPS:
+				return 12;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11A_48_MBPS:
+				return 13;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_11A_54_MBPS:
+				return 14;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_6_5_MBPS:
+				return 23;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_13_MBPS:
+				return 24;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_19_5_MBPS:
+				return 25;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_26_MBPS:
+				return 26;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_39_MBPS:
+				return 27;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_52_MBPS:
+				return 28;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_58_5_MBPS:
+				return 29;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_65_MBPS:
+				return 30;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_7_2_MBPS:
+				return 31;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_14_4_MBPS:
+				return 32;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_21_7_MBPS:
+				return 33;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_28_9_MBPS:
+				return 34;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_43_3_MBPS:
+				return 35;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_57_8_MBPS:
+				return 36;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_65_MBPS:
+				return 37;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_72_2_MBPS:
+				return 38;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_CB_13_5_MBPS:
+				return 39;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_CB_27_MBPS:
+				return 40;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_CB_40_5_MBPS:
+				return 41;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_CB_54_MBPS:
+				return 42;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_CB_81_MBPS:
+				return 43;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_CB_108_MBPS:
+				return 44;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_CB_121_5_MBPS:
+				return 45;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_CB_135_MBPS:
+				return 46;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_CB_15_MBPS:
+				return 47;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_CB_30_MBPS:
+				return 48;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_CB_45_MBPS:
+				return 49;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_CB_60_MBPS:
+				return 50;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_CB_90_MBPS:
+				return 51;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_CB_120_MBPS:
+				return 52;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_CB_135_MBPS:
+				return 53;
+			case WLAN_Gen6_HAL_PHY_Rate.RATE_MCS_1NSS_MM_SG_CB_150_MBPS:
+				return 54;
+			}
+		}
+		return -1;
+	}
+
+	private int getRate(WLAN_DataRate rate, bool short11b_nGuard)
+	{
+		if (WlanId == 6003 || WlanId == 6005)
+		{
+			return (int)rate;
+		}
+		if (WlanId == 6004 || WlanId == 9800 || WlanId == 6006)
+		{
+			switch (rate)
+			{
+			default:
+				return -1;
+			case WLAN_DataRate.RATE_1Mbps:
+				return 0;
+			case WLAN_DataRate.RATE_2Mbps:
+				if (!short11b_nGuard)
+				{
+					return 1;
+				}
+				return 2;
+			case WLAN_DataRate.RATE_5_5Mbps:
+				if (!short11b_nGuard)
+				{
+					return 3;
+				}
+				return 4;
+			case WLAN_DataRate.RATE_11Mbps:
+				if (short11b_nGuard)
+				{
+					return 6;
+				}
+				return 5;
+			case WLAN_DataRate.RATE_6Mbps:
+				return 8;
+			case WLAN_DataRate.RATE_9Mbps:
+				return 9;
+			case WLAN_DataRate.RATE_12Mbps:
+				return 10;
+			case WLAN_DataRate.RATE_18Mbps:
+				return 11;
+			case WLAN_DataRate.RATE_24Mbps:
+				return 12;
+			case WLAN_DataRate.RATE_36Mbps:
+				return 13;
+			case WLAN_DataRate.RATE_48Mbps:
+				return 14;
+			case WLAN_DataRate.RATE_54Mbps:
+				return 15;
+			case WLAN_DataRate.RATE_MCS_0_20:
+				return 16;
+			case WLAN_DataRate.RATE_MCS_1_20:
+				return 17;
+			case WLAN_DataRate.RATE_MCS_2_20:
+				return 18;
+			case WLAN_DataRate.RATE_MCS_3_20:
+				return 19;
+			case WLAN_DataRate.RATE_MCS_4_20:
+				return 20;
+			case WLAN_DataRate.RATE_MCS_5_20:
+				return 21;
+			case WLAN_DataRate.RATE_MCS_6_20:
+				return 22;
+			case WLAN_DataRate.RATE_MCS_7_20:
+				return 23;
+			case WLAN_DataRate.RATE_MCS_0_40:
+				return 24;
+			case WLAN_DataRate.RATE_MCS_1_40:
+				return 25;
+			case WLAN_DataRate.RATE_MCS_2_40:
+				return 26;
+			case WLAN_DataRate.RATE_MCS_3_40:
+				return 27;
+			case WLAN_DataRate.RATE_MCS_4_40:
+				return 28;
+			case WLAN_DataRate.RATE_MCS_5_40:
+				return 29;
+			case WLAN_DataRate.RATE_MCS_6_40:
+				return 30;
+			case WLAN_DataRate.RATE_MCS_7_40:
+				return 31;
+			}
+		}
+		if (WlanId == 3660 || WlanId == 3680 || WlanId == 3620)
+		{
+			byte b = FTM_WLAN_GEN6_GET_NV_VERSION();
+			if (b == 0 || b == 1)
+			{
+				switch (rate)
+				{
+				case WLAN_DataRate.RATE_1Mbps:
+					return 0;
+				case WLAN_DataRate.RATE_2Mbps:
+					if (short11b_nGuard)
+					{
+						return 4;
+					}
+					return 1;
+				case WLAN_DataRate.RATE_5_5Mbps:
+					if (short11b_nGuard)
+					{
+						return 5;
+					}
+					return 2;
+				case WLAN_DataRate.RATE_11Mbps:
+					if (!short11b_nGuard)
+					{
+						return 3;
+					}
+					return 6;
+				case WLAN_DataRate.RATE_6Mbps:
+					return 7;
+				case WLAN_DataRate.RATE_9Mbps:
+					return 8;
+				case WLAN_DataRate.RATE_12Mbps:
+					return 9;
+				case WLAN_DataRate.RATE_18Mbps:
+					return 10;
+				case WLAN_DataRate.RATE_24Mbps:
+					return 11;
+				case WLAN_DataRate.RATE_36Mbps:
+					return 12;
+				case WLAN_DataRate.RATE_48Mbps:
+					return 13;
+				case WLAN_DataRate.RATE_54Mbps:
+					return 14;
+				case WLAN_DataRate.RATE_MCS_0_20:
+					if (!short11b_nGuard)
+					{
+						return 23;
+					}
+					return 31;
+				case WLAN_DataRate.RATE_MCS_1_20:
+					if (!short11b_nGuard)
+					{
+						return 24;
+					}
+					return 32;
+				case WLAN_DataRate.RATE_MCS_2_20:
+					if (short11b_nGuard)
+					{
+						return 33;
+					}
+					return 25;
+				case WLAN_DataRate.RATE_MCS_3_20:
+					if (!short11b_nGuard)
+					{
+						return 26;
+					}
+					return 34;
+				case WLAN_DataRate.RATE_MCS_4_20:
+					if (short11b_nGuard)
+					{
+						return 35;
+					}
+					return 27;
+				case WLAN_DataRate.RATE_MCS_5_20:
+					if (!short11b_nGuard)
+					{
+						return 28;
+					}
+					return 36;
+				case WLAN_DataRate.RATE_MCS_6_20:
+					if (!short11b_nGuard)
+					{
+						return 29;
+					}
+					return 37;
+				case WLAN_DataRate.RATE_MCS_7_20:
+					if (!short11b_nGuard)
+					{
+						return 30;
+					}
+					return 38;
+				case WLAN_DataRate.RATE_MCS_0_40:
+					if (!short11b_nGuard)
+					{
+						return 39;
+					}
+					return 47;
+				case WLAN_DataRate.RATE_MCS_1_40:
+					if (!short11b_nGuard)
+					{
+						return 40;
+					}
+					return 48;
+				case WLAN_DataRate.RATE_MCS_2_40:
+					if (short11b_nGuard)
+					{
+						return 49;
+					}
+					return 41;
+				case WLAN_DataRate.RATE_MCS_3_40:
+					if (short11b_nGuard)
+					{
+						return 50;
+					}
+					return 42;
+				case WLAN_DataRate.RATE_MCS_4_40:
+					if (short11b_nGuard)
+					{
+						return 51;
+					}
+					return 43;
+				case WLAN_DataRate.RATE_MCS_5_40:
+					if (!short11b_nGuard)
+					{
+						return 44;
+					}
+					return 52;
+				case WLAN_DataRate.RATE_MCS_6_40:
+					if (short11b_nGuard)
+					{
+						return 53;
+					}
+					return 45;
+				case WLAN_DataRate.RATE_MCS_7_40:
+					if (!short11b_nGuard)
+					{
+						return 46;
+					}
+					return 54;
+				case WLAN_DataRate.RATE_AC_MCS_0_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 72;
+					}
+					return 63;
+				case WLAN_DataRate.RATE_AC_MCS_1_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 73;
+					}
+					return 64;
+				case WLAN_DataRate.RATE_AC_MCS_2_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 65;
+					}
+					return 74;
+				case WLAN_DataRate.RATE_AC_MCS_3_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 75;
+					}
+					return 66;
+				case WLAN_DataRate.RATE_AC_MCS_4_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 67;
+					}
+					return 76;
+				case WLAN_DataRate.RATE_AC_MCS_5_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 68;
+					}
+					return 77;
+				case WLAN_DataRate.RATE_AC_MCS_6_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 69;
+					}
+					return 78;
+				case WLAN_DataRate.RATE_AC_MCS_7_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 79;
+					}
+					return 70;
+				case WLAN_DataRate.RATE_AC_MCS_8_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 80;
+					}
+					return 71;
+				default:
+					return -1;
+				case WLAN_DataRate.RATE_AC_MCS_0_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 91;
+					}
+					return 81;
+				case WLAN_DataRate.RATE_AC_MCS_1_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 92;
+					}
+					return 82;
+				case WLAN_DataRate.RATE_AC_MCS_2_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 93;
+					}
+					return 83;
+				case WLAN_DataRate.RATE_AC_MCS_3_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 94;
+					}
+					return 84;
+				case WLAN_DataRate.RATE_AC_MCS_4_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 85;
+					}
+					return 95;
+				case WLAN_DataRate.RATE_AC_MCS_5_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 96;
+					}
+					return 86;
+				case WLAN_DataRate.RATE_AC_MCS_6_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 87;
+					}
+					return 97;
+				case WLAN_DataRate.RATE_AC_MCS_7_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 88;
+					}
+					return 98;
+				case WLAN_DataRate.RATE_AC_MCS_8_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 89;
+					}
+					return 99;
+				case WLAN_DataRate.RATE_AC_MCS_9_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 100;
+					}
+					return 90;
+				case WLAN_DataRate.RATE_AC_MCS_0_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 101;
+					}
+					return 111;
+				case WLAN_DataRate.RATE_AC_MCS_1_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 102;
+					}
+					return 112;
+				case WLAN_DataRate.RATE_AC_MCS_2_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 113;
+					}
+					return 103;
+				case WLAN_DataRate.RATE_AC_MCS_3_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 104;
+					}
+					return 114;
+				case WLAN_DataRate.RATE_AC_MCS_4_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 115;
+					}
+					return 105;
+				case WLAN_DataRate.RATE_AC_MCS_5_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 116;
+					}
+					return 106;
+				case WLAN_DataRate.RATE_AC_MCS_6_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 107;
+					}
+					return 117;
+				case WLAN_DataRate.RATE_AC_MCS_7_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 108;
+					}
+					return 118;
+				case WLAN_DataRate.RATE_AC_MCS_8_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 109;
+					}
+					return 119;
+				case WLAN_DataRate.RATE_AC_MCS_9_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 110;
+					}
+					return 120;
+				}
+			}
+			if (b == 2 || (b & 0x80) == 128)
+			{
+				switch (rate)
+				{
+				default:
+					return -1;
+				case WLAN_DataRate.RATE_1Mbps:
+					return 0;
+				case WLAN_DataRate.RATE_2Mbps:
+					if (short11b_nGuard)
+					{
+						return 4;
+					}
+					return 1;
+				case WLAN_DataRate.RATE_5_5Mbps:
+					if (short11b_nGuard)
+					{
+						return 5;
+					}
+					return 2;
+				case WLAN_DataRate.RATE_11Mbps:
+					if (short11b_nGuard)
+					{
+						return 6;
+					}
+					return 3;
+				case WLAN_DataRate.RATE_6Mbps:
+					return 7;
+				case WLAN_DataRate.RATE_9Mbps:
+					return 8;
+				case WLAN_DataRate.RATE_12Mbps:
+					return 9;
+				case WLAN_DataRate.RATE_18Mbps:
+					return 10;
+				case WLAN_DataRate.RATE_24Mbps:
+					return 11;
+				case WLAN_DataRate.RATE_36Mbps:
+					return 12;
+				case WLAN_DataRate.RATE_48Mbps:
+					return 13;
+				case WLAN_DataRate.RATE_54Mbps:
+					return 14;
+				case WLAN_DataRate.RATE_MCS_0_20:
+					if (!short11b_nGuard)
+					{
+						return 23;
+					}
+					return 31;
+				case WLAN_DataRate.RATE_MCS_1_20:
+					if (short11b_nGuard)
+					{
+						return 32;
+					}
+					return 24;
+				case WLAN_DataRate.RATE_MCS_2_20:
+					if (short11b_nGuard)
+					{
+						return 33;
+					}
+					return 25;
+				case WLAN_DataRate.RATE_MCS_3_20:
+					if (!short11b_nGuard)
+					{
+						return 26;
+					}
+					return 34;
+				case WLAN_DataRate.RATE_MCS_4_20:
+					if (!short11b_nGuard)
+					{
+						return 27;
+					}
+					return 35;
+				case WLAN_DataRate.RATE_MCS_5_20:
+					if (!short11b_nGuard)
+					{
+						return 28;
+					}
+					return 36;
+				case WLAN_DataRate.RATE_MCS_6_20:
+					if (!short11b_nGuard)
+					{
+						return 29;
+					}
+					return 37;
+				case WLAN_DataRate.RATE_MCS_7_20:
+					if (!short11b_nGuard)
+					{
+						return 30;
+					}
+					return 38;
+				case WLAN_DataRate.RATE_MCS_0_40:
+					if (!short11b_nGuard)
+					{
+						return 39;
+					}
+					return 47;
+				case WLAN_DataRate.RATE_MCS_1_40:
+					if (!short11b_nGuard)
+					{
+						return 40;
+					}
+					return 48;
+				case WLAN_DataRate.RATE_MCS_2_40:
+					if (!short11b_nGuard)
+					{
+						return 41;
+					}
+					return 49;
+				case WLAN_DataRate.RATE_MCS_3_40:
+					if (!short11b_nGuard)
+					{
+						return 42;
+					}
+					return 50;
+				case WLAN_DataRate.RATE_MCS_4_40:
+					if (!short11b_nGuard)
+					{
+						return 43;
+					}
+					return 51;
+				case WLAN_DataRate.RATE_MCS_5_40:
+					if (!short11b_nGuard)
+					{
+						return 44;
+					}
+					return 52;
+				case WLAN_DataRate.RATE_MCS_6_40:
+					if (!short11b_nGuard)
+					{
+						return 45;
+					}
+					return 53;
+				case WLAN_DataRate.RATE_MCS_7_40:
+					if (!short11b_nGuard)
+					{
+						return 46;
+					}
+					return 54;
+				case WLAN_DataRate.RATE_AC_MCS_0_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 73;
+					}
+					return 63;
+				case WLAN_DataRate.RATE_AC_MCS_1_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 64;
+					}
+					return 74;
+				case WLAN_DataRate.RATE_AC_MCS_2_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 65;
+					}
+					return 75;
+				case WLAN_DataRate.RATE_AC_MCS_3_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 76;
+					}
+					return 66;
+				case WLAN_DataRate.RATE_AC_MCS_4_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 77;
+					}
+					return 67;
+				case WLAN_DataRate.RATE_AC_MCS_5_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 68;
+					}
+					return 78;
+				case WLAN_DataRate.RATE_AC_MCS_6_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 69;
+					}
+					return 79;
+				case WLAN_DataRate.RATE_AC_MCS_7_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 80;
+					}
+					return 70;
+				case WLAN_DataRate.RATE_AC_MCS_8_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 71;
+					}
+					return 81;
+				case WLAN_DataRate.RATE_AC_MCS_9_20:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 72;
+					}
+					return 82;
+				case WLAN_DataRate.RATE_AC_MCS_0_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 83;
+					}
+					return 93;
+				case WLAN_DataRate.RATE_AC_MCS_1_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 94;
+					}
+					return 84;
+				case WLAN_DataRate.RATE_AC_MCS_2_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 85;
+					}
+					return 95;
+				case WLAN_DataRate.RATE_AC_MCS_3_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 96;
+					}
+					return 86;
+				case WLAN_DataRate.RATE_AC_MCS_4_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 87;
+					}
+					return 97;
+				case WLAN_DataRate.RATE_AC_MCS_5_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 88;
+					}
+					return 98;
+				case WLAN_DataRate.RATE_AC_MCS_6_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 89;
+					}
+					return 99;
+				case WLAN_DataRate.RATE_AC_MCS_7_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 90;
+					}
+					return 100;
+				case WLAN_DataRate.RATE_AC_MCS_8_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 101;
+					}
+					return 91;
+				case WLAN_DataRate.RATE_AC_MCS_9_40:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 92;
+					}
+					return 102;
+				case WLAN_DataRate.RATE_AC_MCS_0_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 103;
+					}
+					return 113;
+				case WLAN_DataRate.RATE_AC_MCS_1_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 114;
+					}
+					return 104;
+				case WLAN_DataRate.RATE_AC_MCS_2_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 115;
+					}
+					return 105;
+				case WLAN_DataRate.RATE_AC_MCS_3_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 116;
+					}
+					return 106;
+				case WLAN_DataRate.RATE_AC_MCS_4_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 107;
+					}
+					return 117;
+				case WLAN_DataRate.RATE_AC_MCS_5_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 108;
+					}
+					return 118;
+				case WLAN_DataRate.RATE_AC_MCS_6_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 119;
+					}
+					return 109;
+				case WLAN_DataRate.RATE_AC_MCS_7_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 110;
+					}
+					return 120;
+				case WLAN_DataRate.RATE_AC_MCS_8_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (short11b_nGuard)
+					{
+						return 121;
+					}
+					return 111;
+				case WLAN_DataRate.RATE_AC_MCS_9_80:
+					if (WlanId == 3660)
+					{
+						return -1;
+					}
+					if (!short11b_nGuard)
+					{
+						return 112;
+					}
+					return 122;
+				}
+			}
+		}
+		return -1;
+	}
+
+	private byte GetCouplerTypeFromXmlFile(string fname)
+	{
+		string value = "CouplerType";
+		byte result = 0;
+		XmlTextReader xmlTextReader = new XmlTextReader(fname);
+		bool flag = false;
+		while (xmlTextReader.Read())
+		{
+			switch (xmlTextReader.NodeType)
+			{
+			case XmlNodeType.Text:
+				if (!flag)
+				{
+					break;
+				}
+				result = Convert.ToByte(xmlTextReader.Value);
+				xmlTextReader.Close();
+				return result;
+			case XmlNodeType.Element:
+				if (xmlTextReader.Name.StartsWith(value))
+				{
+					flag = true;
+				}
+				break;
+			default:
+				flag = false;
+				break;
+			}
+		}
+		xmlTextReader.Close();
+		return result;
+	}
+
+	private void SetCouplerTypeToXmlFile(string fname, byte couplerType)
+	{
+		string xpath = "//CouplerType";
+		string message = "Unexpectedly found multiple couple type nodes!";
+		XmlDocument xmlDocument = new XmlDocument();
+		xmlDocument.Load(fname);
+		XmlNodeList xmlNodeList = xmlDocument.SelectNodes(xpath);
+		if (xmlNodeList.Count != 1)
+		{
+			throw new Exception(message);
+		}
+		xmlNodeList[0].InnerText = couplerType.ToString();
+		xmlDocument.PreserveWhitespace = true;
+		XmlTextWriter xmlTextWriter = new XmlTextWriter(fname, Encoding.UTF8);
+		xmlDocument.WriteTo(xmlTextWriter);
+		xmlTextWriter.Close();
+	}
+
+	private bool IsNumeric(string text)
+	{
+		double result;
+		return double.TryParse(text, out result);
+	}
+
+	private string TranslateToString(byte[] pData)
+	{
+		string text = "(Hex)";
+		string text2 = Encoding.ASCII.GetString(pData);
+		char[] trimChars = new char[1];
+		string text3 = text2.TrimEnd(trimChars);
+		if (string.IsNullOrEmpty(text3))
+		{
+			return text3;
+		}
+		if (IsNumeric(text3))
+		{
+			return text3;
+		}
+		string text4 = BitConverter.ToString(pData);
+		char[] trimChars2 = new char[1];
+		return text4.TrimEnd(trimChars2) + text;
+	}
+
+	public void WriteMCN(string wMCN)
+	{
+		string exceptionMessage = "Error writing NV item MCN to the phone";
+		byte[] array = new byte[128];
+		array = Encoding.Default.GetBytes(wMCN);
+		try
+		{
+			NVWrite(nv_items_enum_type.NV_FACTORY_DATA_2_I, array, 128);
+		}
+		catch (Exception)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void ReadMCN(out string rMCN)
+	{
+		string exceptionMessage = "Error reading MCN from the phone";
+		byte[] array = new byte[128];
+		try
+		{
+			NVRead(nv_items_enum_type.NV_FACTORY_DATA_2_I, array, 128);
+		}
+		catch (Exception)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		rMCN = Encoding.Default.GetString(array);
+	}
+
+	public void WriteSN(string wSN)
+	{
+		string exceptionMessage = "Error writing NV item SN to the phone";
+		byte[] array = new byte[128];
+		array = Encoding.Default.GetBytes(wSN);
+		try
+		{
+			NVWrite((nv_items_enum_type)2497, array, 128);
+		}
+		catch (Exception)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void ReadSN(out string rSN)
+	{
+		string exceptionMessage = "Error reading SN from the phone";
+		byte[] array = new byte[128];
+		try
+		{
+			NVRead((nv_items_enum_type)2497, array, 128);
+		}
+		catch (Exception)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		rSN = Encoding.Default.GetString(array);
+	}
+
+	public void WriteTrackingInfo(string wTrackingInfo)
+	{
+		string exceptionMessage = "Error writing NV item TrackingInfo to the phone";
+		byte[] array = new byte[128];
+		array = Encoding.Default.GetBytes(wTrackingInfo);
+		try
+		{
+			NVWrite((nv_items_enum_type)2499, array, 128);
+		}
+		catch (Exception)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void ReadTrackingInfo(out string rTrackingInfo)
+	{
+		string exceptionMessage = "Error reading TrackingInfo from the phone";
+		byte[] array = new byte[128];
+		try
+		{
+			NVRead((nv_items_enum_type)2499, array, 128);
+		}
+		catch (Exception)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		rTrackingInfo = Encoding.Default.GetString(array);
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AUDIO_SET_PATH(uint hResourceContext, ushort iAudioDevice);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AUDIO_SET_VOLUME(uint hResourceContext, byte iVolume);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AUDIO_DSP_LOOPBACK(uint hResourceContext, byte bLoopbackOn);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AUDIO_PCM_LOOPBACK(uint hResourceContext, byte bLoopbackOn);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AUDIO_TONES_PLAY(uint hResourceContext, ushort iHiFreq, ushort iLoFreq, ushort iMethod);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AUDIO_TONES_STOP(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AUDIO_NS_CONTROL(uint hResourceContext, byte iNoiseSuppressorOn);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AUDIO_PCM_CAPTURE(uint hResourceContext, ushort iNumBuffers, ushort iDelay_ms);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AUDIO_PCM_STOP_CAPTURE(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AUDIO_GET_PCM_CAPTURE_DATA(uint hResourceContext, uint iDataOffset, ushort iDataSize, byte[] pBuffer);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AUDIO_CapturePCMandTransferData(uint hResourceContext, ushort iNumBuffers, ushort iDelay_ms, byte[] pBuffer, ushort iDataTransferSize, byte bCreateWAVformat);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AUDIO_SET_CODECTXGAIN_ADJUST(uint hResourceContext, short iCodecTxGainAdjust);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AUDIO_SET_PATH_INPUT_OUTPUT(uint hResourceContext, ushort iInputDevice, ushort iOutputDevice, ref ushort iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_AUDIO_PCM_ENABLE_WITH_PARAMS(uint hResourceContext, ushort iNum_PCM_Buffers, ushort iRate, ushort iNum_Channels, ushort iSample_Width, ushort iFrameSize, byte[] sFileName, byte[] sFilePath, ref ushort iStatus);
+
+	public void FTM_AUDIO_SET_PATH(ushort audioDevice)
+	{
+		string exceptionMessage = "QLIB_FTM_AUDIO_SET_PATH failed";
+		if (QLIB_FTM_AUDIO_SET_PATH(phoneHandle, audioDevice) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_AUDIO_SET_VOLUME(byte volume)
+	{
+		string exceptionMessage = "QLIB_FTM_AUDIO_SET_VOLUME failed";
+		if (QLIB_FTM_AUDIO_SET_VOLUME(phoneHandle, volume) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_AUDIO_DSP_LOOPBACK(byte loopbackOn)
+	{
+		string exceptionMessage = "QLIB_FTM_AUDIO_DSP_LOOPBACK failed";
+		if (QLIB_FTM_AUDIO_DSP_LOOPBACK(phoneHandle, loopbackOn) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_AUDIO_PCM_LOOPBACK(byte loopbackOn)
+	{
+		string exceptionMessage = "QLIB_FTM_AUDIO_PCM_LOOPBACK failed";
+		if (QLIB_FTM_AUDIO_PCM_LOOPBACK(phoneHandle, loopbackOn) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_AUDIO_TONES_PLAY(ushort highFreq, ushort lowFreq, ushort method)
+	{
+		string exceptionMessage = "QLIB_FTM_AUDIO_TONES_PLAY failed";
+		if (QLIB_FTM_AUDIO_TONES_PLAY(phoneHandle, highFreq, lowFreq, method) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_AUDIO_TONES_STOP()
+	{
+		string exceptionMessage = "QLIB_FTM_AUDIO_TONES_STOP failed";
+		if (QLIB_FTM_AUDIO_TONES_STOP(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_AUDIO_NS_CONTROL(byte noiseSuppressorOn)
+	{
+		string exceptionMessage = "QLIB_FTM_AUDIO_NS_CONTROL failed";
+		if (QLIB_FTM_AUDIO_NS_CONTROL(phoneHandle, noiseSuppressorOn) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_AUDIO_PCM_CAPTURE(ushort numBuffers, ushort delay_ms)
+	{
+		string exceptionMessage = "QLIB_FTM_AUDIO_PCM_CAPTURE failed";
+		if (QLIB_FTM_AUDIO_PCM_CAPTURE(phoneHandle, numBuffers, delay_ms) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_AUDIO_PCM_STOP_CAPTURE()
+	{
+		string exceptionMessage = "QLIB_FTM_AUDIO_PCM_STOP_CAPTURE failed";
+		if (QLIB_FTM_AUDIO_PCM_STOP_CAPTURE(phoneHandle) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_AUDIO_GET_PCM_CAPTURE_DATA(uint dataOffset, ushort dataSize, byte[] buffer)
+	{
+		string exceptionMessage = "QLIB_FTM_AUDIO_GET_PCM_CAPTURE_DATA failed";
+		if (QLIB_FTM_AUDIO_GET_PCM_CAPTURE_DATA(phoneHandle, dataOffset, dataSize, buffer) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_AUDIO_CapturePCMandTransferData(ushort numBuffers, ushort delay_ms, byte[] buffer, ushort dataTransferSize, byte createWAVformat)
+	{
+		string exceptionMessage = "QLIB_FTM_AUDIO_CapturePCMandTransferData failed";
+		if (QLIB_FTM_AUDIO_CapturePCMandTransferData(phoneHandle, numBuffers, delay_ms, buffer, dataTransferSize, createWAVformat) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_AUDIO_SET_CODECTXGAIN_ADJUST(short codecTxGainAdjust)
+	{
+		string exceptionMessage = "QLIB_FTM_AUDIO_SET_CODECTXGAIN_ADJUST failed";
+		if (QLIB_FTM_AUDIO_SET_CODECTXGAIN_ADJUST(phoneHandle, codecTxGainAdjust) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_AUDIO_SET_PATH_INPUT_OUTPUT(ushort inputDevice, ushort outputDevice, out ushort status)
+	{
+		string exceptionMessage = "QLIB_FTM_AUDIO_SET_PATH_INPUT_OUTPUT failed";
+		status = 0;
+		if (QLIB_FTM_AUDIO_SET_PATH_INPUT_OUTPUT(phoneHandle, inputDevice, outputDevice, ref status) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void FTM_AUDIO_PCM_ENABLE_WITH_PARAMS(ushort numPcmBuffers, ushort rate, ushort numChannels, ushort sampleWidth, ushort frameSize, byte[] fileName, byte[] filePath, ref ushort status)
+	{
+		string exceptionMessage = "QLIB_FTM_AUDIO_PCM_ENABLE_WITH_PARAMS failed";
+		if (QLIB_FTM_AUDIO_PCM_ENABLE_WITH_PARAMS(phoneHandle, numPcmBuffers, rate, numChannels, sampleWidth, frameSize, fileName, filePath, ref status) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_UploadCEFS_File(uint handle, string sFileName, string sPartitionFileName);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_UploadCEFS_File2(uint handle, string sFileName, string sPartitionFileName, int iDloadArmprg);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DownloadCEFS_File(uint hResourceContext, string sLocalFile);
+
+	public void UploadCEFSFile(string sFileName, string sPartitionFileName)
+	{
+		string message = "Failed to upload the CEFS_File";
+		if (QLIB_UploadCEFS_File(phoneHandle, sFileName, sPartitionFileName) == 0)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void UploadCEFSFile2(string sFileName, string sPartitionFileName, int iDloadArmprg)
+	{
+		string message = "Failed to upload the CEFS_File2";
+		if (QLIB_UploadCEFS_File2(phoneHandle, sFileName, sPartitionFileName, iDloadArmprg) == 0)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void DownloadCEFSFile(string sLocalFile)
+	{
+		string message = "Failed to Download the the CEFS File";
+		if (QLIB_DownloadCEFS_File(phoneHandle, sLocalFile) == 0)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_EfsDirectory(uint hResourceContext, string sFolderPath);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_EfsWrite(uint hResourceContext, string sLocalFile, string sEFS_File);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_EfsRead(uint hResourceContext, string sEFS_File, string sLocalFile);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_EfsDelete(uint hResourceContext, string sFileName);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_EfsMkDir(uint hResourceContext, string sEFS_Folder);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_EfsRmDir(uint hResourceContext, string sEFS_Folder);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_EfsRmTree(uint hResourceContext, string sEFS_Folder);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DownloadPRL(uint hResourceContext, short iNAM_Index, string sPRL_Path);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_UploadPRL(uint hResourceContext, short iNAM_Index, string sPRL_Path);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern void QLIB_GetLastEfsErrorInfo(uint hResourceContext, byte[] bErrorOccurred, sbyte[] sErrorMessage, int iMaxStringLength);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_AbortEFS_Operation(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern void QLIB_ConfigureEfs2CallBacks(uint hResourceContext, uint nullValue, EFS_CB_TYPE EfsDirCB);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_Efs2GetItem(uint hResourceContext, string sEFS_File, string sLocalFile, int EFSFileLength);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_Efs2PutItem(uint hResourceContext, string sLocalFile, string sEFS_File);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_EFS2_SyncWithWait(uint hResourceContext, ref byte FilePath, uint SyncTimeOut, ref byte Status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_EFS2_DIAG_MAKE_GOLDEN_COPY(uint hResourceContext, string sEFS_File, ref uint iError);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_EFS2_DIAG_MAKE_GOLDEN_COPY_V2(uint hResourceContext, uint iSequenceNum, uint iGoldenCopyType, string sEFS_File, ref uint iGolenCopyStatus, ref uint iError);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_EFS2_DIAG_MAKE_GOLDEN_COPY_V2_GET_STATUS(uint hResourceContext, uint iSequenceNum, string sEFS_File, ref uint iGolenCopyStatus, ref uint iError);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_EfsReadMem(uint hResourceContext, byte[] dataBuffer, ref int dataBufferSize, string EFS_path);
+
+	private byte method_2(string name, byte isFile, ushort iAttributeMask, byte iBufferingOption, byte iCleanupOption, uint iCreateDate, uint iFileSize, uint handle)
+	{
+		EfsEntry efsEntry = new EfsEntry();
+		efsEntry.path = name;
+		int num;
+		if (isFile == 0)
+		{
+			efsEntry.isFile = false;
+			num = 690869368;
+		}
+		else
+		{
+			efsEntry.isFile = true;
+			num = 690869368;
+		}
+		_ = num ^ 0x41EC28D2;
+		fileList.Add(efsEntry);
+		return 1;
+	}
+
+	public void method_3(string directory_name)
+	{
+		int num = 0;
+		string text = "Error creating EFS Directory ";
+		bool flag = true;
+		try
+		{
+			method_4(directory_name);
+		}
+		catch (Exception)
+		{
+			flag = (byte)num != 0;
+		}
+		if ((!flag) ? (QLIB_EfsMkDir(phoneHandle, directory_name) == num) : ((byte)num != 0))
+		{
+			throw new PhoneException(text + directory_name);
+		}
+	}
+
+	public void method_4(string directory_name)
+	{
+		string text = "Error verifying EFS Directory ";
+		if (QLIB_EfsDirectory(phoneHandle, directory_name) == 0)
+		{
+			throw new PhoneException(text + directory_name);
+		}
+	}
+
+	public bool EFSCreateDirectory(string directory_name)
+	{
+		int num = 0;
+		bool flag = true;
+		try
+		{
+			EFSVerifyDirectory(directory_name);
+		}
+		catch (Exception)
+		{
+			flag = (byte)num != 0;
+		}
+		if ((!flag) ? (QLIB_EfsMkDir(phoneHandle, directory_name) == num) : ((byte)num != 0))
+		{
+			flag = (byte)num != 0;
+		}
+		return flag;
+	}
+
+	private void EFSVerifyDirectory(string directory_name)
+	{
+		string text = "Error verifying EFS Directory ";
+		if (QLIB_EfsDirectory(phoneHandle, directory_name) == 0)
+		{
+			throw new PhoneException(text + directory_name);
+		}
+	}
+
+	public void method_5(string directory_name)
+	{
+		string text = "Error removing EFS Directory ";
+		method_4(directory_name);
+		if (QLIB_EfsRmDir(phoneHandle, directory_name) == 0)
+		{
+			throw new PhoneException(text + directory_name);
+		}
+	}
+
+	public void EFSRemoveTree(string directory_name)
+	{
+		int num = 1;
+		int num2 = 0;
+		string text = "Error removing EFS Tree ";
+		List<dirInfo> list = new List<dirInfo>();
+		list.Add(new dirInfo(1, directory_name));
+		List<dirInfo> list2 = new List<dirInfo>();
+		List<EfsEntry> dirResult = new List<EfsEntry>();
+		bool flag = true;
+		int num3 = 1;
+		while (flag)
+		{
+			list2 = new List<dirInfo>(list);
+			flag = (byte)num2 != 0;
+			foreach (dirInfo item in list2)
+			{
+				if (((item.level == num3) ? 1 : 0) == num2)
+				{
+					continue;
+				}
+				dirResult.Clear();
+				if ((EFSDir(item.path, out dirResult) ? 1 : 0) == num2)
+				{
+					continue;
+				}
+				foreach (EfsEntry item2 in dirResult)
+				{
+					if ((item2.isFile ? 1 : 0) == num2)
+					{
+						list.Add(new dirInfo(num3 + num, item2.path));
+						flag = (byte)num != 0;
+					}
+				}
+			}
+			num3 += num;
+		}
+		int num4 = list2.Count - num;
+		while (((num4 < num2) ? 1 : 0) == num2)
+		{
+			if (QLIB_EfsRmTree(phoneHandle, list2[num4].path) == num2)
+			{
+				throw new PhoneException(text + directory_name);
+			}
+			num4 -= num;
+		}
+	}
+
+	public void EFSWriteFile(string LocalFilename, string EFSPathFileName)
+	{
+		string text = "Error writing EFS file ";
+		if (QLIB_EfsWrite(phoneHandle, LocalFilename, EFSPathFileName) == 0)
+		{
+			throw new PhoneException(text + EFSPathFileName);
+		}
+	}
+
+	public void method_6(string LocalFilename, string EFSPathFileName)
+	{
+		string text = "Error reading EFS file ";
+		if (QLIB_EfsRead(phoneHandle, EFSPathFileName, LocalFilename) == 0)
+		{
+			throw new PhoneException(text + EFSPathFileName);
+		}
+	}
+
+	public bool EFSReadFile(string LocalFilename, string EFSPathFileName)
+	{
+		bool result = true;
+		if (QLIB_EfsRead(phoneHandle, EFSPathFileName, LocalFilename) != 0)
+		{
+			return result;
+		}
+		result = false;
+		return false;
+	}
+
+	public void EFS_Put_ItemFile(string LocalFilename, string EFSPathFileName)
+	{
+		string text = "Error writing EFS file ";
+		if (QLIB_Efs2PutItem(phoneHandle, LocalFilename, EFSPathFileName) == 0)
+		{
+			throw new PhoneException(text + EFSPathFileName);
+		}
+	}
+
+	public void EFS_Get_ItemFile(string LocalFilename, string EFSPathFileName, byte EFSFileLength)
+	{
+		string text = "Error reading EFS file ";
+		if (QLIB_Efs2GetItem(phoneHandle, EFSPathFileName, LocalFilename, EFSFileLength) == 0)
+		{
+			throw new PhoneException(text + EFSPathFileName);
+		}
+	}
+
+	public bool EFSDir(string dirName, out List<EfsEntry> dirResult)
+	{
+		object efsDirCB = null;
+		fileList.Clear();
+		bool result = false;
+		QLIB_ConfigureEfs2CallBacks(phoneHandle, 0u, method_2);
+		if (QLIB_EfsDirectory(phoneHandle, dirName) != 0)
+		{
+			result = true;
+			QLIB_ConfigureEfs2CallBacks(phoneHandle, 0u, (EFS_CB_TYPE)efsDirCB);
+			dirResult = fileList;
+			return true;
+		}
+		QLIB_ConfigureEfs2CallBacks(phoneHandle, 0u, (EFS_CB_TYPE)efsDirCB);
+		dirResult = fileList;
+		return result;
+	}
+
+	public void EFSDeleteFile(string filename)
+	{
+		string text = "Error deleting EFS file ";
+		if (QLIB_EfsDelete(phoneHandle, filename) == 0)
+		{
+			throw new PhoneException(text + filename);
+		}
+	}
+
+	public bool EFSGetLastError(string ErrorMessage)
+	{
+		string text = "";
+		byte[] array = new byte[256];
+		sbyte[] array2 = new sbyte[1024];
+		QLIB_GetLastEfsErrorInfo(phoneHandle, array, array2, 256);
+		if (array[0] != 1)
+		{
+			ErrorMessage = text;
+			return true;
+		}
+		char[] array3 = new char[1024];
+		int num = 0;
+		for (num = 0; num < 1024 && array2[num] != 0; num++)
+		{
+			array3[num] = Convert.ToChar(array2[num]);
+		}
+		string text2 = new string(array3);
+		ErrorMessage = text2.Substring(0, num);
+		return false;
+	}
+
+	public bool EFS_SyncWithWait(int SyncTimeout)
+	{
+		int result = 0;
+		int result2 = 1;
+		byte b = 0;
+		byte b2 = 0;
+		b = 47;
+		b2 = 4;
+		ushort num = 0;
+		try
+		{
+			num = QLIB_EFS2_SyncWithWait(phoneHandle, ref b, (uint)SyncTimeout, ref b2);
+			if (b2 != 2)
+			{
+				if (num == 0)
+				{
+					return false;
+				}
+				if (b2 != 0 && b2 != 5)
+				{
+					return false;
+				}
+			}
+		}
+		catch (Exception)
+		{
+			return (byte)result != 0;
+		}
+		return (byte)result2 != 0;
+	}
+
+	public void EFS_Make_GoldenCopy(string EFSPathFileName, ref long ErrorCode)
+	{
+		string text = "Error creating EFS Golden Copy ";
+		byte b = 0;
+		uint iError = 0u;
+		b = QLIB_EFS2_DIAG_MAKE_GOLDEN_COPY(phoneHandle, EFSPathFileName, ref iError);
+		ErrorCode = iError;
+		if (b == 0)
+		{
+			throw new PhoneException(text + EFSPathFileName);
+		}
+	}
+
+	public void EFS_Make_GoldenCopy_V2(uint SequenceNum, uint GoldenCopyType, string EFSPathFileName, ref uint GoldenCopyStatus, ref uint ErrorCode)
+	{
+		string text = "Error creating EFS Golden Copy ";
+		byte b = 0;
+		uint iError = 0u;
+		b = QLIB_EFS2_DIAG_MAKE_GOLDEN_COPY_V2(phoneHandle, SequenceNum, GoldenCopyType, EFSPathFileName, ref GoldenCopyStatus, ref iError);
+		ErrorCode = iError;
+		if (b == 0)
+		{
+			throw new PhoneException(text + EFSPathFileName);
+		}
+	}
+
+	public void EFS_Make_GoldenCopy_V2_GetStatus(uint SequenceNum, string EFSPathFileName, ref uint GoldenCopyStatus, ref uint ErrorCode)
+	{
+		string text = "Error creating EFS Golden Copy Get Status ";
+		byte b = 0;
+		uint iError = 0u;
+		b = QLIB_EFS2_DIAG_MAKE_GOLDEN_COPY_V2_GET_STATUS(phoneHandle, SequenceNum, EFSPathFileName, ref GoldenCopyStatus, ref iError);
+		ErrorCode = iError;
+		if (b == 0)
+		{
+			throw new PhoneException(text + EFSPathFileName);
+		}
+	}
+
+	public void EFS_GetVal_ItemFilePath(byte[] buffer, long bufferSize, string efs_file_update_path)
+	{
+		string message = "fail of  QLIB_EfsReadMem";
+		int dataBufferSize = (int)bufferSize;
+		if (QLIB_EfsReadMem(phoneHandle, buffer, ref dataBufferSize, efs_file_update_path) == 0)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_NV_READ_F(uint hResourceContext, ushort itemID, byte[] itemData, int length, ref ushort status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_NV_READ_EXT_F(uint hResourceContext, ushort iItemID, byte[] pItemData, ushort ushort_0, int iLength, ref ushort iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_NV_WRITE_F(uint hResourceContext, ushort itemID, byte[] itemData, int length, ref ushort status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_NV_WRITE_EXT_F(uint hResourceContext, ushort iItemID, byte[] pItemData, ushort ushort_0, int iLength, ref ushort iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_NV_READ_ARRAY_F(uint hResourceContext, ushort iItemID, int iArrayIndex, byte[] pItemData, int iLength, ref ushort iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_NV_WRITE_ARRAY_F(uint hResourceContext, ushort iItemID, int iArrayIndex, byte[] pItemData, int iLength, ref ushort iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_RFNV_WRITE(uint hResourceContext, ushort iRFNV_ID, byte[] pData, ushort iDataSz, ref ushort iFTM_Error_Code);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_EFS2_DIAG_STAT(uint hResourceContext, string sFilePath, ref uint piErrorNo, ref uint piMode, ref uint piSize, ref uint piNlink, ref uint piAtime, ref uint piMtime, ref uint piCtime);
+
+	public void NVRead(nv_items_enum_type itemID, byte[] buffer, short itemSize)
+	{
+		NVRead((ushort)itemID, buffer, itemSize);
+	}
+
+	public void NVRead(ushort itemID, byte[] buffer, short itemSize)
+	{
+		string message = "Could not read the specified NV";
+		ushort num = 4;
+		QLIB_DIAG_NV_READ_F(phoneHandle, itemID, buffer, itemSize, ref num);
+		if (num != 0 && num != 5)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void NVRead_DualSIM(nv_items_enum_type eItem_id, byte[] buffer, short itemSize, int index)
+	{
+		string message = "Could not read the specified NV";
+		ushort iStatus = 4;
+		QLIB_DIAG_NV_READ_EXT_F(phoneHandle, (ushort)eItem_id, buffer, (ushort)index, itemSize, ref iStatus);
+		if (iStatus != 0 && iStatus != 5)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void method_7(nv_items_enum_type eItem_id, int index, byte[] buffer, short itemSize)
+	{
+		method_8((ushort)eItem_id, index, buffer, itemSize);
+	}
+
+	public void method_8(ushort eItem_id, int index, byte[] buffer, short itemSize)
+	{
+		string message = "Could not read the specified NV array";
+		ushort iStatus = 4;
+		QLIB_DIAG_NV_READ_ARRAY_F(phoneHandle, eItem_id, index, buffer, itemSize, ref iStatus);
+		if (iStatus == 0 || iStatus == 5)
+		{
+			return;
+		}
+		throw new Exception(message);
+	}
+
+	public void FTM_RFNV_WRITE(ushort iRFNV_ID, byte[] pData, ushort iDataSz, ref ushort iFTM_Error_Code)
+	{
+		QLIB_FTM_RFNV_WRITE(phoneHandle, iRFNV_ID, pData, iDataSz, ref iFTM_Error_Code);
+	}
+
+	public ulong EFS2_Size(string sFilePath, ref ulong piErrorNo)
+	{
+		uint piMode = 0u;
+		uint piNlink = 0u;
+		uint piAtime = 0u;
+		uint piMtime = 0u;
+		uint piCtime = 0u;
+		uint piSize = 0u;
+		uint piErrorNo2 = 0u;
+		QLIB_EFS2_DIAG_STAT(phoneHandle, sFilePath, ref piErrorNo2, ref piMode, ref piSize, ref piNlink, ref piAtime, ref piMtime, ref piCtime);
+		piErrorNo = piErrorNo2;
+		return piSize;
+	}
+
+	public void NVWrite(nv_items_enum_type itemID, byte[] buffer, short itemSize)
+	{
+		NVWrite((ushort)itemID, buffer, itemSize);
+	}
+
+	public void NVWrite(ushort itemID, byte[] buffer, short itemSize)
+	{
+		string message = "Error in writing to NV";
+		string message2 = "NV item is Read Only";
+		string message3 = "NV status error";
+		string text = "Error in NVWrite :";
+		ushort num = 4;
+		try
+		{
+			if (QLIB_DIAG_NV_WRITE_F(phoneHandle, itemID, buffer, itemSize, ref num) == 0)
+			{
+				throw new Exception(message);
+			}
+			switch (num)
+			{
+			case 7:
+				throw new Exception(message2);
+			default:
+				throw new Exception(message3);
+			case 0:
+			case 5:
+				break;
+			}
+		}
+		catch (Exception ex)
+		{
+			throw new Exception(text + ex.Message);
+		}
+	}
+
+	public void NVWrite_EFSSync(ushort itemID, byte[] buffer, short itemSize, int SyncTimeout)
+	{
+		string message = "Error in writing to NV";
+		string message2 = "NV item is Read Only";
+		string message3 = "NV status error";
+		string text = "Error in NVWrite_EFSSync :";
+		ushort num = 4;
+		try
+		{
+			if (QLIB_DIAG_NV_WRITE_F(phoneHandle, itemID, buffer, itemSize, ref num) == 0)
+			{
+				throw new Exception(message);
+			}
+			switch (num)
+			{
+			case 7:
+				throw new Exception(message2);
+			default:
+				throw new Exception(message3);
+			case 0:
+			case 5:
+				EFS_SyncWithWait(SyncTimeout);
+				break;
+			}
+		}
+		catch (Exception ex)
+		{
+			throw new Exception(text + ex.Message);
+		}
+	}
+
+	public void NVWriteArray(nv_items_enum_type eItem_id, int index, byte[] buffer, short itemSize)
+	{
+		NVWriteArray((ushort)eItem_id, index, buffer, itemSize);
+	}
+
+	public void NVWriteArray(ushort eItem_id, int index, byte[] buffer, short itemSize)
+	{
+		string exceptionMessage = "Could not write the specified NV array";
+		ushort iStatus = 4;
+		QLIB_DIAG_NV_WRITE_ARRAY_F(phoneHandle, eItem_id, index, buffer, itemSize, ref iStatus);
+		if (iStatus != 0 && iStatus != 5)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void NVWrite_DualSIM(nv_items_enum_type eItem_id, byte[] buffer, short itemSize, int index)
+	{
+		string message = "Error in writing to NV";
+		string message2 = "NV item is Read Only";
+		string message3 = "NV status error";
+		string text = "Error in NVWrite_DualSIM :";
+		ushort iStatus = 4;
+		try
+		{
+			if (QLIB_DIAG_NV_WRITE_EXT_F(phoneHandle, (ushort)eItem_id, buffer, (ushort)index, itemSize, ref iStatus) == 0)
+			{
+				throw new Exception(message);
+			}
+			switch (iStatus)
+			{
+			case 7:
+				throw new Exception(message2);
+			default:
+				throw new Exception(message3);
+			case 0:
+			case 5:
+				break;
+			}
+		}
+		catch (Exception ex)
+		{
+			throw new Exception(text + ex.Message);
+		}
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DownloadQcnFile(uint hResourceContext, string sQCN_Path, string sSPC);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DownloadQcnFile_V2(uint hResourceContext, string sFileName, string sSPC);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_UploadQcnFile(uint hResourceContext, string sQCN_Path, string sSPC, bool bAutoRestore, bool bSkipReset, bool bAllowEsnMismatch, bool bIgnorePhoneModel);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_UploadQcnFile_V2(uint hResourceContext, string sFileName, string sSPC, bool bAllowEsnMismatch);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Auto, SetLastError = true)]
+	private static extern byte QLIB_GetLastSoftwareDownloadErrorInfo(uint hResourceContext, byte[] bErrorOccurred, sbyte[] sErrorMessage, int iMaxStringLength);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_NV_LoadNVsFromQCN(uint hResourceContext, string sQCN_Path, ref int iNumOfNVItemValuesLoaded, ref int iResultCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_NV_LoadNVDefinitionFile(uint hResourceContext, string sNV_Def_XML_Path, ref int piNumNVDefLoaded, ref int piResultCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_NV_LoadNVDataTypeDictinary(uint hResourceContext, string sNV_Def_XML_Path, ref int piNumNVDefLoaded, ref int piResultCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_NV_ClearNVDefinition(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_NV_LoadNVsFromMobile(uint hResourceContext, ref int iNumOfNVItemValuesLoaded, ref int iResultCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_NV_WriteNVsToQCN(uint hResourceContext, string sQCN_Path, ref int iResultCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_NV_WriteNVsToMobile(uint hResourceContext, ref int iResultCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_NV_WriteNVsToSource(uint hResourceContext, string sSource_Path, ref int iResultCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_NV_LoadReadFilter(uint hResourceContext, string sFilter_XML_Path, ref int iResultCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_NV_LoadWriteFilter(uint hResourceContext, string sFilter_XML_Path, ref int iResultCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern void QLIB_NV_ConfigureCallBack(uint handle, QPHONE_NVToolCallBackHandler nvItemCallBack);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_NV_SetTargetSupportMultiSIM(uint handle, bool gTargetSupportMultiSim);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_NV_SetCurrentSubscriptionIndex(uint handle, int subscriptionIndex);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_BackupNVFromMobileToQCN(uint hResourceContext, string sQCN_Path, ref int iResultCode);
+
+	public bool CreateQCNFile(string QCNPathFileName, string SPC, out string ErrorMessage)
+	{
+		string text = "";
+		sbyte[] array = new sbyte[1024];
+		byte[] array2 = new byte[256];
+		QLIB_DownloadQcnFile(phoneHandle, QCNPathFileName, SPC);
+		QLIB_GetLastSoftwareDownloadErrorInfo(phoneHandle, array2, array, 100);
+		if (array2[0] == 1)
+		{
+			char[] array3 = new char[1024];
+			int num = 0;
+			for (num = 0; num < 1024 && array[num] != 0; num++)
+			{
+				array3[num] = Convert.ToChar(array[num]);
+			}
+			string text2 = new string(array3);
+			ErrorMessage = text2.Substring(0, num);
+			return false;
+		}
+		ErrorMessage = text;
+		return true;
+	}
+
+	public bool CreateQCNFile_V2(string QCNPathFileName, string SPC, out string ErrorMessage)
+	{
+		int result = 0;
+		string text = "";
+		string text2 = "QLIB_DownloadQcnFile_V2 Failed";
+		byte b = 0;
+		try
+		{
+			b = QLIB_DownloadQcnFile_V2(phoneHandle, QCNPathFileName, SPC);
+			if (b != 1)
+			{
+				ErrorMessage = text2;
+				return false;
+			}
+			ErrorMessage = text;
+			return true;
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+			return (byte)result != 0;
+		}
+	}
+
+	public bool RestoreQCNFile(string QCNPathFileName, string SPC, bool bSkipReset, out string ErrorMessage)
+	{
+		string text = "";
+		byte b = 0;
+		sbyte[] array = new sbyte[1024];
+		byte[] array2 = new byte[256];
+		_ = 0 & QLIB_UploadQcnFile(phoneHandle, QCNPathFileName, SPC, bAutoRestore: true, bSkipReset, bAllowEsnMismatch: true, bIgnorePhoneModel: true);
+		b = 0;
+		_ = 0 & QLIB_GetLastSoftwareDownloadErrorInfo(phoneHandle, array2, array, 100);
+		b = 0;
+		if (array2[0] != 1)
+		{
+			ErrorMessage = text;
+			if (b != 0)
+			{
+				return false;
+			}
+			return true;
+		}
+		char[] array3 = new char[1024];
+		int num = 0;
+		for (num = 0; num < 1024 && array[num] != 0; num++)
+		{
+			array3[num] = Convert.ToChar(array[num]);
+		}
+		string text2 = new string(array3);
+		ErrorMessage = text2.Substring(0, num);
+		return false;
+	}
+
+	public bool RestoreQCNFile_V2(string QCNPathFileName, string SPC, bool bSkipReset, out string ErrorMessage)
+	{
+		int result = 0;
+		string text = "";
+		string text2 = "QLIB_UploadQcnFile_V2 Failed";
+		byte b = 0;
+		bool bAllowEsnMismatch = true;
+		try
+		{
+			b = QLIB_UploadQcnFile_V2(phoneHandle, QCNPathFileName, SPC, bAllowEsnMismatch);
+			if (b != 1)
+			{
+				ErrorMessage = text2;
+				return false;
+			}
+			ErrorMessage = text;
+			return true;
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+			return (byte)result != 0;
+		}
+	}
+
+	public void LoadNVsFromQCN(string qcnFileName, ref int nvItemsCount, out int resultCode)
+	{
+		nvItemsCount = -1;
+		resultCode = 1;
+		if (QLIB_NV_LoadNVsFromQCN(phoneHandle, qcnFileName, ref nvItemsCount, ref resultCode) == 0)
+		{
+			QMSL_NV_RESULT_CODE qMSL_NV_RESULT_CODE = (QMSL_NV_RESULT_CODE)resultCode;
+			throw new Exception(qMSL_NV_RESULT_CODE.ToString());
+		}
+	}
+
+	public void NV_LoadNVsFromQCN(string qcnFileName, ref int nvItemsCount, out int resultCode)
+	{
+		string text = "Failed QLIB_NV_LoadNVsFromQCN: ";
+		nvItemsCount = -1;
+		resultCode = 1;
+		if (QLIB_NV_LoadNVsFromQCN(phoneHandle, qcnFileName, ref nvItemsCount, ref resultCode) == 0)
+		{
+			QMSL_NV_RESULT_CODE qMSL_NV_RESULT_CODE = (QMSL_NV_RESULT_CODE)resultCode;
+			throw new Exception(text + qMSL_NV_RESULT_CODE);
+		}
+	}
+
+	public void NV_SetTargetSupportMultiSIM(bool gTargetSupportMultiSim)
+	{
+		string message = "Failed QLIB_NV_SetTargetSupportMultiSIM";
+		if (QLIB_NV_SetTargetSupportMultiSIM(phoneHandle, gTargetSupportMultiSim) == 0)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void NV_SetCurrentSubscriptionIndex(int subscriptionIndex)
+	{
+		string message = "Failed QLIB_NV_SetCurrentSubscriptionIndexint";
+		if (QLIB_NV_SetCurrentSubscriptionIndex(phoneHandle, subscriptionIndex) == 0)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public bool BackupNVFromMobileToQCN(string sQCN_Path, ref int ResultCode)
+	{
+		ResultCode = -1;
+		if (QLIB_BackupNVFromMobileToQCN(phoneHandle, sQCN_Path, ref ResultCode) == 0)
+		{
+			QMSL_NV_RESULT_CODE qMSL_NV_RESULT_CODE = (QMSL_NV_RESULT_CODE)ResultCode;
+			int num = (int)qMSL_NV_RESULT_CODE;
+			throw new Exception(num.ToString());
+		}
+		return true;
+	}
+
+	public void NV_LoadNVDataTypeDictionary(string sNV_Def_XML_Path, ref int piNumNVDefLoaded, ref int piResultCode)
+	{
+		piNumNVDefLoaded = 0;
+		piResultCode = -1;
+		if (QLIB_NV_LoadNVDataTypeDictinary(phoneHandle, sNV_Def_XML_Path, ref piNumNVDefLoaded, ref piResultCode) == 0)
+		{
+			QMSL_NV_RESULT_CODE qMSL_NV_RESULT_CODE = (QMSL_NV_RESULT_CODE)piResultCode;
+			throw new Exception(qMSL_NV_RESULT_CODE.ToString());
+		}
+	}
+
+	public void NV_LoadNVDefinitionFile(string sNV_Def_XML_Path, ref int piNumNVDefLoaded, ref int piResultCode)
+	{
+		piNumNVDefLoaded = 0;
+		piResultCode = -1;
+		if (QLIB_NV_LoadNVDefinitionFile(phoneHandle, sNV_Def_XML_Path, ref piNumNVDefLoaded, ref piResultCode) == 0)
+		{
+			QMSL_NV_RESULT_CODE qMSL_NV_RESULT_CODE = (QMSL_NV_RESULT_CODE)piResultCode;
+			throw new Exception(qMSL_NV_RESULT_CODE.ToString());
+		}
+	}
+
+	public void NV_ClearNVDefinitionFile()
+	{
+		QLIB_NV_ClearNVDefinition(phoneHandle);
+	}
+
+	public void NV_LoadNVsFromMobile(ref int iNumOfNVItemValuesLoaded, ref int iResultCode)
+	{
+		iResultCode = -1;
+		iNumOfNVItemValuesLoaded = 0;
+		if (QLIB_NV_LoadNVsFromMobile(phoneHandle, ref iNumOfNVItemValuesLoaded, ref iResultCode) == 0)
+		{
+			QMSL_NV_RESULT_CODE qMSL_NV_RESULT_CODE = (QMSL_NV_RESULT_CODE)iResultCode;
+			throw new Exception(qMSL_NV_RESULT_CODE.ToString());
+		}
+	}
+
+	public void NV_WriteNVsToQCN(string sQCN_Path, ref int iResultCode)
+	{
+		iResultCode = -1;
+		if (QLIB_NV_WriteNVsToQCN(phoneHandle, sQCN_Path, ref iResultCode) == 0)
+		{
+			QMSL_NV_RESULT_CODE qMSL_NV_RESULT_CODE = (QMSL_NV_RESULT_CODE)iResultCode;
+			throw new Exception(qMSL_NV_RESULT_CODE.ToString());
+		}
+	}
+
+	public void NV_WriteNVsToMobile(ref int iResultCode)
+	{
+		iResultCode = -1;
+		if (QLIB_NV_WriteNVsToMobile(phoneHandle, ref iResultCode) == 0)
+		{
+			QMSL_NV_RESULT_CODE qMSL_NV_RESULT_CODE = (QMSL_NV_RESULT_CODE)iResultCode;
+			throw new Exception(qMSL_NV_RESULT_CODE.ToString());
+		}
+	}
+
+	public void NV_WriteNVsToSource(string sXML_Path, ref int iResultCode)
+	{
+		iResultCode = -1;
+		if (QLIB_NV_WriteNVsToSource(phoneHandle, sXML_Path, ref iResultCode) == 0)
+		{
+			QMSL_NV_RESULT_CODE qMSL_NV_RESULT_CODE = (QMSL_NV_RESULT_CODE)iResultCode;
+			throw new Exception(qMSL_NV_RESULT_CODE.ToString());
+		}
+	}
+
+	public void NV_LoadReadFilter(string sFilter_XML_Path, ref int iResultCode)
+	{
+		iResultCode = -1;
+		if (QLIB_NV_LoadReadFilter(phoneHandle, sFilter_XML_Path, ref iResultCode) == 0)
+		{
+			QMSL_NV_RESULT_CODE qMSL_NV_RESULT_CODE = (QMSL_NV_RESULT_CODE)iResultCode;
+			throw new Exception(qMSL_NV_RESULT_CODE.ToString());
+		}
+	}
+
+	public void NV_LoadWriteFilter(string sFilter_XML_Path, ref int iResultCode)
+	{
+		iResultCode = -1;
+		if (QLIB_NV_LoadWriteFilter(phoneHandle, sFilter_XML_Path, ref iResultCode) == 0)
+		{
+			QMSL_NV_RESULT_CODE qMSL_NV_RESULT_CODE = (QMSL_NV_RESULT_CODE)iResultCode;
+			throw new Exception(qMSL_NV_RESULT_CODE.ToString());
+		}
+	}
+
+	public void RegisterOnNvEvent(NvEventHandler eventFunc, bool removeAll = true)
+	{
+		object onNvEvent = null;
+		if (!removeAll)
+		{
+			OnNvEvent += eventFunc;
+			return;
+		}
+		this.m_OnNvEvent = (NvEventHandler)onNvEvent;
+		OnNvEvent += eventFunc;
+	}
+
+	public void UpdateNvDownloadClient(string information)
+	{
+		this.m_OnNvEvent?.Invoke(this, information);
+	}
+
+	private string Get_QMSL_NVTool_CallBack_Source_Enum(ushort iNVToolFuncEnum)
+	{
+		string text = "Unknown_Function";
+		string result = text;
+		foreach (QMSL_NVTool_CallBack_Source_Enum value in Enum.GetValues(typeof(QMSL_NVTool_CallBack_Source_Enum)))
+		{
+			if ((ushort)value != iNVToolFuncEnum)
+			{
+				continue;
+			}
+			return value.ToString();
+		}
+		return result;
+	}
+
+	private void qphoneNvToolHandlerCallBack(uint handle, byte iSubscriptioniD, string iNViD, ushort iNVToolFuncEnum, ushort iEvent, ushort iProgress)
+	{
+		string format = "Subscription ID:{0} {1}, Function:{2}, Event:{3} <NV_Process_Progress: {4}%>";
+		lock (lockQphoneNvItem)
+		{
+			try
+			{
+				string information = string.Format(format, iSubscriptioniD, iNViD, Get_QMSL_NVTool_CallBack_Source_Enum(iNVToolFuncEnum), iEvent, iProgress);
+				UpdateNvDownloadClient(information);
+			}
+			catch (Exception ex)
+			{
+				throw ex;
+			}
+		}
+	}
+
+	public void EnableQcnNvItemCallBacks()
+	{
+		qphoneNvToolHandlerCallBack_delegate = qphoneNvToolHandlerCallBack;
+		QLIB_NV_ConfigureCallBack(phoneHandle, qphoneNvToolHandlerCallBack_delegate);
+	}
+
+	public void DisableQcnNvItemCallBacks()
+	{
+		object nvItemCallBack = null;
+		QLIB_NV_ConfigureCallBack(phoneHandle, (QPHONE_NVToolCallBackHandler)nvItemCallBack);
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_START(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_WRITE_PARAMETER(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus, ushort iParameterID, uint iScaling, int iValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_READ_PARAMETER(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus, ushort iParameterID, ref uint piScaling, ref int piValue);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_GET_MAX_BUFFER_LENGTH(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus, ref uint piMaxBufferLength);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_READ_IMAGE(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus, uint iOffset, uint iLength, ref uint piDataLength, IntPtr piBuffer);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_EXEC(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus, ushort iTestID);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_READ_EXEC_STATUS(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus, ref ushort piTestID, ref byte piTestStatus, ref byte piTestResult, ushort iBufferLength, ref ushort piDataLength, IntPtr buffer);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_READ_INFO(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus, ref uint uint_0, ref uint piChipID, ref uint piChipSerialNumber, IntPtr piLotID, IntPtr piWaferID, ref uint piSensorWitdh, ref uint piSensorHeigth, ref byte piLivenessSupport);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_WRITE_CALIBRATION(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus, uint iKey);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_READ_TEMPERATURE(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus, ref int piTemperature, ref uint piScaling);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_READ_LIVENESS(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus, ref byte piLiveness);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_WRITE_MFG_DATA(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus, ushort iEntryID, ushort iDataLength, IntPtr buffer);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_READ_MFG_DATA(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus, ushort iEntryID, ushort iBufferLength, ref ushort iDataLength, IntPtr buffer);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_CALIBRATION_STATUS(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus, ref byte piCalibrationStatus, ref byte piEepromStatus, ref byte byte_1);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_SET_TEST_PARAMETER(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus, ushort iTestParameterID, ushort iDataLength, IntPtr piData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_GET_TEST_PARAMETER(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus, ushort iTestParameterID, ushort iBufferLength, ref ushort iDataLength, IntPtr buffer);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_READ_IMAGE_INFO(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus, ref uint piWidth, ref uint piHeight, ref uint piImageSize, ref uint piDataFormat, ref int piTemperature);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_SECURITY_ID_SENSOR_STOP(uint hResourceContext, ref ushort piSECURITY_ID_SENSORStatus);
+
+	public void FTM_SECURITY_ID_SENSOR_START(out ushort piSECURITY_ID_SENSORStatus)
+	{
+		string source = "QLIB_FTM_SECURITY_ID_SENSOR_START";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_SECURITY_ID_SENSOR_START failed";
+		string format2 = "piSECURITY_ID_SENSORStatus :{0}";
+		piSECURITY_ID_SENSORStatus = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_SECURITY_ID_SENSOR_START(phoneHandle, ref piSECURITY_ID_SENSORStatus) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, piSECURITY_ID_SENSORStatus)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_WRITE_PARAMETER(out ushort piSECURITY_ID_SENSORStatus, ushort iParameterID, uint iScaling, int iValue)
+	{
+		string source = "QLIB_FTM_SECURITY_ID_SENSOR_WRITE_PARAMETER";
+		string format = "phoneHandle: {0}, iParameterID: {1}, iScaling: {2}, iValue: {3}";
+		string exceptionMessage = "QLIB_FTM_SECURITY_ID_SENSOR_WRITE_PARAMETER failed";
+		string format2 = "piSECURITY_ID_SENSORStatus :{0}";
+		piSECURITY_ID_SENSORStatus = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iParameterID, iScaling, iValue)));
+		if (QLIB_FTM_SECURITY_ID_SENSOR_WRITE_PARAMETER(phoneHandle, ref piSECURITY_ID_SENSORStatus, iParameterID, iScaling, iValue) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, piSECURITY_ID_SENSORStatus)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_READ_PARAMETER(out ushort piSECURITY_ID_SENSORStatus, ushort iParameterID, out uint piScaling, out int piValue)
+	{
+		string source = "QLIB_FTM_SECURITY_ID_SENSOR_READ_PARAMETER";
+		string format = "phoneHandle: {0}, iParameterID: {1}";
+		string exceptionMessage = "QLIB_FTM_SECURITY_ID_SENSOR_READ_PARAMETER failed";
+		string format2 = "piSECURITY_ID_SENSORStatus :{0}, piScaling: {1}, piValue: {2}";
+		piSECURITY_ID_SENSORStatus = 0;
+		piScaling = 0u;
+		piValue = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iParameterID)));
+		if (QLIB_FTM_SECURITY_ID_SENSOR_READ_PARAMETER(phoneHandle, ref piSECURITY_ID_SENSORStatus, iParameterID, ref piScaling, ref piValue) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, piSECURITY_ID_SENSORStatus, piScaling, piValue)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_GET_MAX_BUFFER_LENGTH(out ushort piSECURITY_ID_SENSORStatus, out uint piMaxBufferLength)
+	{
+		string source = "QLIB_FTM_SECURITY_ID_SENSOR_GET_MAX_BUFFER_LENGTH";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_SECURITY_ID_SENSOR_GET_MAX_BUFFER_LENGTH failed";
+		string format2 = "piSECURITY_ID_SENSORStatus: {0}, piMaxBufferLength: {1}";
+		piSECURITY_ID_SENSORStatus = 0;
+		piMaxBufferLength = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_SECURITY_ID_SENSOR_GET_MAX_BUFFER_LENGTH(phoneHandle, ref piSECURITY_ID_SENSORStatus, ref piMaxBufferLength) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, piSECURITY_ID_SENSORStatus, piMaxBufferLength)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_READ_IMAGE(out ushort piSECURITY_ID_SENSORStatus, uint iOffset, uint iLength, out uint piDataLength, out byte[] piBuffer)
+	{
+		string source = "QLIB_FTM_SECURITY_ID_SENSOR_READ_IMAGE";
+		string format = "phoneHandle: {0}, iOffset: {1}, iLength: {2} ";
+		string exceptionMessage = "QLIB_FTM_SECURITY_ID_SENSOR_READ_IMAGE failed";
+		int type = 2;
+		string format2 = "piSECURITY_ID_SENSORStatus: {0}, piDataLength: {1}, piBuffer: {2} ";
+		piSECURITY_ID_SENSORStatus = 0;
+		piDataLength = 0u;
+		piBuffer = new byte[(int)((long)iLength - 1L + 1L)];
+		GCHandle gCHandle = GCHandle.Alloc(piBuffer, GCHandleType.Pinned);
+		IntPtr piBuffer2 = gCHandle.AddrOfPinnedObject();
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iOffset, iLength)));
+		try
+		{
+			if (QLIB_FTM_SECURITY_ID_SENSOR_READ_IMAGE(phoneHandle, ref piSECURITY_ID_SENSORStatus, iOffset, iLength, ref piDataLength, piBuffer2) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+		finally
+		{
+			if (gCHandle.IsAllocated)
+			{
+				gCHandle.Free();
+			}
+		}
+		Logger.Add(new Message((MessageType)type, source, string.Format(format2, piSECURITY_ID_SENSORStatus, piDataLength, piBuffer)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_EXEC(out ushort piSECURITY_ID_SENSORStatus, byte iTestID)
+	{
+		string source = "QLIB_FTM_SECURITY_ID_SENSOR_EXEC";
+		string format = "phoneHandle: {0},  iTestID: {1}";
+		string exceptionMessage = "QLIB_FTM_SECURITY_ID_SENSOR_EXEC failed";
+		string format2 = "piSECURITY_ID_SENSORStatus: {0}";
+		piSECURITY_ID_SENSORStatus = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iTestID)));
+		if (QLIB_FTM_SECURITY_ID_SENSOR_EXEC(phoneHandle, ref piSECURITY_ID_SENSORStatus, iTestID) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, piSECURITY_ID_SENSORStatus)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_READ_EXEC_STATUS(out ushort piSECURITY_ID_SENSORStatus, out byte piTestStatus, out ushort piTestID, out byte piTestResult, out ushort piDataLength, ushort iBufferLength, out byte[] buffer)
+	{
+		int num = 0;
+		int num2 = 3;
+		int num3 = 1;
+		string source = "QLIB_FTM_SECURITY_ID_SENSOR_READ_EXEC_STATUS";
+		string format = "phoneHandle: {0}, iBufferLength: {1} ";
+		string exceptionMessage = "QLIB_FTM_SECURITY_ID_SENSOR_READ_EXEC_STATUS failed";
+		int num4 = 2;
+		string format2 = "piSECURITY_ID_SENSORStatus: {0}, piTestStatus: {1}, piTestID: {2}, piTestResult: {3}, buffer: {4} ";
+		int num5 = 5;
+		int num6 = 4;
+		piSECURITY_ID_SENSORStatus = 0;
+		piTestStatus = 0;
+		piTestID = 0;
+		piTestResult = 0;
+		piDataLength = 0;
+		buffer = new byte[iBufferLength];
+		GCHandle gCHandle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
+		IntPtr buffer2 = gCHandle.AddrOfPinnedObject();
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iBufferLength)));
+		try
+		{
+			if (QLIB_FTM_SECURITY_ID_SENSOR_READ_EXEC_STATUS(phoneHandle, ref piSECURITY_ID_SENSORStatus, ref piTestID, ref piTestStatus, ref piTestResult, iBufferLength, ref piDataLength, buffer2) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+		finally
+		{
+			if (gCHandle.IsAllocated)
+			{
+				gCHandle.Free();
+			}
+		}
+		object[] array = new object[num5];
+		array[num] = piSECURITY_ID_SENSORStatus;
+		array[num3] = piTestStatus;
+		array[num4] = piTestID;
+		array[num2] = piTestResult;
+		array[num6] = buffer;
+		Logger.Add(new Message((MessageType)num4, source, string.Format(format2, array)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_READ_INFO(out ushort piSECURITY_ID_SENSORStatus, out uint uint_0, out uint piChipID, out uint piChipSerialNumber, out byte[] piLotID, out byte[] piWaferID, out uint piSensorWitdh, out uint piSensorHeigth, out byte piLivenessSupport)
+	{
+		int num = 0;
+		int num2 = 3;
+		int num3 = 1;
+		string source = "QLIB_FTM_SECURITY_ID_SENSOR_READ_INFO";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_SECURITY_ID_SENSOR_READ_INFO failed";
+		int num4 = 2;
+		string format2 = "piSECURITY_ID_SENSORStatus: {0}, piFWVersion: {1}, piChipID: {2}, piChipSerialNumber: {3}, piSensorWitdh: {4}, piSensorHeigth: {5},  piLivenessSupport: {6}";
+		int num5 = 7;
+		int num6 = 4;
+		int num7 = 5;
+		int num8 = 6;
+		piSECURITY_ID_SENSORStatus = 0;
+		uint_0 = 0u;
+		piChipID = 0u;
+		piChipSerialNumber = 0u;
+		piSensorWitdh = 0u;
+		piSensorHeigth = 0u;
+		piLivenessSupport = 0;
+		piLotID = new byte[12];
+		GCHandle gCHandle = GCHandle.Alloc(piLotID, GCHandleType.Pinned);
+		IntPtr piLotID2 = gCHandle.AddrOfPinnedObject();
+		piWaferID = new byte[3];
+		GCHandle gCHandle2 = GCHandle.Alloc(piWaferID, GCHandleType.Pinned);
+		IntPtr piWaferID2 = gCHandle2.AddrOfPinnedObject();
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		try
+		{
+			if (QLIB_FTM_SECURITY_ID_SENSOR_READ_INFO(phoneHandle, ref piSECURITY_ID_SENSORStatus, ref uint_0, ref piChipID, ref piChipSerialNumber, piLotID2, piWaferID2, ref piSensorWitdh, ref piSensorHeigth, ref piLivenessSupport) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+		finally
+		{
+			if (gCHandle.IsAllocated)
+			{
+				gCHandle.Free();
+			}
+			if (gCHandle2.IsAllocated)
+			{
+				gCHandle2.Free();
+			}
+		}
+		object[] array = new object[num5];
+		array[num] = piSECURITY_ID_SENSORStatus;
+		array[num3] = uint_0;
+		array[num4] = piChipID;
+		array[num2] = piChipSerialNumber;
+		array[num6] = piSensorWitdh;
+		array[num7] = piSensorHeigth;
+		array[num8] = piLivenessSupport;
+		Logger.Add(new Message((MessageType)num4, source, string.Format(format2, array)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_WRITE_CALIBRATION(out ushort piSECURITY_ID_SENSORStatus, uint iKey)
+	{
+		string source = "QLIB_FTM_SECURITY_ID_SENSOR_WRITE_CALIBRATION";
+		string format = "phoneHandle: {0}, iKey {1} ";
+		string exceptionMessage = "QLIB_FTM_SECURITY_ID_SENSOR_WRITE_CALIBRATION failed";
+		string format2 = "piSECURITY_ID_SENSORStatus: {0}";
+		piSECURITY_ID_SENSORStatus = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iKey)));
+		if (QLIB_FTM_SECURITY_ID_SENSOR_WRITE_CALIBRATION(phoneHandle, ref piSECURITY_ID_SENSORStatus, iKey) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, piSECURITY_ID_SENSORStatus)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_READ_TEMPERATURE(out ushort piSECURITY_ID_SENSORStatus, out int piTemperature, out uint piScaling)
+	{
+		string source = "QLIB_FTM_SECURITY_ID_SENSOR_READ_TEMPERATURE";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_SECURITY_ID_SENSOR_READ_TEMPERATURE failed";
+		string format2 = "piSECURITY_ID_SENSORStatus: {0}, piTemperature: {1}, piScaling: {2}";
+		piSECURITY_ID_SENSORStatus = 0;
+		piTemperature = 0;
+		piScaling = 0u;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_SECURITY_ID_SENSOR_READ_TEMPERATURE(phoneHandle, ref piSECURITY_ID_SENSORStatus, ref piTemperature, ref piScaling) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, piSECURITY_ID_SENSORStatus, piTemperature, piScaling)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_READ_LIVENESS(out ushort piSECURITY_ID_SENSORStatus, out byte piLiveness)
+	{
+		string source = "QLIB_FTM_SECURITY_ID_SENSOR_READ_LIVENESS";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_SECURITY_ID_SENSOR_READ_LIVENESS failed";
+		string format2 = "piSECURITY_ID_SENSORStatus: {0},  piLiveness: {1}";
+		piSECURITY_ID_SENSORStatus = 0;
+		piLiveness = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_SECURITY_ID_SENSOR_READ_LIVENESS(phoneHandle, ref piSECURITY_ID_SENSORStatus, ref piLiveness) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, piSECURITY_ID_SENSORStatus, piLiveness)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_WRITE_MFG_DATA(out ushort piSECURITY_ID_SENSORStatus, ushort iEntryID, byte[] buffer)
+	{
+		string source = "QLIB_FTM_SECURITY_ID_SENSOR_WRITE_MFG_DATA";
+		string format = "phoneHandle: {0}, iEntryID: {1}, iDataLength: {2}, buffer: {3}";
+		int type = 2;
+		string exceptionMessage = "QLIB_FTM_SECURITY_ID_SENSOR_WRITE_MFG_DATA failed";
+		string format2 = "piSECURITY_ID_SENSORStatus: {0}";
+		piSECURITY_ID_SENSORStatus = 0;
+		ushort num = (ushort)buffer.Length;
+		GCHandle gCHandle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
+		IntPtr buffer2 = gCHandle.AddrOfPinnedObject();
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iEntryID, num, buffer)));
+		try
+		{
+			if (QLIB_FTM_SECURITY_ID_SENSOR_WRITE_MFG_DATA(phoneHandle, ref piSECURITY_ID_SENSORStatus, iEntryID, num, buffer2) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+		finally
+		{
+			if (gCHandle.IsAllocated)
+			{
+				gCHandle.Free();
+			}
+		}
+		Logger.Add(new Message((MessageType)type, source, string.Format(format2, piSECURITY_ID_SENSORStatus)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_READ_MFG_DATA(out ushort piSECURITY_ID_SENSORStatus, ushort iEntryID, ushort iBufferLength, ref ushort piDataLength, out byte[] buffer)
+	{
+		string source = "QLIB_FTM_SECURITY_ID_SENSOR_READ_MFG_DATA";
+		string format = "phoneHandle: {0}, iEntryID: {1}, iBufferLength: {2}";
+		string exceptionMessage = "QLIB_FTM_SECURITY_ID_SENSOR_READ_MFG_DATA failed";
+		int type = 2;
+		string format2 = "piSECURITY_ID_SENSORStatus: {0}, piDataLength: {1}, bufferAddr: {2}";
+		piSECURITY_ID_SENSORStatus = 0;
+		piDataLength = 0;
+		buffer = new byte[iBufferLength];
+		GCHandle gCHandle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
+		IntPtr buffer2 = gCHandle.AddrOfPinnedObject();
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle, iEntryID, iBufferLength)));
+		try
+		{
+			if (QLIB_FTM_SECURITY_ID_SENSOR_READ_MFG_DATA(phoneHandle, ref piSECURITY_ID_SENSORStatus, iEntryID, iBufferLength, ref piDataLength, buffer2) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+		finally
+		{
+			if (gCHandle.IsAllocated)
+			{
+				gCHandle.Free();
+			}
+		}
+		Logger.Add(new Message((MessageType)type, source, string.Format(format2, piSECURITY_ID_SENSORStatus, piDataLength, buffer)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_CALIBRATION_STATUS(out ushort piSECURITY_ID_SENSORStatus, out byte piCalibrationStatus, out byte piEepromStatus, out byte byte_1)
+	{
+		string text = "QLIB_FTM_SECURITY_ID_SENSOR_CALIBRATION_STATUS";
+		string format = "phoneHandle: {0}";
+		string format2 = "piSECURITY_ID_SENSORStatus: {0},  piCalibrationStatus: {1}, piEepromStatus: {2}, piOTPStatus: {3}";
+		piSECURITY_ID_SENSORStatus = 0;
+		piCalibrationStatus = 0;
+		piEepromStatus = 0;
+		byte_1 = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, text, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_SECURITY_ID_SENSOR_CALIBRATION_STATUS(phoneHandle, ref piSECURITY_ID_SENSORStatus, ref piCalibrationStatus, ref piEepromStatus, ref byte_1) == 0)
+		{
+			throw new PhoneException(text);
+		}
+		Logger.Add(new Message((MessageType)2, text, string.Format(format2, piSECURITY_ID_SENSORStatus, piCalibrationStatus, piEepromStatus, byte_1)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_SET_TEST_PARAMETER(out ushort piSECURITY_ID_SENSORStatus, ushort iTestParamaterID, byte[] piData)
+	{
+		string text = "QLIB_FTM_SECURITY_ID_SENSOR_SET_TEST_PARAMETER";
+		string format = "phoneHandle: {0}, iTestParamaterID: {1}, iDataLength: {2}, piData ";
+		int type = 2;
+		string format2 = "piSECURITY_ID_SENSORStatus: {0}";
+		piSECURITY_ID_SENSORStatus = 0;
+		ushort num = (ushort)piData.Length;
+		GCHandle gCHandle = GCHandle.Alloc(piData, GCHandleType.Pinned);
+		IntPtr piData2 = gCHandle.AddrOfPinnedObject();
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, text, string.Format(format, phoneHandle, iTestParamaterID, num, piData)));
+		try
+		{
+			if (QLIB_FTM_SECURITY_ID_SENSOR_SET_TEST_PARAMETER(phoneHandle, ref piSECURITY_ID_SENSORStatus, iTestParamaterID, num, piData2) == 0)
+			{
+				throw new PhoneException(text);
+			}
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+		finally
+		{
+			if (gCHandle.IsAllocated)
+			{
+				gCHandle.Free();
+			}
+		}
+		Logger.Add(new Message((MessageType)type, text, string.Format(format2, piSECURITY_ID_SENSORStatus)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_GET_TEST_PARAMETER(out ushort piSECURITY_ID_SENSORStatus, ushort iTestParamaterID, ushort iBufferLength, out ushort piDataLength, out byte[] buffer)
+	{
+		string text = "QLIB_FTM_SECURITY_ID_SENSOR_GET_TEST_PARAMETER";
+		string format = "phoneHandle: {0}, iTestParamaterID: {1}, iBufferLength: {2} ";
+		int type = 2;
+		string format2 = "piSECURITY_ID_SENSORStatus: {0}, piDataLength: {1}, bufferAddr";
+		piSECURITY_ID_SENSORStatus = 0;
+		piDataLength = 0;
+		buffer = new byte[iBufferLength];
+		GCHandle gCHandle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
+		IntPtr buffer2 = gCHandle.AddrOfPinnedObject();
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, text, string.Format(format, phoneHandle, iTestParamaterID, iBufferLength)));
+		try
+		{
+			if (QLIB_FTM_SECURITY_ID_SENSOR_GET_TEST_PARAMETER(phoneHandle, ref piSECURITY_ID_SENSORStatus, iTestParamaterID, iBufferLength, ref piDataLength, buffer2) == 0)
+			{
+				throw new PhoneException(text);
+			}
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+		finally
+		{
+			if (gCHandle.IsAllocated)
+			{
+				gCHandle.Free();
+			}
+		}
+		Logger.Add(new Message((MessageType)type, text, string.Format(format2, piSECURITY_ID_SENSORStatus, piDataLength, buffer)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_READ_IMAGE_INFO(out ushort piSECURITY_ID_SENSORStatus, out uint iWidth, out uint iHeight, out uint iImageSize, out uint iDataFormat, out int iTemperature)
+	{
+		int num = 0;
+		int num2 = 1;
+		string text = "QLIB_FTM_SECURITY_ID_SENSOR_READ_IMAGE_INFO";
+		string format = "phoneHandle: {0} ";
+		int num3 = 2;
+		string format2 = "piSECURITY_ID_SENSORStatus: {0}, piWidth: {1}, piHeight {2}, piImageSize {3} piDataFormat {4} piTemperature {5}";
+		int num4 = 6;
+		int num5 = 3;
+		int num6 = 4;
+		int num7 = 5;
+		piSECURITY_ID_SENSORStatus = 0;
+		iWidth = 0u;
+		iHeight = 0u;
+		iImageSize = 0u;
+		iDataFormat = 0u;
+		iTemperature = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, text, string.Format(format, phoneHandle)));
+		try
+		{
+			if (QLIB_FTM_SECURITY_ID_SENSOR_READ_IMAGE_INFO(phoneHandle, ref piSECURITY_ID_SENSORStatus, ref iWidth, ref iHeight, ref iImageSize, ref iDataFormat, ref iTemperature) == 0)
+			{
+				throw new PhoneException(text);
+			}
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+		object[] array = new object[num4];
+		array[num] = piSECURITY_ID_SENSORStatus;
+		array[num2] = iWidth;
+		array[num3] = iHeight;
+		array[num5] = iImageSize;
+		array[num6] = iDataFormat;
+		array[num7] = iTemperature;
+		Logger.Add(new Message((MessageType)num3, text, string.Format(format2, array)));
+	}
+
+	public void FTM_SECURITY_ID_SENSOR_STOP(out ushort piSECURITY_ID_SENSORStatus)
+	{
+		string source = "QLIB_FTM_SECURITY_ID_SENSOR_STOP";
+		string format = "phoneHandle: {0}";
+		string exceptionMessage = "QLIB_FTM_SECURITY_ID_SENSOR_STOP failed";
+		string format2 = "piSECURITY_ID_SENSORStatus: {0}";
+		piSECURITY_ID_SENSORStatus = 0;
+		Logger.Add(new Message(MessageType.QLIB_PRE_CALL_MESSAGE, source, string.Format(format, phoneHandle)));
+		if (QLIB_FTM_SECURITY_ID_SENSOR_STOP(phoneHandle, ref piSECURITY_ID_SENSORStatus) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		Logger.Add(new Message((MessageType)2, source, string.Format(format2, piSECURITY_ID_SENSORStatus)));
+	}
+
+	[DllImport("GenerateAKey.dll", CallingConvention = CallingConvention.StdCall, SetLastError = true)]
+	private static extern void CreateAKeyChkSumSPRNT([MarshalAs(UnmanagedType.LPStr)] StringBuilder sAKey, [MarshalAs(UnmanagedType.LPStr)] StringBuilder ESNin, [MarshalAs(UnmanagedType.LPStr)] StringBuilder sCheckSum);
+
+	public void WriteAKeyNumber(string Akey, string SPC)
+	{
+		byte[] array = new byte[6];
+		byte[] array2 = new byte[9];
+		byte[] array3 = new byte[16];
+		array3 = ConvertStringToByte(Akey, array3.Length);
+		array2[0] = 0;
+		int num = 0;
+		int i = 1;
+		for (int num2 = array2.Length - 1; i <= num2; i++)
+		{
+			array2[i] = Convert.ToByte(array3[num + 1] << 4);
+			array2[i] += array3[num];
+			num += 2;
+		}
+		try
+		{
+			array = ConvertStringToAsciiByteArray(SPC, 6);
+			SendSPC(array);
+			NVWrite(nv_items_enum_type.NV_A_KEY_I, array2, 128);
+		}
+		catch
+		{
+		}
+	}
+
+	public void GenerateAKeyInfo(string Meid, out AKey_Info AkeyInfo)
+	{
+		string text = "";
+		string text2 = "0";
+		string RandomNumber = text;
+		GenerateRandomHexNumber(8, out RandomNumber);
+		AkeyInfo.akeyHex = RandomNumber;
+		string Checksum = text;
+		method_9(AkeyInfo.akeyHex, Meid, out Checksum);
+		AkeyInfo.akeyChecksum = Checksum;
+		int num = 16 - AkeyInfo.akeyHex.Length;
+		string text3 = text;
+		int i = 0;
+		for (int num2 = num - 1; i <= num2; i++)
+		{
+			text3 += text2;
+		}
+		AkeyInfo.akeyHex = text3 + AkeyInfo.akeyHex;
+		AkeyInfo.akeyDecimal = ulong.Parse(AkeyInfo.akeyHex, NumberStyles.HexNumber).ToString();
+		int num3 = 20 - AkeyInfo.akeyDecimal.Length;
+		string text4 = text;
+		int j = 0;
+		for (int num4 = num3 - 1; j <= num4; j++)
+		{
+			text4 += text2;
+		}
+		AkeyInfo.akeyDecimal = text4 + AkeyInfo.akeyDecimal;
+	}
+
+	public void method_9(string Akey, string MEID, out string Checksum)
+	{
+		StringBuilder stringBuilder = new StringBuilder(64);
+		StringBuilder stringBuilder2 = new StringBuilder(64);
+		StringBuilder stringBuilder3 = new StringBuilder(64);
+		stringBuilder.Append(Akey);
+		stringBuilder2.Append(MEID);
+		CreateAKeyChkSumSPRNT(stringBuilder, stringBuilder2, stringBuilder3);
+		Checksum = stringBuilder3.ToString();
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern bool QLIB_StartLogging(uint hResourceContext, byte[] sLogFile);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern bool QLIB_FTM_QFUSE_READ(uint hResourceContext, ushort iChainSelect, ref ushort iReadStatus, uint[] aConfigRegister);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern bool QLIB_FTM_QFUSE_WRITE(uint hResourceContext, ushort iChainSelect, ref ushort iWriteStatus, uint[] aConfigRegister);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern bool QLIB_FTM_QFUSE_WRITE_V2(uint hResourceContext, ushort iChainSelect, ref ushort iReadStatus, ushort iNumRegisters, uint[] aConfigRegister);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern bool QLIB_FTM_QFUSE_READ_V2(uint hResourceContext, ushort iChainSelect, ref ushort iReadStatus, ushort iNumRegisters, uint[] aConfigRegister);
+
+	public bool WriteEfuseRegs(uint[] cfgRegs, ushort chain)
+	{
+		int result = 0;
+		string s = "c:\\filelog.txt";
+		string message = "Error writing fuses to the phone";
+		try
+		{
+			ushort iWriteStatus = 1;
+			bool flag = false;
+			bool flag2 = true;
+			uint[] destinationArray = new uint[5];
+			Array.Copy(cfgRegs, destinationArray, 5);
+			byte[] bytes = Encoding.ASCII.GetBytes(s);
+			QLIB_SetLogFlags(phoneHandle, 65535u);
+			QLIB_StartLogging(phoneHandle, bytes);
+			flag2 = QLIB_FTM_QFUSE_WRITE(phoneHandle, chain, ref iWriteStatus, cfgRegs);
+			statusVal = iWriteStatus.ToString();
+			if (!flag2)
+			{
+				iWriteStatus = 15;
+				throw new Exception(message);
+			}
+			flag = iWriteStatus <= 0;
+			QLIB_StopLogging(phoneHandle);
+			return flag;
+		}
+		catch
+		{
+			return (byte)result != 0;
+		}
+	}
+
+	public bool ReadEfuseRegs(uint[] cfgRegs, ushort chain)
+	{
+		int result = 0;
+		string s = "c:\\filelog.txt";
+		string message = "Error reading fuses from the phone";
+		try
+		{
+			ushort iReadStatus = 0;
+			bool flag = false;
+			bool flag2 = true;
+			uint[] array = new uint[5];
+			byte[] bytes = Encoding.ASCII.GetBytes(s);
+			QLIB_StartLogging(phoneHandle, bytes);
+			flag2 = QLIB_FTM_QFUSE_READ(phoneHandle, chain, ref iReadStatus, array);
+			statusVal = iReadStatus.ToString();
+			if (!flag2)
+			{
+				iReadStatus = 15;
+				throw new Exception(message);
+			}
+			Array.Copy(array, cfgRegs, 5);
+			flag = iReadStatus <= 0;
+			QLIB_StopLogging(phoneHandle);
+			return flag;
+		}
+		catch
+		{
+			return (byte)result != 0;
+		}
+	}
+
+	public bool WriteEfuseRegs_V2(uint[] cfgRegs, ushort chain)
+	{
+		string s = "c:\\filelog.txt";
+		int result = 0;
+		string message = "Error writing fuses to the phone";
+		try
+		{
+			ushort iReadStatus = 1;
+			bool result2 = true;
+			bool flag = true;
+			uint[] array = new uint[8];
+			Array.Copy(cfgRegs, array, 8);
+			byte[] bytes = Encoding.ASCII.GetBytes(s);
+			QLIB_SetLogFlags(phoneHandle, 65535u);
+			QLIB_StartLogging(phoneHandle, bytes);
+			flag = QLIB_FTM_QFUSE_WRITE_V2(phoneHandle, chain, ref iReadStatus, (ushort)array.Length, array);
+			QLIB_StopLogging(phoneHandle);
+			if (flag)
+			{
+				if (iReadStatus != 0)
+				{
+					result2 = false;
+				}
+				return result2;
+			}
+			iReadStatus = 15;
+			throw new Exception(message);
+		}
+		catch
+		{
+			return (byte)result != 0;
+		}
+	}
+
+	public bool ReadEfuseRegs_V2(uint[] cfgRegs, ushort chain)
+	{
+		int result = 0;
+		string s = "c:\\filelog.txt";
+		string message = "Error reading fuses from the phone";
+		try
+		{
+			ushort iReadStatus = 0;
+			bool result2 = true;
+			bool flag = true;
+			uint[] array = new uint[8];
+			byte[] bytes = Encoding.ASCII.GetBytes(s);
+			QLIB_SetLogFlags(phoneHandle, 65535u);
+			QLIB_StartLogging(phoneHandle, bytes);
+			flag = QLIB_FTM_QFUSE_READ_V2(phoneHandle, chain, ref iReadStatus, (ushort)array.Length, array);
+			QLIB_StopLogging(phoneHandle);
+			if (flag)
+			{
+				Array.Copy(array, cfgRegs, 8);
+				if (iReadStatus != 0)
+				{
+					result2 = false;
+				}
+				return result2;
+			}
+			iReadStatus = 15;
+			throw new Exception(message);
+		}
+		catch
+		{
+			return (byte)result != 0;
+		}
+	}
+
+	public void method_10(string Imei)
+	{
+		string text = "0";
+		string text2 = "Error writing NV item IMEI to the phone. ";
+		byte[] array = new byte[9] { 8, 0, 0, 0, 0, 0, 0, 0, 0 };
+		int[] array2 = new int[8];
+		int[] array3 = new int[15];
+		string[] array4 = new string[15];
+		if (Imei.Length == 14)
+		{
+			Imei += text;
+		}
+		Imei.ToCharArray();
+		int i = 0;
+		for (int num = array3.Length - 1; i <= num; i++)
+		{
+			array4[i] = Imei[i].ToString();
+			array3[i] = int.Parse(array4[i], NumberStyles.HexNumber);
+		}
+		array2[0] = array3[0];
+		array2[0] <<= 4;
+		array2[0] |= 10;
+		CreateLuhnCheckCode(array3);
+		int num2 = 1;
+		int j = 1;
+		for (int num3 = array2.Length - 1; j <= num3; j++)
+		{
+			array2[j] = array3[num2 + 1];
+			array2[j] <<= 4;
+			array2[j] |= array3[num2];
+			num2 += 2;
+		}
+		for (int k = 1; k <= 8; k++)
+		{
+			array[k] = (byte)array2[k - 1];
+		}
+		try
+		{
+			NVWrite((nv_items_enum_type)550, array, 9);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text2 + ex.Message);
+		}
+	}
+
+	public void ReadIMEI(out Imei_Info imeiInfo)
+	{
+		int num = 15;
+		string exceptionMessage = "Error reading IMEI from the phone";
+		int num2 = 0;
+		int num3 = 1;
+		int num4 = 8;
+		int num5 = 240;
+		int num6 = 4;
+		int num7 = 2;
+		int num8 = 6;
+		int num9 = 7;
+		int num10 = 13;
+		int num11 = 14;
+		byte[] array = new byte[128];
+		string[] array2 = new string[15];
+		int[] array3 = new int[15];
+		imeiInfo = default(Imei_Info);
+		try
+		{
+			NVRead((nv_items_enum_type)550, array, 128);
+		}
+		catch (Exception)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		int num12 = num2;
+		for (int i = num3; ((i > num4) ? 1 : 0) == num2; i += num3)
+		{
+			if (((i == num4) ? 1 : 0) == num2)
+			{
+				array3[num12] = array[i];
+				array3[num12] &= num5;
+				array3[num12] >>= num6;
+				array3[num12 + num3] = array[i + num3] & num;
+			}
+			else
+			{
+				array3[num12] = array[i];
+				array3[num12] &= num5;
+				array3[num12] >>= num6;
+			}
+			num12 += num7;
+		}
+		int j = num2;
+		for (int num13 = array2.Length - num3; ((j > num13) ? 1 : 0) == num2; j += num3)
+		{
+			array2[j] = Convert.ToString(array3[j]);
+			if (j >= num8)
+			{
+				if (((j >= num8) ? ((((j > num9) ? 1 : 0) == num2) ? 1 : 0) : num2) == 0)
+				{
+					if ((j >= num9) ? (((j > num10) ? 1 : 0) == num2) : ((byte)num2 != 0))
+					{
+						imeiInfo.snr += array2[j];
+					}
+				}
+				else
+				{
+					imeiInfo.fac += array2[j];
+				}
+			}
+			else
+			{
+				imeiInfo.tac += array2[j];
+			}
+		}
+		imeiInfo.luhnCode = array2[num11];
+		imeiInfo.imei = imeiInfo.tac + imeiInfo.fac + imeiInfo.snr + imeiInfo.luhnCode;
+	}
+
+	public void WriteIMEI_DualSIM(string Imei, int SubscriberIndex)
+	{
+		string text = "0";
+		string text2 = "Error writing NV item IMEI to the phone at index: ";
+		byte[] array = new byte[9] { 8, 0, 0, 0, 0, 0, 0, 0, 0 };
+		int[] array2 = new int[8];
+		int[] array3 = new int[15];
+		string[] array4 = new string[15];
+		if (Imei.Length == 14)
+		{
+			Imei += text;
+		}
+		Imei.ToCharArray();
+		int i = 0;
+		for (int num = array3.Length - 1; i <= num; i++)
+		{
+			array4[i] = Imei[i].ToString();
+			array3[i] = int.Parse(array4[i], NumberStyles.HexNumber);
+		}
+		array2[0] = array3[0];
+		array2[0] <<= 4;
+		array2[0] |= 10;
+		CreateLuhnCheckCode(array3);
+		int num2 = 1;
+		int j = 1;
+		for (int num3 = array2.Length - 1; j <= num3; j++)
+		{
+			array2[j] = array3[num2 + 1];
+			array2[j] <<= 4;
+			array2[j] |= array3[num2];
+			num2 += 2;
+		}
+		for (int k = 1; k <= 8; k++)
+		{
+			array[k] = (byte)array2[k - 1];
+		}
+		try
+		{
+			NVWrite_DualSIM((nv_items_enum_type)550, array, 9, (ushort)SubscriberIndex);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text2 + SubscriberIndex + ex.Message);
+		}
+	}
+
+	public void ReadIMEI_DualSIM(out Imei_Info imeiInfo, int SubscriberIndex)
+	{
+		int num = 15;
+		string text = "Error reading Dual SIM IMEI from the phone at index: ";
+		int num2 = 0;
+		int num3 = 1;
+		int num4 = 8;
+		int num5 = 240;
+		int num6 = 4;
+		int num7 = 2;
+		int num8 = 6;
+		int num9 = 7;
+		int num10 = 13;
+		int num11 = 14;
+		byte[] array = new byte[128];
+		string[] array2 = new string[15];
+		int[] array3 = new int[15];
+		imeiInfo = default(Imei_Info);
+		try
+		{
+			NVRead_DualSIM((nv_items_enum_type)550, array, 128, SubscriberIndex);
+		}
+		catch (Exception)
+		{
+			throw new PhoneException(text + SubscriberIndex);
+		}
+		int num12 = num2;
+		for (int i = num3; ((i > num4) ? 1 : 0) == num2; i += num3)
+		{
+			if (((i == num4) ? 1 : 0) != num2)
+			{
+				array3[num12] = array[i];
+				array3[num12] &= num5;
+				array3[num12] >>= num6;
+			}
+			else
+			{
+				array3[num12] = array[i];
+				array3[num12] &= num5;
+				array3[num12] >>= num6;
+				array3[num12 + num3] = array[i + num3] & num;
+			}
+			num12 += num7;
+		}
+		int j = num2;
+		for (int num13 = array2.Length - num3; ((j > num13) ? 1 : 0) == num2; j += num3)
+		{
+			array2[j] = Convert.ToString(array3[j]);
+			if (j >= num8)
+			{
+				if (((j >= num8) ? ((((j > num9) ? 1 : 0) == num2) ? 1 : 0) : num2) == 0)
+				{
+					if ((j < num9) ? ((byte)num2 != 0) : (((j > num10) ? 1 : 0) == num2))
+					{
+						imeiInfo.snr += array2[j];
+					}
+				}
+				else
+				{
+					imeiInfo.fac += array2[j];
+				}
+			}
+			else
+			{
+				imeiInfo.tac += array2[j];
+			}
+		}
+		imeiInfo.luhnCode = array2[num11];
+		imeiInfo.imei = imeiInfo.tac + imeiInfo.fac + imeiInfo.snr + imeiInfo.luhnCode;
+	}
+
+	private int[] CreateLuhnCheckCode(int[] ImeiValue)
+	{
+		int num = 0;
+		bool flag = true;
+		for (int num2 = ImeiValue.Length - 2; num2 >= 0; num2--)
+		{
+			if (flag)
+			{
+				int num3 = ImeiValue[num2];
+				num3 *= 2;
+				if (num3 > 9)
+				{
+					num3 -= 9;
+				}
+				num += num3;
+			}
+			else
+			{
+				num += ImeiValue[num2];
+			}
+			flag = !flag;
+		}
+		int num4 = num % 10;
+		if (num4 > 0)
+		{
+			ImeiValue[ImeiValue.Length - 1] = 10 - num4;
+		}
+		else
+		{
+			ImeiValue[ImeiValue.Length - 1] = 0;
+		}
+		return ImeiValue;
+	}
+
+	public void WriteMEIDNumber(string string_0)
+	{
+		string objB = "00000000000000";
+		string objB2 = "000000";
+		string exceptionMessage = "Length of MEID != Correct, Required String length is 15";
+		string text = "Error writing NV item MEID to the phone. ";
+		Meid_Info MeidInfo = default(Meid_Info);
+		ReadMEID(out MeidInfo);
+		if (!object.Equals(MeidInfo.meidHex, objB) && !object.Equals(MeidInfo.meidHex, objB2) && object.Equals(MeidInfo.meidHex, string_0))
+		{
+			return;
+		}
+		byte[] array = new byte[8];
+		int[] array2 = new int[14];
+		string[] array3 = new string[14];
+		for (int i = 0; i <= 13; i++)
+		{
+			array3[i] = string_0[i].ToString();
+			array2[i] = int.Parse(array3[i], NumberStyles.HexNumber);
+		}
+		if (string_0.Length == 14)
+		{
+			int num = string_0.Length - 1;
+			int j = 0;
+			for (int num2 = array.Length - 1 - 1; j <= num2; j++)
+			{
+				array[j] = (byte)(array2[num - 1] << 4);
+				array[j] += (byte)array2[num];
+				num -= 2;
+			}
+			bMEID = array;
+			iMEID = array2;
+			try
+			{
+				NVWrite(nv_items_enum_type.NV_MEID_I, array, 128);
+				return;
+			}
+			catch (Exception ex)
+			{
+				throw new PhoneException(text + ex.Message);
+			}
+		}
+		throw new PhoneException(exceptionMessage);
+	}
+
+	public void ReadMEID(out Meid_Info MeidInfo)
+	{
+		string text = "";
+		string text2 = "Error reading MEID: ";
+		int num = 0;
+		int num2 = 6;
+		int num3 = 15;
+		int num4 = 1;
+		int num5 = 16;
+		int num6 = 4;
+		int num7 = 3;
+		int num8 = 2;
+		int num9 = 14;
+		int style = 515;
+		int num10 = 13;
+		double field_ = Class38.field_5785;
+		int num11 = 8;
+		int num12 = 7;
+		byte[] array = new byte[128];
+		string[] array2 = new string[18];
+		MeidInfo = default(Meid_Info);
+		MeidInfo.RR = text;
+		MeidInfo.MAC = text;
+		MeidInfo.SNR = text;
+		try
+		{
+			NVRead(nv_items_enum_type.NV_MEID_I, array, 128);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text2 + ex.Message);
+		}
+		MEIDByteArray = array;
+		int num13 = num;
+		int num14 = num2;
+		while (((num14 < num) ? 1 : 0) == num)
+		{
+			Convert.ToByte(array[num14] & num3);
+			array2[num13 + num4] = Convert.ToString(Convert.ToByte(array[num14] & num3), num5);
+			array2[num13 + num4].ToUpper();
+			array2[num13] = Convert.ToString(Convert.ToByte(array[num14] >> num6), num5);
+			array2[num13].ToUpper();
+			int num15 = num14;
+			int num16 = num15;
+			if ((uint)(num16 - num7) <= (uint)num8)
+			{
+				MeidInfo.MAC += array2[num13];
+				MeidInfo.MAC += array2[num13 + num4];
+				MeidInfo.MAC = MeidInfo.MAC.ToUpper();
+			}
+			else if (num16 == num2)
+			{
+				MeidInfo.RR += array2[num13];
+				MeidInfo.RR += array2[num13 + num4];
+				MeidInfo.RR = MeidInfo.RR.ToUpper();
+			}
+			else
+			{
+				MeidInfo.SNR += array2[num13];
+				MeidInfo.SNR += array2[num13 + num4];
+				MeidInfo.SNR = MeidInfo.SNR.ToUpper();
+			}
+			num13 += num8;
+			num14 -= num4;
+		}
+		MeidInfo.meidHex = MeidInfo.RR + MeidInfo.MAC + MeidInfo.SNR;
+		int[] array3 = new int[num9];
+		string[] array4 = new string[num9];
+		for (int i = num; ((i > num10) ? 1 : 0) == num; i += num4)
+		{
+			array4[i] = MeidInfo.meidHex[i].ToString();
+			array3[i] = int.Parse(array4[i], (NumberStyles)style);
+		}
+		long num17 = num;
+		long num18 = num;
+		long num19 = num;
+		long num20 = num;
+		int num21 = num;
+		int num22 = num10;
+		while (((num22 < num11) ? 1 : 0) == num)
+		{
+			num19 = Convert.ToInt64(Math.Pow(field_, num21));
+			num20 = Convert.ToInt64(array3[num22]) * num19;
+			num18 += num20;
+			num22 -= num4;
+			num21 += num4;
+		}
+		num21 = num;
+		int num23 = num12;
+		while (((num23 < num) ? 1 : 0) == num)
+		{
+			num19 = Convert.ToInt64(Math.Pow(field_, num21));
+			num20 = Convert.ToInt64(array3[num23]) * num19;
+			num17 += num20;
+			num23 -= num4;
+			num21 += num4;
+		}
+		MeidInfo.meidDecimal = num17.ToString() + num18;
+		string string_ = text;
+		ReadPseudoESN(out string_);
+		MeidInfo.pEsn = string_;
+	}
+
+	public void ReadPseudoESN(out string string_0)
+	{
+		int num = 0;
+		string text = "Error reading ESN: ";
+		int num2 = 3;
+		int num3 = 15;
+		int num4 = 1;
+		int num5 = 16;
+		int num6 = 4;
+		int num7 = 2;
+		string text2 = "";
+		byte[] array = new byte[128];
+		string[] array2 = new string[12];
+		try
+		{
+			NVRead((nv_items_enum_type)0, array, 128);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text + ex.Message);
+		}
+		int num8 = num;
+		int num9 = num2;
+		while (((num9 < num) ? 1 : 0) == num)
+		{
+			Convert.ToByte(array[num9] & num3);
+			array2[num8 + num4] = Convert.ToString(Convert.ToByte(array[num9] & num3), num5);
+			array2[num8 + num4].ToUpper();
+			array2[num8] = Convert.ToString(Convert.ToByte(array[num9] >> num6), num5);
+			array2[num8].ToUpper();
+			num8 += num7;
+			num9 -= num4;
+		}
+		string_0 = text2;
+		int i = num;
+		for (int num10 = array2.Length - num4; ((i > num10) ? 1 : 0) == num; i += num4)
+		{
+			string_0 += array2[i];
+		}
+	}
+
+	public void ReadESN(out ESN_Info ESNInfo)
+	{
+		string text = "";
+		int num = 0;
+		string text2 = "Error reading ESN: ";
+		int num2 = 3;
+		int num3 = 15;
+		int num4 = 1;
+		int num5 = 16;
+		int num6 = 4;
+		int num7 = 2;
+		int num8 = 8;
+		int style = 515;
+		int num9 = 7;
+		double field_ = Class38.field_5785;
+		byte[] array = new byte[128];
+		string[] array2 = new string[12];
+		string text3 = text;
+		try
+		{
+			NVRead((nv_items_enum_type)0, array, 128);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text2 + ex.Message);
+		}
+		int num10 = num;
+		int num11 = num2;
+		while (((num11 < num) ? 1 : 0) == num)
+		{
+			Convert.ToByte(array[num11] & num3);
+			array2[num10 + num4] = Convert.ToString(Convert.ToByte(array[num11] & num3), num5);
+			array2[num10 + num4].ToUpper();
+			array2[num10] = Convert.ToString(Convert.ToByte(array[num11] >> num6), num5);
+			array2[num10].ToUpper();
+			num10 += num7;
+			num11 -= num4;
+		}
+		text3 = text;
+		int i = num;
+		for (int num12 = array2.Length - num4; ((i > num12) ? 1 : 0) == num; i += num4)
+		{
+			text3 += array2[i];
+		}
+		long num13 = num;
+		long num14 = num;
+		long num15 = num;
+		int num16 = num;
+		int[] array3 = new int[num8];
+		string[] array4 = new string[num8];
+		for (int j = num; ((j > num9) ? 1 : 0) == num; j += num4)
+		{
+			array4[j] = text3[j].ToString();
+			array3[j] = int.Parse(array4[j], (NumberStyles)style);
+		}
+		int num17 = num9;
+		while (((num17 < num) ? 1 : 0) == num)
+		{
+			num14 = Convert.ToInt64(Math.Pow(field_, num16));
+			num15 = Convert.ToInt64(array3[num17]) * num14;
+			num13 += num15;
+			num17 -= num4;
+			num16 += num4;
+		}
+		ESNInfo.esnHex = text3.ToUpper();
+		ESNInfo.esnDecimal = num13.ToString();
+	}
+
+	public void WriteESNNumber(string string_0)
+	{
+		string text = "";
+		string objB = "00000000";
+		string exceptionMessage = "Length of ESN != Correct, Required String length is 8";
+		string text2 = "Error writing NV item ESN to the phone. ";
+		string string_1 = text;
+		ReadPseudoESN(out string_1);
+		if (!object.Equals(string_1, objB) && object.Equals(string_1, string_0))
+		{
+			return;
+		}
+		byte[] array = new byte[4];
+		int[] array2 = new int[8];
+		string[] array3 = new string[8];
+		for (int i = 0; i <= 7; i++)
+		{
+			array3[i] = string_0[i].ToString();
+			array2[i] = int.Parse(array3[i], NumberStyles.HexNumber);
+		}
+		if (string_0.Length != 8)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		int num = string_0.Length - 1;
+		int j = 0;
+		for (int num2 = array.Length - 1; j <= num2; j++)
+		{
+			array[j] = (byte)(array2[num - 1] << 4);
+			array[j] += (byte)array2[num];
+			num -= 2;
+		}
+		bESN = array;
+		iESN = array2;
+		try
+		{
+			NVWrite((nv_items_enum_type)0, array, 128);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text2 + ex.Message);
+		}
+	}
+
+	public void ReadPDR_IMSI(int NamIndex, string SPC, out string Mcc, out string ElevenTwelve, out string Min1, out string Min2, out string Accol, out string ErrorMessage)
+	{
+		string text = "";
+		string text2 = "Incorrect SPC Code.  SPC programmed into phone != ";
+		object obj = null;
+		string text3 = "Exception thrown reading IMSI:";
+		int iResultCode = 0;
+		byte[] array = new byte[32];
+		byte[] array2 = new byte[8];
+		Mcc = text;
+		ElevenTwelve = text;
+		Min1 = text;
+		Min2 = text;
+		Accol = text;
+		QLIB_DIAG_SPC_F(phoneHandle, SPC, out iResultCode);
+		if (iResultCode == 0)
+		{
+			ErrorMessage = text2 + SPC;
+			return;
+		}
+		string Mcc2 = (string)obj;
+		string mcc = (string)obj;
+		string Min3 = (string)obj;
+		string Min4 = (string)obj;
+		try
+		{
+			method_7((nv_items_enum_type)176, NamIndex, array, 4);
+			DecodeMccValue(array, out Mcc2);
+			Mcc = Mcc2;
+			method_7(nv_items_enum_type.NV_IMSI_11_12_I, NamIndex, array, 4);
+			DecodeMSIDValue(array[0], 2, out mcc);
+			ElevenTwelve = mcc;
+			method_7((nv_items_enum_type)32, NamIndex, array, 8);
+			int num = 4;
+			int num2 = 0;
+			while (num < 8)
+			{
+				array2[num2] = array[num];
+				num++;
+				num2++;
+			}
+			DecodeMin1Value(array2, out Min3);
+			Min1 = Min3;
+			int i = 0;
+			for (int num3 = array2.Length - 1; i <= num3; i++)
+			{
+				array2[i] = 0;
+			}
+			method_7(nv_items_enum_type.NV_MIN2_I, NamIndex, array, 4);
+			int num4 = 2;
+			int num5 = 0;
+			while (num4 < 4)
+			{
+				array2[num5] = array[num4];
+				num4++;
+				num5++;
+			}
+			DecodeMin2Value(array2, out Min4);
+			Min2 = Min4;
+			method_7(nv_items_enum_type.NV_ACCOLC_I, NamIndex, array, 2);
+			Accol = Convert.ToString(array[0]);
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = text3 + ex.Message;
+			Mcc = text;
+			ElevenTwelve = text;
+			Min1 = text;
+			Min2 = text;
+			Accol = text;
+			return;
+		}
+		ErrorMessage = text;
+	}
+
+	public void WritePDR_IMSI(int NamIndex, byte[] ImsiByte, string SPC, out string Mcc, out string ElevenTwelve, out string Min1, out string Min2, out string Accol, out string ErrorMessage)
+	{
+		string text = "";
+		string text2 = "Incorrect SPC Code.  SPC programmed into phone != ";
+		string text3 = "Exception thrown writing IMSI: ";
+		int iResultCode = 0;
+		Mcc = text;
+		ElevenTwelve = text;
+		Min1 = text;
+		Min2 = text;
+		Accol = text;
+		QLIB_DIAG_SPC_F(phoneHandle, SPC, out iResultCode);
+		if (iResultCode == 0)
+		{
+			ErrorMessage = text2 + SPC;
+			return;
+		}
+		try
+		{
+			byte[] array = new byte[32];
+			string text4 = text;
+			byte[] byteEncoded = new byte[8];
+			byte[] byteEncoded2 = new byte[8];
+			int num = ImsiByte.Length - 1;
+			int num2 = ImsiByte.Length - 4;
+			int num3 = num;
+			int num4 = 0;
+			while (num3 > num2)
+			{
+				text4 = (text4 + (double)(int)ImsiByte[num3]).ToString();
+				num3--;
+				num4++;
+			}
+			Mcc = text4.ToString();
+			EncodeMINValue(text4, 3, out byteEncoded);
+			array = byteEncoded;
+			NVWriteArray((nv_items_enum_type)176, NamIndex, array, 32);
+			text4 = text;
+			num = ImsiByte.Length - 4;
+			num2 = ImsiByte.Length - 6;
+			int num5 = num;
+			int num6 = 0;
+			while (num5 > num2)
+			{
+				text4 = (text4 + (double)(int)ImsiByte[num5]).ToString();
+				num5--;
+				num6++;
+			}
+			ElevenTwelve = text4.ToString();
+			EncodeMINValue(text4, 2, out byteEncoded);
+			array = byteEncoded;
+			NVWriteArray(nv_items_enum_type.NV_IMSI_11_12_I, NamIndex, array, 32);
+			text4 = text;
+			num = ImsiByte.Length - 6;
+			num2 = ImsiByte.Length - 9;
+			int num7 = num;
+			int num8 = 0;
+			while (num7 > num2)
+			{
+				text4 = (text4 + (double)(int)ImsiByte[num7]).ToString();
+				num7--;
+				num8++;
+			}
+			Min2 = text4.ToString();
+			EncodeMINValue(text4, 3, out byteEncoded2);
+			int num9 = Min2.Length - 1;
+			int num10 = 0;
+			int num11 = num9;
+			while (num10 < num9)
+			{
+				array[num11] = byteEncoded2[num10];
+				num10++;
+				num11++;
+			}
+			NVWriteArray(nv_items_enum_type.NV_MIN2_I, NamIndex, array, 8);
+			text4 = text;
+			num = ImsiByte.Length - 9;
+			num2 = ImsiByte.Length - 16;
+			int num12 = num;
+			int num13 = 0;
+			while (num12 > num2)
+			{
+				text4 = (text4 + (double)(int)ImsiByte[num12]).ToString();
+				num12--;
+				num13++;
+			}
+			Min1 = text4.ToString();
+			EncodeMin1Value(text4, out byteEncoded2);
+			int num14 = Min1.Length - 3;
+			method_7((nv_items_enum_type)32, NamIndex, array, 8);
+			int num15 = 0;
+			int num16 = num14;
+			while (num15 < num14)
+			{
+				array[num16] = byteEncoded2[num15];
+				num15++;
+				num16++;
+			}
+			NVWriteArray((nv_items_enum_type)32, NamIndex, array, 8);
+			Accol = ImsiByte[0].ToString();
+			method_7(nv_items_enum_type.NV_ACCOLC_I, NamIndex, array, 2);
+			array[1] = ImsiByte[0];
+			NVWriteArray(nv_items_enum_type.NV_ACCOLC_I, NamIndex, array, 2);
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = text3 + ex.Message;
+			Mcc = text;
+			ElevenTwelve = text;
+			Min1 = text;
+			Min2 = text;
+			Accol = text;
+			return;
+		}
+		ErrorMessage = text;
+	}
+
+	public void ReadMDN(int NaiIndex, string SPC, out string DirNum, out string PcsDirNum, out string ErrorMessage)
+	{
+		string text = "";
+		string text2 = "Incorrect SPC Code.  SPC programmed into phone != ";
+		string text3 = "Exception thrown reading MDN: ";
+		int iResultCode = 0;
+		byte[] array = new byte[11];
+		DirNum = text;
+		PcsDirNum = text;
+		QLIB_DIAG_SPC_F(phoneHandle, SPC, out iResultCode);
+		if (iResultCode == 0)
+		{
+			ErrorMessage = text2 + SPC;
+			return;
+		}
+		try
+		{
+			NVRead((nv_items_enum_type)178, array, (short)array.Length);
+			string text4 = text;
+			int i = 1;
+			for (int num = array.Length - 1; i <= num; i++)
+			{
+				text4 += Convert.ToChar(array[i]);
+			}
+			DirNum = text4;
+			byte[] array2 = new byte[16];
+			string text5 = text;
+			NVRead(nv_items_enum_type.NV_DIR_NUMBER_PCS_I, array2, (short)array2.Length);
+			int j = 2;
+			for (int num2 = array2[1] + 2 - 1; j <= num2; j++)
+			{
+				if (array2[j] == 10)
+				{
+					array2[j] -= 10;
+				}
+				text5 += Convert.ToString(array2[j]);
+			}
+			PcsDirNum = text5;
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = text3 + ex.Message;
+			DirNum = text;
+			PcsDirNum = text;
+			return;
+		}
+		ErrorMessage = text;
+	}
+
+	public void WriteMDN(int NaiIndex, string SPC, string DirNum, out string ErrorMessage)
+	{
+		string text = "Incorrect SPC Code.  SPC programmed into phone != ";
+		string text2 = "Exception thrown Writing MDN: ";
+		string text3 = "";
+		int iResultCode = 0;
+		byte[] array = new byte[11];
+		byte[] array2 = new byte[11];
+		byte[] array3 = new byte[16];
+		QLIB_DIAG_SPC_F(phoneHandle, SPC, out iResultCode);
+		if (iResultCode == 0)
+		{
+			ErrorMessage = text + SPC;
+			return;
+		}
+		try
+		{
+			array = ConvertStringToAsciiByteArray(DirNum, 10);
+			array2[0] = Convert.ToByte(NaiIndex);
+			int i = 0;
+			for (int num = array.Length - 1; i <= num; i++)
+			{
+				array2[i + 1] = array[i];
+			}
+			NVWrite((nv_items_enum_type)178, array2, 128);
+			array3[0] = Convert.ToByte(DirNum.Length);
+			byte b = 0;
+			int j = 1;
+			for (int num2 = array3[0] + 1 - 1; j <= num2; j++)
+			{
+				b = (byte)(Convert.ToByte(DirNum[j - 1]) - 48);
+				if (b == 0)
+				{
+					array3[j] = 10;
+				}
+				else
+				{
+					array3[j] = b;
+				}
+			}
+			NVWriteArray(nv_items_enum_type.NV_DIR_NUMBER_PCS_I, NaiIndex, array3, 128);
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = text2 + ex.Message;
+			return;
+		}
+		ErrorMessage = text3;
+	}
+
+	public void ReadNAIEnable(int NaiIndex, string SPC, out bool Enable, out string ErrorMessage)
+	{
+		int num = 0;
+		string text = "Incorrect SPC Code.  SPC programmed into phone != ";
+		string text2 = "Exception thrown reading NAI Profile Enable: ";
+		string text3 = "";
+		int iResultCode = 0;
+		byte[] array = new byte[8];
+		QLIB_DIAG_SPC_F(phoneHandle, SPC, out iResultCode);
+		if (iResultCode == 0)
+		{
+			ErrorMessage = text + SPC;
+			Enable = false;
+			return;
+		}
+		try
+		{
+			NVRead((nv_items_enum_type)714, array, (short)array.Length);
+			if (array[NaiIndex] != 1)
+			{
+				Enable = false;
+			}
+			else
+			{
+				Enable = true;
+			}
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = text2 + ex.Message;
+			Enable = (byte)num != 0;
+			return;
+		}
+		ErrorMessage = text3;
+	}
+
+	public void WriteNAIEnable(int NaiIndex, string SPC, bool Enable, out string ErrorMessage)
+	{
+		string text = "Incorrect SPC Code.  SPC programmed into phone != ";
+		string text2 = "Exception thrown writing NAI Profile Enable: ";
+		string text3 = "";
+		int iResultCode = 0;
+		byte[] array = new byte[8];
+		QLIB_DIAG_SPC_F(phoneHandle, SPC, out iResultCode);
+		if (iResultCode == 0)
+		{
+			ErrorMessage = text + SPC;
+			return;
+		}
+		try
+		{
+			NVRead((nv_items_enum_type)714, array, (short)array.Length);
+			array[NaiIndex] = Convert.ToByte(Enable);
+			NVWrite((nv_items_enum_type)714, array, (short)array.Length);
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = text2 + ex.Message;
+			return;
+		}
+		ErrorMessage = text3;
+	}
+
+	public void method_11(string SPC, out int activeProfile, out string ErrorMessage)
+	{
+		int num = -9999;
+		string text = "Incorrect SPC Code.  SPC programmed into phone != ";
+		string text2 = "Exception thrown reading Active NAI Profile: ";
+		string text3 = "";
+		int iResultCode = 0;
+		byte[] array = new byte[8];
+		activeProfile = -9999;
+		QLIB_DIAG_SPC_F(phoneHandle, SPC, out iResultCode);
+		if (iResultCode == 0)
+		{
+			ErrorMessage = text + SPC;
+			return;
+		}
+		try
+		{
+			NVRead((nv_items_enum_type)464, array, (short)array.Length);
+			activeProfile = Convert.ToInt16(array[0]);
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = text2 + ex.Message;
+			activeProfile = num;
+			return;
+		}
+		ErrorMessage = text3;
+	}
+
+	public void WriteActiveNAIProfile(string SPC, int activeProfile, out string ErrorMessage)
+	{
+		string text = "Incorrect SPC Code.  SPC programmed into phone != ";
+		string text2 = "Exception thrown writing Active NAI Profile: ";
+		string text3 = "";
+		int iResultCode = 0;
+		byte[] array = new byte[1];
+		QLIB_DIAG_SPC_F(phoneHandle, SPC, out iResultCode);
+		if (iResultCode == 0)
+		{
+			ErrorMessage = text + SPC;
+			return;
+		}
+		try
+		{
+			array[0] = Convert.ToByte(activeProfile);
+			NVWrite((nv_items_enum_type)464, array, (short)array.Length);
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = text2 + ex.Message;
+			return;
+		}
+		ErrorMessage = text3;
+	}
+
+	public void ReadNAIPassword(int NaiIndex, string SPC, out string NaiHAPwd, out string string_0, out string ErrorMessage)
+	{
+		string text = "";
+		string text2 = "Incorrect SPC Code.  SPC programmed into phone != ";
+		string text3 = "Exception thrown reading NAI Shared Secrets: ";
+		int iResultCode = 0;
+		byte[] array = new byte[35];
+		byte[] array2 = new byte[18];
+		byte[] array3 = new byte[18];
+		string StringOut = text;
+		string_0 = text;
+		NaiHAPwd = text;
+		QLIB_DIAG_SPC_F(phoneHandle, SPC, out iResultCode);
+		if (iResultCode == 0)
+		{
+			ErrorMessage = text2 + SPC;
+			return;
+		}
+		try
+		{
+			NVRead((nv_items_enum_type)466, array, (short)array.Length);
+			int num = array[1];
+			int num2 = 2 + num;
+			int i = 2;
+			for (int num3 = num2 - 1; i <= num3; i++)
+			{
+				array2[i - 2] = array[i];
+			}
+			ConvertAsciiByteArrayToAlphaNumericString(array2, array2.Length, out StringOut);
+			NaiHAPwd = StringOut;
+			int num4 = array[18];
+			int num5 = 20 + num4;
+			int j = 19;
+			for (int num6 = num5 - 1; j <= num6; j++)
+			{
+				array3[j - 19] = array[j];
+			}
+			ConvertAsciiByteArrayToAlphaNumericString(array3, array3.Length, out StringOut);
+			string_0 = StringOut;
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = text3 + ex.Message;
+			string_0 = text;
+			NaiHAPwd = text;
+			return;
+		}
+		ErrorMessage = text;
+	}
+
+	public void WriteNAIPassword(int NaiIndex, string SPC, string NaiHAPwd, string string_0, out string ErrorMessage)
+	{
+		string text = "Incorrect SPC Code.  SPC programmed into phone != ";
+		string text2 = "Exception thrown writing NAI Shared Secrets: ";
+		string text3 = "";
+		int iResultCode = 0;
+		byte[] array = new byte[34];
+		QLIB_DIAG_SPC_F(phoneHandle, SPC, out iResultCode);
+		if (iResultCode == 0)
+		{
+			ErrorMessage = text + SPC;
+			return;
+		}
+		try
+		{
+			array[0] = Convert.ToByte(NaiIndex);
+			array[0] = Convert.ToByte(NaiHAPwd.Length);
+			int i = 1;
+			for (int num = NaiHAPwd.Length + 1 - 1; i <= num; i++)
+			{
+				array[i] = Convert.ToByte(NaiHAPwd[i - 1]);
+			}
+			array[17] = Convert.ToByte(string_0.Length);
+			int j = 18;
+			for (int num2 = string_0.Length + 18 - 1; j <= num2; j++)
+			{
+				array[j] = Convert.ToByte(string_0[j - 18]);
+			}
+			NVWriteArray((nv_items_enum_type)466, NaiIndex, array, (short)array.Length);
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = text2 + ex.Message;
+			return;
+		}
+		ErrorMessage = text3;
+	}
+
+	public void ReadPDR_NAI_Info(int NaiIndex, string SPC, out NAI_Info NaiInfo, out string ErrorMessage)
+	{
+		string text = "Incorrect SPC Code.  SPC programmed into phone != ";
+		string text2 = "";
+		string text3 = ".";
+		string text4 = "Exception thrown reading NAI: ";
+		int iResultCode = 0;
+		byte[] array = new byte[96];
+		byte[] array2 = new byte[8];
+		NaiInfo = new NAI_Info();
+		QLIB_DIAG_SPC_F(phoneHandle, SPC, out iResultCode);
+		if (iResultCode == 0)
+		{
+			ErrorMessage = text + SPC;
+			return;
+		}
+		try
+		{
+			NVRead(nv_items_enum_type.NV_NAME_NAM_I, array2, (short)array2.Length);
+			int i = 1;
+			for (int num = array2.Length - 1; i <= num; i++)
+			{
+				char c = Convert.ToChar(array2[i]);
+				NaiInfo.name += c;
+			}
+			NaiInfo.name.Trim();
+			NaiInfo.enabled = Convert.ToBoolean(array2[NaiIndex]);
+			NVRead((nv_items_enum_type)714, array2, (short)array2.Length);
+			NaiInfo.enabled = Convert.ToBoolean(array2[NaiIndex]);
+			method_7(nv_items_enum_type.NV_DS_MIP_GEN_USER_PROF_I, NaiIndex, array, 96);
+			NaiInfo.length = array[0];
+			if (NaiInfo.length != 0)
+			{
+				int j = 1;
+				for (int num2 = NaiInfo.length + 1 - 1; j <= num2; j++)
+				{
+					char c2 = Convert.ToChar(array[j]);
+					NaiInfo.nai_domain += c2;
+				}
+			}
+			else
+			{
+				NaiInfo.nai_domain = text2;
+			}
+			NaiInfo.mn_ha_spi_enable = Convert.ToBoolean(array[73]);
+			NaiInfo.mn_ha_spi = (array[75] << 8) + array[74];
+			NaiInfo.mn_aaa_spi_enable = Convert.ToBoolean(array[78]);
+			NaiInfo.mn_aaa_spi = (array[80] << 8) + array[79];
+			NaiInfo.rev_tunnel_enable = Convert.ToBoolean(array[83]);
+			NaiInfo.home_addr = Convert.ToString(array[87]) + text3 + Convert.ToString(array[86]) + text3 + Convert.ToString(array[85]) + text3 + Convert.ToString(array[84]);
+			NaiInfo.primary_ha_addr = Convert.ToString(array[91]) + text3 + Convert.ToString(array[90]) + text3 + Convert.ToString(array[89]) + text3 + Convert.ToString(array[88]);
+			NaiInfo.secondary_ha_addr = Convert.ToString(array[95]) + text3 + Convert.ToString(array[94]) + text3 + Convert.ToString(array[93]) + text3 + Convert.ToString(array[92]);
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = text4 + ex.Message;
+			return;
+		}
+		ErrorMessage = text2;
+	}
+
+	public void WritePDR_NAI_Info(int NaiIndex, string SPC, NAI_Info NaiInfo, out string ErrorMessage)
+	{
+		string text = "";
+		string text2 = "Incorrect SPC Code.  SPC programmed into phone != ";
+		string text3 = "Failed to make NAI ";
+		string text4 = " active";
+		string text5 = "Failed to enable NAI at index ";
+		string text6 = "Exception thrown reading NAI: ";
+		int iResultCode = 0;
+		byte[] array = new byte[96];
+		string ErrorMessage2 = text;
+		QLIB_DIAG_SPC_F(phoneHandle, SPC, out iResultCode);
+		if (iResultCode == 0)
+		{
+			ErrorMessage = text2 + SPC;
+			return;
+		}
+		try
+		{
+			char[] array2 = NaiInfo.name.ToCharArray();
+			int i = 0;
+			for (int num = array2.Length - 1; i <= num; i++)
+			{
+				array[i] = Convert.ToByte(array2[i]);
+			}
+			NVWriteArray(nv_items_enum_type.NV_NAME_NAM_I, NaiIndex, array, 96);
+			if (NaiInfo.active)
+			{
+				WriteActiveNAIProfile(SPC, NaiIndex, out ErrorMessage2);
+			}
+			if (!object.Equals(ErrorMessage2, text))
+			{
+				ErrorMessage = text3 + NaiIndex + text4;
+				return;
+			}
+			WriteNAIEnable(NaiIndex, SPC, NaiInfo.enabled, out ErrorMessage2);
+			if (!object.Equals(ErrorMessage2, text))
+			{
+				ErrorMessage = text5 + NaiIndex;
+				return;
+			}
+			NaiInfo.length = NaiInfo.nai_domain.Length;
+			if (NaiInfo.usePrefix)
+			{
+				int num2 = NaiInfo.nai_domain.IndexOf('@');
+				string text7 = NaiInfo.nai_domain.Substring(num2, NaiInfo.length - num2);
+				NaiInfo.nai_domain = NaiInfo.nai_domain_prefix + text7;
+			}
+			NaiInfo.length = NaiInfo.nai_domain.Length;
+			array[0] = Convert.ToByte(NaiInfo.length);
+			int j = 1;
+			for (int num3 = NaiInfo.length + 1 - 1; j <= num3; j++)
+			{
+				array[j] = Convert.ToByte(NaiInfo.nai_domain[j - 1]);
+			}
+			array[73] = Convert.ToByte(NaiInfo.mn_ha_spi_enable);
+			array[74] = (byte)(NaiInfo.mn_ha_spi & 0xFF);
+			array[75] = (byte)(NaiInfo.mn_ha_spi >> 8);
+			array[78] = Convert.ToByte(NaiInfo.mn_aaa_spi_enable);
+			array[79] = (byte)(NaiInfo.mn_aaa_spi & 0xFF);
+			array[80] = (byte)(NaiInfo.mn_aaa_spi >> 8);
+			array[83] = Convert.ToByte(NaiInfo.rev_tunnel_enable);
+			int num4 = NaiInfo.home_addr.IndexOf('.');
+			string text8 = NaiInfo.home_addr;
+			int num5 = 87;
+			while (text8.Length > 0 && num4 > 0)
+			{
+				array[num5] = Convert.ToByte(text8.Substring(0, num4));
+				num5--;
+				text8 = text8.Substring(num4 + 1);
+				num4 = text8.IndexOf('.');
+			}
+			array[num5] = Convert.ToByte(text8);
+			num4 = NaiInfo.primary_ha_addr.IndexOf('.');
+			text8 = NaiInfo.primary_ha_addr;
+			num5 = 91;
+			while (text8.Length > 0 && num4 > 0)
+			{
+				array[num5] = Convert.ToByte(text8.Substring(0, num4));
+				num5--;
+				text8 = text8.Substring(num4 + 1);
+				num4 = text8.IndexOf('.');
+			}
+			if (!object.Equals(text8, text))
+			{
+				array[num5] = Convert.ToByte(text8);
+			}
+			num4 = NaiInfo.secondary_ha_addr.IndexOf('.');
+			text8 = NaiInfo.secondary_ha_addr;
+			num5 = 95;
+			while (text8.Length > 0 && num4 > 0)
+			{
+				array[num5] = Convert.ToByte(text8.Substring(0, num4));
+				num5--;
+				text8 = text8.Substring(num4 + 1);
+				num4 = text8.IndexOf('.');
+			}
+			if (!object.Equals(text8, text))
+			{
+				array[num5] = Convert.ToByte(text8);
+			}
+			NVWriteArray(nv_items_enum_type.NV_DS_MIP_GEN_USER_PROF_I, NaiIndex, array, 96);
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = text6 + ex.Message;
+			return;
+		}
+		ErrorMessage = text;
+	}
+
+	private void EncodeMINValue(string strValue, int numDigits, out byte[] byteEncoded)
+	{
+		string text = "";
+		double field_ = Class38.field_3213;
+		long[] array = new long[numDigits];
+		int num = 0;
+		int num2 = Convert.ToInt16(strValue);
+		long num3 = 0L;
+		string text2 = text;
+		byte[] array2 = new byte[32];
+		byte[] array3 = new byte[32];
+		num = ((numDigits == 2) ? 11 : 111);
+		int i = 0;
+		for (int num4 = numDigits - 1; i <= num4; i++)
+		{
+			array[i] = (long)Math.Round((double)num2 - (double)num2 / field_ * field_);
+			num2 = (int)Math.Round((double)num2 / field_);
+			if (array[i] == 0L)
+			{
+				array[i] = 10L;
+			}
+			num3 += Convert.ToInt16((double)array[i] * Math.Pow(field_, i));
+		}
+		num3 -= num;
+		text2 = Convert.ToString(num3, 16);
+		int j = 0;
+		for (int num5 = text2.Length - 1; j <= num5; j++)
+		{
+			array2[j] = byte.Parse(text2.Substring(j, 1), NumberStyles.HexNumber);
+		}
+		int num6 = text2.Length - 1;
+		int k = 0;
+		for (int num7 = array3.Length - 1 - 1; k <= num7; k++)
+		{
+			if (num6 < 0)
+			{
+				break;
+			}
+			if (num6 > 0)
+			{
+				array3[k] = Convert.ToByte(array2[num6 - 1] << 4);
+				array3[k] += array2[num6];
+			}
+			else
+			{
+				array3[k] = array2[num6];
+			}
+			num6 -= 2;
+		}
+		byteEncoded = array3;
+	}
+
+	private void DecodeMSIDValue(long encoded, int numDigits, out string mcc)
+	{
+		double field_ = Class38.field_3213;
+		string text = "0";
+		long[] array = new long[numDigits];
+		long num = 0L;
+		int num2 = 0;
+		num2 = ((numDigits == 2) ? 11 : 111);
+		encoded += num2;
+		num = encoded;
+		int i = 0;
+		for (int num3 = numDigits - 1; i <= num3; i++)
+		{
+			array[i] = (long)Math.Round((double)num - (double)num / field_ * field_);
+			if (array[i] == 0L)
+			{
+				encoded -= Convert.ToInt16(Math.Pow(field_, i + 1));
+				num -= Convert.ToInt16(Math.Pow(field_, i + 1));
+			}
+			num = (long)Math.Round((double)num / field_);
+			if (num == 1L)
+			{
+				num = 0L;
+			}
+		}
+		mcc = encoded.ToString();
+		if (mcc.Length < numDigits)
+		{
+			int num4 = numDigits - mcc.Length;
+			int j = 0;
+			for (int num5 = num4 - 1; j <= num5; j++)
+			{
+				mcc = text + mcc;
+			}
+		}
+	}
+
+	private void DecodeMccValue(byte[] value, out string Mcc)
+	{
+		object obj = null;
+		int num = value[1];
+		num &= 3;
+		num <<= 8;
+		int num2 = value[0];
+		int num3 = num + num2;
+		string mcc = (string)obj;
+		DecodeMSIDValue(num3, 3, out mcc);
+		string text = mcc;
+		Mcc = text;
+	}
+
+	private void DecodeMin1Value(byte[] value, out string Min1)
+	{
+		object obj = null;
+		int num = value[1];
+		num &= 3;
+		num <<= 8;
+		int num2 = value[0];
+		int num3 = num + num2;
+		string mcc = (string)obj;
+		DecodeMSIDValue(num3, 3, out mcc);
+		string text = mcc;
+		num = value[1];
+		num &= 0x30;
+		num >>= 2;
+		num2 = value[1];
+		num2 &= 0xC;
+		num2 >>= 2;
+		num3 = num + num2;
+		string text2 = Convert.ToString(num3);
+		num = value[1];
+		num &= 0xC0;
+		num >>= 6;
+		num2 = value[2];
+		num2 <<= 2;
+		num3 = num2 + num;
+		DecodeMSIDValue(num3, 3, out mcc);
+		string text3 = mcc;
+		Min1 = text3 + text2 + text;
+	}
+
+	private void EncodeMin1Value(string value, out byte[] valueEncoded)
+	{
+		string objB = "0";
+		string text = "10";
+		byte[] byteEncoded = new byte[8];
+		byte[] array = new byte[8];
+		string strValue = value.Substring(0, 3);
+		EncodeMINValue(strValue, 3, out byteEncoded);
+		byte b = (byte)((byteEncoded[1] & 3) << 2);
+		b = Convert.ToByte(b | (byte)((byteEncoded[0] & 0xC0) >> 6));
+		array[5] = b;
+		byte b2 = (byte)((byteEncoded[0] & 0x30) >> 2);
+		b2 = Convert.ToByte(b2 | (byte)((byteEncoded[0] & 0xF) >> 2));
+		array[4] = b2;
+		byte b3 = (byte)((byteEncoded[0] & 3) << 2);
+		array[3] = b3;
+		string text2 = value.Substring(3, 1);
+		if (object.Equals(text2, objB))
+		{
+			text2 = text;
+		}
+		b = Convert.ToByte(text2);
+		b2 = (byte)((b & 0xC) >> 2);
+		array[3] = Convert.ToByte(array[3] | b2);
+		b3 = (byte)((b & 3) << 2);
+		array[2] = b3;
+		string strValue2 = value.Substring(4, 3);
+		EncodeMINValue(strValue2, 3, out byteEncoded);
+		b = (byte)(byteEncoded[1] & 3);
+		array[2] = Convert.ToByte(array[2] | b);
+		b2 = (byte)((byteEncoded[0] & 0xF0) >> 4);
+		array[1] = b2;
+		b3 = (byte)(byteEncoded[0] & 0xF);
+		array[0] = b3;
+		int num = 0;
+		int num2 = 0;
+		while (num2 < array.Length - 1)
+		{
+			byteEncoded[num] = Convert.ToByte(array[num2 + 1] << 4);
+			byteEncoded[num] += array[num2];
+			num2 += 2;
+			num++;
+		}
+		valueEncoded = byteEncoded;
+	}
+
+	private void DecodeMin2Value(byte[] value, out string Min2)
+	{
+		object obj = null;
+		int num = value[1];
+		num &= 3;
+		num <<= 8;
+		int num2 = value[0];
+		int num3 = num + num2;
+		string mcc = (string)obj;
+		DecodeMSIDValue(num3, 3, out mcc);
+		Min2 = mcc;
+	}
+
+	private void EncodeMin2Value(string value, out byte[] valueEncoded)
+	{
+		byte[] byteEncoded = new byte[4];
+		EncodeMINValue(value, 3, out byteEncoded);
+		valueEncoded = byteEncoded;
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_UploadPRL(uint hResourceContext, int iNAM_Index, string sPRL_Path);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DownloadPRL(uint hResourceContext, int iNAM_Index, string sPRL_Path);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_DIAG_SPC_F(uint hResourceContext, string SPC, out int iResultCode);
+
+	public bool RestorePRLFile(string PRLPathFileName, string SPC, int NAM, out string ErrorMessage)
+	{
+		string text = "";
+		string text2 = "Incorrect SPC Code.  SPC programmed into phone != ";
+		string text3 = "Failed to write prl to phone";
+		string text4 = text;
+		int iResultCode = 0;
+		QLIB_DIAG_SPC_F(phoneHandle, SPC, out iResultCode);
+		if (iResultCode == 0)
+		{
+			ErrorMessage = text2 + SPC;
+			return false;
+		}
+		if (QLIB_UploadPRL(phoneHandle, NAM, PRLPathFileName) == 0)
+		{
+			ErrorMessage = text3;
+			return false;
+		}
+		if (EFSGetLastError(text4))
+		{
+			ErrorMessage = text;
+			return true;
+		}
+		ErrorMessage = text4;
+		return false;
+	}
+
+	public bool BackupPRLFile(string PRLPathFileName, string SPC, int NAM, out string ErrorMessage)
+	{
+		string text = "";
+		string text2 = "Incorrect SPC Code.  SPC programmed into phone != ";
+		string text3 = "Failed to read PRL from phone";
+		string text4 = text;
+		int iResultCode = 0;
+		QLIB_DIAG_SPC_F(phoneHandle, SPC, out iResultCode);
+		if (iResultCode == 0)
+		{
+			ErrorMessage = text2 + SPC;
+			return false;
+		}
+		if (QLIB_DownloadPRL(phoneHandle, NAM, PRLPathFileName) != 0)
+		{
+			if (EFSGetLastError(text4))
+			{
+				ErrorMessage = text;
+				return true;
+			}
+			ErrorMessage = text4;
+			return false;
+		}
+		ErrorMessage = text3;
+		return false;
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_GSDIDIAG_GET_FEATURE_INDICATION_CMD(uint hResourceContext, byte iSlotId, ref ushort piTransactionID, ref uint piCommandStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_GSDIDIAG_GET_FEATURE_INDICATOR_KEY_CMD(uint hResourceContext, byte iSlotId, byte iSIM_PersoFeature, string sEFS_Filename, ref ushort piTransactionID, ref uint piCommandStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_GSDIDIAG_SET_FEATURE_INDICATOR_DATA_CMD(uint hResourceContext, byte iSlotId, byte iSIM_PersoFeature, ref byte piSIM_PersoData, ushort iSIM_PersoDataSize, ref ushort piTransactionID, ref uint piCommandStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_GSDIDIAG_GET_FEATURE_INDICATOR_DATA_CMD(uint hResourceContext, byte iSlotId, byte iSIM_PersoFeature, string sEFS_Filename, ref ushort piTransactionID, ref uint piCommandStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_GSDIDIAG_UNBLOCK_FEATURE_INDICATOR_CMD(uint hResourceContext, byte iSlotId, byte iSIM_PersoFeature, string sSIM_PersoKey, ref ushort piTransactionID, ref uint piCommandStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_GSDIDIAG_ACTIVATE_FEATURE_INDICATOR_CMD(uint hResourceContext, byte iSlotId, byte iSIM_PersoFeature, string sSIM_PersoKey, ref ushort piTransactionID, ref uint piCommandStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_GSDIDIAG_DEACTIVATE_FEATURE_INDICATOR_CMD(uint hResourceContext, byte iSlotId, byte iSIM_PersoFeature, string sSIM_PersoKey, ref ushort piTransactionID, ref uint piCommandStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_GSDIDIAG_GetEventResponse(uint hResourceContext, ushort iTransactionID, ushort iEventID, QMSL_Event_Element_Struct Event);
+
+	public void SimLock_Activate(byte slotID, GEnum0 persoFeature, string persoKey, int GSDI_Timeout)
+	{
+		string exceptionMessage = "Exception occurred activating SIM lock";
+		string text = "Exception occurred activating SIM lock: ";
+		bool flag = true;
+		uint piCommandStatus = 0u;
+		ushort piTransactionID = 0;
+		try
+		{
+			byte value = QLIB_GSDIDIAG_ACTIVATE_FEATURE_INDICATOR_CMD(phoneHandle, slotID, (byte)persoFeature, persoKey, ref piTransactionID, ref piCommandStatus);
+			flag = Convert.ToBoolean(value);
+			if ((long)piCommandStatus == 0L && flag)
+			{
+				bool flag2 = false;
+				byte[] typeStatusBytes = new byte[5];
+				SimLock_GetActiveFeatures(slotID, out typeStatusBytes, GSDI_Timeout);
+				switch (persoFeature)
+				{
+				case (GEnum0)0:
+					flag2 = Convert.ToBoolean(typeStatusBytes[0]);
+					break;
+				case GEnum0.NS:
+					flag2 = Convert.ToBoolean(typeStatusBytes[1]);
+					break;
+				case (GEnum0)2:
+					flag2 = Convert.ToBoolean(typeStatusBytes[2]);
+					break;
+				case GEnum0.CP:
+					flag2 = Convert.ToBoolean(typeStatusBytes[3]);
+					break;
+				case (GEnum0)4:
+					flag2 = Convert.ToBoolean(typeStatusBytes[4]);
+					break;
+				}
+				if (!flag2)
+				{
+					throw new PhoneException(exceptionMessage);
+				}
+				return;
+			}
+			throw new PhoneException(exceptionMessage);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text + ex.Message);
+		}
+	}
+
+	public void SimLock_DeActivate(byte SlotID, GEnum0 persoFeature, string persoKey, int GSDI_Timeout)
+	{
+		string exceptionMessage = "Exception occurred de-activating SIM lock";
+		string text = "Exception occurred de-activating SIM lock: ";
+		bool flag = true;
+		uint piCommandStatus = 0u;
+		ushort piTransactionID = 0;
+		try
+		{
+			byte value = QLIB_GSDIDIAG_DEACTIVATE_FEATURE_INDICATOR_CMD(phoneHandle, SlotID, (byte)persoFeature, persoKey, ref piTransactionID, ref piCommandStatus);
+			flag = Convert.ToBoolean(value);
+			if ((long)piCommandStatus == 0L && flag)
+			{
+				byte[] typeStatusBytes = new byte[5];
+				SimLock_GetActiveFeatures(SlotID, out typeStatusBytes, GSDI_Timeout);
+				bool flag2 = false;
+				switch (persoFeature)
+				{
+				case (GEnum0)0:
+					flag2 = Convert.ToBoolean(typeStatusBytes[0]);
+					break;
+				case GEnum0.NS:
+					flag2 = Convert.ToBoolean(typeStatusBytes[1]);
+					break;
+				case (GEnum0)2:
+					flag2 = Convert.ToBoolean(typeStatusBytes[2]);
+					break;
+				case GEnum0.CP:
+					flag2 = Convert.ToBoolean(typeStatusBytes[3]);
+					break;
+				case (GEnum0)4:
+					flag2 = Convert.ToBoolean(typeStatusBytes[4]);
+					break;
+				}
+				if (flag2)
+				{
+					throw new PhoneException(exceptionMessage);
+				}
+				return;
+			}
+			throw new PhoneException(exceptionMessage);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text + ex.Message);
+		}
+	}
+
+	public void SimLock_GetActiveFeatures(byte SlotID, out byte[] typeStatusBytes, int GSDI_Timeout)
+	{
+		string exceptionMessage = "Exception occurred de-activating SIM lock";
+		string text = "Exception occurred getting active SIM features: ";
+		bool target = true;
+		uint piCommandStatus = 0u;
+		ushort piTransactionID = 0;
+		typeStatusBytes = new byte[5];
+		int i = 0;
+		for (int num = typeStatusBytes.Length - 1; i <= num; i++)
+		{
+			typeStatusBytes[i] = 0;
+		}
+		try
+		{
+			configEventMessaging(1039, OnOff: true);
+			byte value = QLIB_GSDIDIAG_GET_FEATURE_INDICATION_CMD(phoneHandle, SlotID, ref piTransactionID, ref piCommandStatus);
+			target = CSharpImpl.__Assign(ref target, Convert.ToBoolean(value)) & getEventMessage(out eventMsg, 1039, GSDI_Timeout);
+			configEventMessaging(1039, OnOff: false);
+			if ((long)piCommandStatus == 0L && target)
+			{
+				eventPayload = eventMsg.message;
+				int num2 = eventPayload[18];
+				if (num2 == piTransactionID)
+				{
+					typeStatusBytes[0] = eventPayload[20];
+					typeStatusBytes[1] = eventPayload[21];
+					typeStatusBytes[2] = eventPayload[22];
+					typeStatusBytes[3] = eventPayload[23];
+					typeStatusBytes[4] = eventPayload[24];
+				}
+				return;
+			}
+			throw new PhoneException(exceptionMessage);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text + ex.Message);
+		}
+	}
+
+	public void SimLock_GetControlKeys(int SlotID, GEnum0 persoFeature, string efsFileName, int GSDI_Timeout)
+	{
+		string exceptionMessage = "Exception occurred getting SIM Control Keys";
+		string text = "Exception occurred getting SIM Control Keys: ";
+		bool target = true;
+		uint piCommandStatus = 0u;
+		ushort piTransactionID = 0;
+		try
+		{
+			configEventMessaging(1042, OnOff: true);
+			byte value = QLIB_GSDIDIAG_GET_FEATURE_INDICATOR_KEY_CMD(phoneHandle, (byte)SlotID, (byte)persoFeature, efsFileName, ref piTransactionID, ref piCommandStatus);
+			target = CSharpImpl.__Assign(ref target, Convert.ToBoolean(value)) & getEventMessage(out eventMsg, 1042, GSDI_Timeout);
+			configEventMessaging(1042, OnOff: false);
+			if ((long)piCommandStatus != 0L || !target)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text + ex.Message);
+		}
+	}
+
+	public void SimLock_UnBlock(byte SlotID, GEnum0 persoFeature, string persoKey, int GSDI_Timeout)
+	{
+		string exceptionMessage = "Exception occurred UnBlocking SIM Control";
+		string text = "Error UnBlockign SIM Lock control: ";
+		bool flag = true;
+		uint piCommandStatus = 0u;
+		ushort piTransactionID = 0;
+		try
+		{
+			byte value = QLIB_GSDIDIAG_UNBLOCK_FEATURE_INDICATOR_CMD(phoneHandle, SlotID, (byte)persoFeature, persoKey, ref piTransactionID, ref piCommandStatus);
+			flag = Convert.ToBoolean(value);
+			if ((long)piCommandStatus == 0L && flag)
+			{
+				bool flag2 = false;
+				byte[] typeStatusBytes = new byte[5];
+				SimLock_GetActiveFeatures(SlotID, out typeStatusBytes, GSDI_Timeout);
+				switch (persoFeature)
+				{
+				case (GEnum0)0:
+					flag2 = Convert.ToBoolean(typeStatusBytes[0]);
+					break;
+				case GEnum0.NS:
+					flag2 = Convert.ToBoolean(typeStatusBytes[1]);
+					break;
+				case (GEnum0)2:
+					flag2 = Convert.ToBoolean(typeStatusBytes[2]);
+					break;
+				case GEnum0.CP:
+					flag2 = Convert.ToBoolean(typeStatusBytes[3]);
+					break;
+				case (GEnum0)4:
+					flag2 = Convert.ToBoolean(typeStatusBytes[4]);
+					break;
+				}
+				if (!flag2)
+				{
+					throw new PhoneException(exceptionMessage);
+				}
+				return;
+			}
+			throw new PhoneException(exceptionMessage);
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text + ex.Message);
+		}
+	}
+
+	public void SimLock_SetFeatureData(int SlotID, int persoFeature, byte[] persoData, int persoDataSize, int GSDI_Timeout)
+	{
+		string exceptionMessage = "Exception occurred setting SIM feature data";
+		string text = "Error setting SIM Lock feature data: ";
+		bool target = true;
+		uint piCommandStatus = 0u;
+		ushort piTransactionID = 0;
+		byte piSIM_PersoData = persoData[0];
+		try
+		{
+			configEventMessaging(1040, OnOff: true);
+			byte value = QLIB_GSDIDIAG_SET_FEATURE_INDICATOR_DATA_CMD(phoneHandle, (byte)SlotID, (byte)persoFeature, ref piSIM_PersoData, (ushort)persoDataSize, ref piTransactionID, ref piCommandStatus);
+			target = CSharpImpl.__Assign(ref target, Convert.ToBoolean(value)) & getEventMessage(out eventMsg, 1040, GSDI_Timeout);
+			configEventMessaging(1040, OnOff: false);
+			if ((long)piCommandStatus != 0L || !target)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			eventPayload = eventMsg.message;
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text + ex.Message);
+		}
+	}
+
+	public void SimLock_GetFeatureData(int SlotID, int persoFeature, string efsFileName, int GSDI_Timeout)
+	{
+		string exceptionMessage = "Exception occurred getting SIM feature data";
+		string text = "Error getting SIM Lock feature data: ";
+		bool target = true;
+		uint piCommandStatus = 0u;
+		ushort piTransactionID = 0;
+		try
+		{
+			configEventMessaging(1626, OnOff: true);
+			byte value = QLIB_GSDIDIAG_GET_FEATURE_INDICATOR_DATA_CMD(phoneHandle, (byte)SlotID, (byte)persoFeature, efsFileName, ref piTransactionID, ref piCommandStatus);
+			configEventMessaging(1626, OnOff: false);
+			target = CSharpImpl.__Assign(ref target, Convert.ToBoolean(value)) & getEventMessage(out eventMsg, 1626, GSDI_Timeout);
+			if ((long)piCommandStatus != 0L || !target)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			eventPayload = eventMsg.message;
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(text + ex.Message);
+		}
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_MMGSDI_CLIENT_ID_AND_EVT_REG_CMD(uint hResourceContext, ref uint status, ref uint client_id_low, ref uint client_id_high);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_MMGSDI_SESSION_OPEN_CMD(uint hResourceContext, ref uint status, uint client_id_low, uint client_id_high, ref uint session_id_high, ref uint session_id_low);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_MMGSDI_SESSION_OPEN_CMD_EXT(uint hResourceContext, ref uint status, uint client_id_low, uint client_id_high, ref uint session_id_high, ref uint session_id_low, uint session_type);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_MMGSDI_SESSION_PERSO_GET_KEY_CMD(uint hResourceContext, uint session_id_low, uint session_id_high, uint feature_type, uint key_type, ref uint key_data_len, byte[] key_data, ref uint status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_MMGSDI_SESSION_PERSO_ACTIVATE_CMD(uint hResourceContext, uint session_id_low, uint session_id_high, uint feature_type, uint data_length, byte[] data, ref uint perso_action, ref uint perso_feature, ref uint num_retries_left, ref uint status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_MMGSDI_SESSION_PERSO_SET_DATA_CMD(uint hResourceContext, uint session_id_low, uint session_id_high, uint feature_type, uint data_length, byte[] data, ref uint status, ref uint ret_session_id_high, ref uint ret_session_id_low);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_MMGSDI_CLIENT_ID_AND_EVT_DEREG_CMD(uint hResourceContext, uint client_id_low, uint client_id_high, ref uint status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_MMGSDI_SESSION_PERSO_DEACTIVATE_CMD(uint hResourceContext, uint session_id_low, uint session_id_high, uint feature_type, uint data_length, byte[] data, ref uint perso_action, ref uint perso_feature, ref uint num_retries, ref uint status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_MMGSDI_SESSION_CLOSE_CMD(uint hResourceContext, uint session_id_low, uint session_id_high, ref uint ret_session_id_high, ref uint ret_session_id_low, ref uint app_type, ref uint aid_len, byte[] aid, ref uint status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_MMGSDI_SESSION_PERSO_GET_DATA_CMD(uint hResourceContext, uint session_id_low, uint session_id_high, uint feature_name, ref uint status, ref uint perso_action, ref uint data_length, byte[] data);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_MMGSDI_SESSION_PERSO_GET_INDICATORS_CMD(uint hResourceContext, uint session_id_low, uint session_id_high, uint perso_feature_indicator, ref uint status, ref uint nw_ind_status, ref uint ns_ind_status, ref uint sp_ind_status, ref uint cp_ind_status, ref uint sim_ind_status, ref uint ruim_nw1_ind, ref uint ruim_nw2_ind, ref uint ruim_hrpd_ind, ref uint ruim_sp_ind, ref uint ruim_cp_ind, ref uint ruim_ruim_ind);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_SIMLOCK_SET_POLICY_CMD(uint hResourceContext, byte slotpolicy, byte subpolicy, ref uint status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_SIMLOCK_HCK_LOCK_CMD(uint hResourceContext, byte slot, byte category, byte auto_lock, byte blacklist, uint num_retries_max, uint iteration_cnt, byte[] salt, byte[] hck, byte num_codes, byte[] code_data, ref uint status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_SIMLOCK_CK_LOCK_CMD(uint hResourceContext, byte slot, byte category, byte auto_lock, byte blacklist, uint num_retries_max, uint iteration_cnt, byte ck_len, byte[] ck_data, byte num_codes, byte[] code_data, ref uint status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_SIMLOCK_UNLOCK_CMD(uint hResourceContext, byte slot, byte category, byte ck_len, byte[] ck_data, ref uint status, uint timeout);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_SIMLOCK_GET_STATUS_CMD(uint hResourceContext, ref uint status, ref byte slotpolicy, ref byte subpolicy, ref ushort potential_lock_num, byte[] lock_info);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_SIMLOCK_GET_CATEGORY_DATA_CMD(uint hResourceContext, byte slot, ref byte category, ref uint status, ref byte num_codes, byte[] code_data);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_SIMLOCK_GET_CATEGORY_DATA_EXT_CMD(uint hResourceContext, byte slot, ref byte category, ref uint status, ref byte num_codes, byte[] code_data);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_SIMLOCK_ADD_LOCK_CODES_HCK_CMD(uint hResourceContext, byte slot, byte category, byte blacklist, byte[] hck, byte num_codes, byte[] code_data, ref uint status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_SIMLOCK_ADD_LOCK_CODES_CK_CMD(uint hResourceContext, byte slot, byte category, byte blacklist, byte ck_len, byte[] ck_data, byte num_codes, byte[] code_data, ref uint status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_SIMLOCK_SET_RSU_MODE_CMD(uint hResourceContext, byte rsumode, ref uint status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_SIMLOCK_SET_RSU_KEY_CMD(uint hResourceContext, byte[] rsusymmetrickey, ref uint status);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_SIMLOCK_GenerateCK(uint hResourceContext, uint ck_len, byte[] ck);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_SIMLOCK_GenerateSalt(uint hResourceContext, byte[] salt);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_SIMLOCK_crypto_run_pbkdf2_algorithm(uint hResourceContext, string password, ushort password_len, byte[] salt, ushort salt_len, uint iterations, byte[] key, uint key_len);
+
+	public void MMGSDI_CLIENT_ID_AND_EVT_REG_CMD(ref uint command_status)
+	{
+		string format = "Failed send the Client_ID_AND_EVT_REG_CMD successfullly! Status: {0}";
+		byte b = 0;
+		status = 0u;
+		session_id_high = 0u;
+		session_id_low = 0u;
+		client_id_high = 0u;
+		client_id_low = 0u;
+		b = QLIB_MMGSDI_CLIENT_ID_AND_EVT_REG_CMD(phoneHandle, ref status, ref client_id_low, ref client_id_high);
+		command_status = status;
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void MMGSDI_SESSION_OPEN_CMD(ref uint command_status)
+	{
+		string format = "Failed send the MMGSDI_SESSION_OPEN_CMD successfullly! Status: {0}";
+		byte b = 0;
+		b = QLIB_MMGSDI_SESSION_OPEN_CMD(phoneHandle, ref status, client_id_low, client_id_high, ref session_id_high, ref session_id_low);
+		command_status = status;
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void MMGSDI_SESSION_OPEN_CMD(ref uint command_status, uint session_type)
+	{
+		string format = "Failed send the MMGSDI_SESSION_OPEN_CMD successfullly! Status: {0}";
+		byte b = 0;
+		b = QLIB_MMGSDI_SESSION_OPEN_CMD_EXT(phoneHandle, ref status, client_id_low, client_id_high, ref session_id_high, ref session_id_low, session_type);
+		command_status = status;
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void MMGSDI_SESSION_PERSO_GET_KEY_CMD(UIMSIMLockPersoFeatureType feature_type, uint key_type, ref uint key_len, byte[] key_data, ref uint command_status)
+	{
+		string format = "Failed send the MMGSDI_SESSION_PERSO_GET_KEY_CMD successfullly! Status: {0}";
+		byte b = 0;
+		b = QLIB_MMGSDI_SESSION_PERSO_GET_KEY_CMD(phoneHandle, session_id_low, session_id_high, (uint)feature_type, key_type, ref key_len, key_data, ref status);
+		command_status = status;
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void MMGSDI_SESSION_PERSO_ACTIVATE_CMD(UIMSIMLockPersoFeatureType feature_type, uint data_length, byte[] data, ref uint perso_action, ref uint perso_feature, ref uint num_retries_left, ref uint command_status)
+	{
+		string format = "Failed send the MMGSDI_SESSION_PERSO_ACTIVATE_CMD successfullly! Status: {0}";
+		byte b = 0;
+		b = QLIB_MMGSDI_SESSION_PERSO_ACTIVATE_CMD(phoneHandle, session_id_low, session_id_high, (uint)feature_type, data_length, data, ref perso_action, ref perso_feature, ref num_retries_left, ref status);
+		command_status = status;
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void MMGSDI_SESSION_PERSO_SET_DATA_CMD(UIMSIMLockPersoFeatureType feature_type, uint data_length, byte[] data, ref uint command_status)
+	{
+		string format = "Failed send the MMGSDI_SESSION_PERSO_ACTIVATE_CMD successfullly! Status: {0}";
+		uint ret_session_id_high = 0u;
+		uint ret_session_id_low = 0u;
+		byte b = 0;
+		b = QLIB_MMGSDI_SESSION_PERSO_SET_DATA_CMD(phoneHandle, session_id_low, session_id_high, (uint)feature_type, data_length, data, ref status, ref ret_session_id_high, ref ret_session_id_low);
+		command_status = status;
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void MMGSDI_CLIENT_ID_AND_EVT_DEREG_CMD(ref uint command_status)
+	{
+		string format = "Failed send the MMGSDI_CLIENT_ID_AND_EVT_DEREG_CMD successfullly! Status: {0}";
+		byte b = 0;
+		b = QLIB_MMGSDI_CLIENT_ID_AND_EVT_DEREG_CMD(phoneHandle, client_id_low, client_id_high, ref status);
+		command_status = status;
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void MMGSDI_SESSION_PERSO_DEACTIVATE_CMD(UIMSIMLockPersoFeatureType feature_type, uint data_length, byte[] data, ref uint perso_action, ref uint perso_feature, ref uint num_retries, ref uint command_status)
+	{
+		string format = "Failed send the MMGSDI_SESSION_PERSO_DEACTIVATE_CMD successfullly! Status: {0}";
+		byte b = 0;
+		b = QLIB_MMGSDI_SESSION_PERSO_DEACTIVATE_CMD(phoneHandle, session_id_low, session_id_high, (uint)feature_type, data_length, data, ref perso_action, ref perso_feature, ref num_retries, ref status);
+		command_status = status;
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void MMGSDI_SESSION_CLOSE_CMD(ref uint app_type, ref uint aid_len, byte[] aid, ref uint command_status)
+	{
+		string format = "Failed send the MMGSDI_SESSION_CLOSE_CMD successfullly! Status: {0}";
+		byte b = 0;
+		uint ret_session_id_low = 0u;
+		uint ret_session_id_high = 0u;
+		b = QLIB_MMGSDI_SESSION_CLOSE_CMD(phoneHandle, session_id_low, session_id_high, ref ret_session_id_high, ref ret_session_id_low, ref app_type, ref aid_len, aid, ref status);
+		command_status = status;
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void MMGSDI_SESSION_PERSO_GET_DATA_CMD(UIMSIMLockPersoFeatureType feature_name, ref uint status, ref uint perso_action, ref uint data_length, byte[] data)
+	{
+		string format = "Failed send the MMGSDI_SESSION_PERSO_GET_DATA_CMD successfullly! Status: {0}";
+		byte b = 0;
+		b = QLIB_MMGSDI_SESSION_PERSO_GET_DATA_CMD(phoneHandle, session_id_low, session_id_high, (uint)feature_name, ref status, ref perso_action, ref data_length, data);
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void MMGSDI_SESSION_PERSO_GET_INDICATORS_CMD(uint perso_feature_indicator, ref uint status, ref uint nw_ind_status, ref uint ns_ind_status, ref uint sp_ind_status, ref uint cp_ind_status, ref uint sim_ind_status, ref uint ruim_nw1_ind, ref uint ruim_nw2_ind, ref uint ruim_hrpd_ind, ref uint ruim_sp_ind, ref uint ruim_cp_ind, ref uint ruim_ruim_ind)
+	{
+		string format = "Failed send the MMGSDI_SESSION_PERSO_GET_INDICATORS_CMD successfullly! Status: {0}";
+		byte b = 0;
+		b = QLIB_MMGSDI_SESSION_PERSO_GET_INDICATORS_CMD(phoneHandle, session_id_low, session_id_high, perso_feature_indicator, ref status, ref nw_ind_status, ref ns_ind_status, ref sp_ind_status, ref cp_ind_status, ref sim_ind_status, ref ruim_nw1_ind, ref ruim_nw2_ind, ref ruim_hrpd_ind, ref ruim_sp_ind, ref ruim_cp_ind, ref ruim_ruim_ind);
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void SIMLOCK_SET_POLICY_CMD(byte slotpolicy, byte subpolicy, ref uint status)
+	{
+		string format = "Failed send the SIMLOCK_SET_POLICY_CMD successfullly! Status: {0}";
+		byte b = 0;
+		b = QLIB_SIMLOCK_SET_POLICY_CMD(phoneHandle, slotpolicy, subpolicy, ref status);
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void SIMLOCK_HCK_LOCK_CMD(byte slot, byte category, byte auto_lock, byte blacklist, uint num_retries_max, uint iteration_cnt, byte[] salt, byte[] hck, byte num_codes, byte[] code_data, ref uint status)
+	{
+		string format = "Failed send the SIMLOCK_HCK_LOCK_CMD successfullly! Status: {0}";
+		byte b = 0;
+		b = QLIB_SIMLOCK_HCK_LOCK_CMD(phoneHandle, slot, category, auto_lock, blacklist, num_retries_max, iteration_cnt, salt, hck, num_codes, code_data, ref status);
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void SIMLOCK_CK_LOCK_CMD(byte slot, byte category, byte auto_lock, byte blacklist, uint num_retries_max, uint iteration_cnt, byte ck_len, byte[] ck_data, byte num_codes, byte[] code_data, ref uint status)
+	{
+		string format = "Failed send the SIMLOCK_CK_LOCK_CMD successfullly! Status: {0}";
+		byte b = 0;
+		b = QLIB_SIMLOCK_CK_LOCK_CMD(phoneHandle, slot, category, auto_lock, blacklist, num_retries_max, iteration_cnt, ck_len, ck_data, num_codes, code_data, ref status);
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void SIMLOCK_UNLOCK_CMD(byte slot, byte category, byte ck_len, byte[] ck_data, ref uint status, ulong timeout)
+	{
+		string format = "Failed send the SIMLOCK_UNLOCK_CMD successfullly! Status: {0}";
+		byte b = 0;
+		b = QLIB_SIMLOCK_UNLOCK_CMD(phoneHandle, slot, category, ck_len, ck_data, ref status, (uint)timeout);
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void SIMLOCK_GET_STATUS_CMD(ref uint status, ref byte slotpolicy, ref byte subpolicy, out byte[] lock_info)
+	{
+		object lock_info2 = null;
+		string format = "Failed send the SIMLOCK_GET_STATUS_CMD successfullly! Status: {0}";
+		byte b = 0;
+		ushort potential_lock_num = 0;
+		b = QLIB_SIMLOCK_GET_STATUS_CMD(phoneHandle, ref status, ref slotpolicy, ref subpolicy, ref potential_lock_num, (byte[])lock_info2);
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+		lock_info = new byte[4 * potential_lock_num * 11];
+		b = QLIB_SIMLOCK_GET_STATUS_CMD(phoneHandle, ref status, ref slotpolicy, ref subpolicy, ref potential_lock_num, lock_info);
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void SIMLOCK_GET_CATEGORY_DATA_CMD(byte slot, ref byte category, ref uint status, ref byte num_codes, out byte[] code_data)
+	{
+		object code_data2 = null;
+		string format = "Failed send the SIMLOCK_GET_CATEGORY_DATA_CMD successfullly! Status: {0}";
+		byte b = 0;
+		code_data = new byte[1];
+		b = QLIB_SIMLOCK_GET_CATEGORY_DATA_CMD(phoneHandle, slot, ref category, ref status, ref num_codes, (byte[])code_data2);
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+		code_data = new byte[num_codes * 20];
+		b = QLIB_SIMLOCK_GET_CATEGORY_DATA_CMD(phoneHandle, slot, ref category, ref status, ref num_codes, code_data);
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void SIMLOCK_GET_CATEGORY_DATA_EXT_CMD(byte slot, ref byte category, ref uint status, ref byte num_codes, out byte[] code_data)
+	{
+		object code_data2 = null;
+		string format = "Failed send the SIMLOCK_GET_CATEGORY_DATA_EXT_CMD successfullly! Status: {0}";
+		byte b = 0;
+		code_data = new byte[1];
+		b = QLIB_SIMLOCK_GET_CATEGORY_DATA_EXT_CMD(phoneHandle, slot, ref category, ref status, ref num_codes, (byte[])code_data2);
+		if (b == 1)
+		{
+			code_data = new byte[num_codes * 20];
+			b = QLIB_SIMLOCK_GET_CATEGORY_DATA_EXT_CMD(phoneHandle, slot, ref category, ref status, ref num_codes, code_data);
+			if (b != 1)
+			{
+				throw new Exception(string.Format(format, status));
+			}
+			return;
+		}
+		throw new Exception(string.Format(format, status));
+	}
+
+	public void SIMLOCK_ADD_LOCK_CODES_HCK_CMD(byte slot, byte category, byte blacklist, byte[] hck, byte num_codes, byte[] code_data, ref uint status)
+	{
+		string format = "Failed send the QLIB_SIMLOCK_ADD_LOCK_CODES_HCK_CMD! Status: {0}";
+		byte b = 0;
+		b = QLIB_SIMLOCK_ADD_LOCK_CODES_HCK_CMD(phoneHandle, slot, category, blacklist, hck, num_codes, code_data, ref status);
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void SIMLOCK_ADD_LOCK_CODES_CK_CMD(byte slot, byte category, byte blacklist, byte ck_len, byte[] ck_data, byte num_codes, byte[] code_data, ref uint status)
+	{
+		string format = "Failed send the QLIB_SIMLOCK_ADD_LOCK_CODES_CK_CMD! Status: {0}";
+		byte b = 0;
+		b = QLIB_SIMLOCK_ADD_LOCK_CODES_CK_CMD(phoneHandle, slot, category, blacklist, ck_len, ck_data, num_codes, code_data, ref status);
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void SIMLOCK_SET_RSU_MODE_CMD(byte rsumode, ref uint status)
+	{
+		string format = "Failed send the QLIB_SIMLOCK_ADD_LOCK_CODES_CK_CMD! Status: {0}";
+		byte b = 0;
+		b = QLIB_SIMLOCK_SET_RSU_MODE_CMD(phoneHandle, rsumode, ref status);
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void SIMLOCK_SET_RSU_KEY_CMD(byte[] rsusymmetrickey, ref uint status)
+	{
+		string format = "Failed send the QLIB_SIMLOCK_ADD_LOCK_CODES_CK_CMD! Status: {0}";
+		byte b = 0;
+		b = QLIB_SIMLOCK_SET_RSU_KEY_CMD(phoneHandle, rsusymmetrickey, ref status);
+		if (b != 1)
+		{
+			throw new Exception(string.Format(format, status));
+		}
+	}
+
+	public void SIMLOCK_GenerateCK(uint ck_len, ref string ck)
+	{
+		string message = "Generate random CK data failed";
+		byte b = 0;
+		byte[] array = new byte[(int)((long)ck_len - 1L + 1L)];
+		b = QLIB_SIMLOCK_GenerateCK(phoneHandle, ck_len, array);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+		int i = 0;
+		for (int num = (int)((long)ck_len - 1L); i <= num; i++)
+		{
+			ck += Convert.ToString(Convert.ToChar(array[i]));
+		}
+	}
+
+	public void SIMLOCK_GenerateSALT(out byte[] salt)
+	{
+		string message = "Generate random SALT data failed";
+		byte b = 0;
+		salt = new byte[16];
+		b = QLIB_SIMLOCK_GenerateSalt(phoneHandle, salt);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void SIMLOCK_GenerateHCK_PBKDF2(string ck, byte[] salt, uint iterations, out byte[] hck)
+	{
+		string message = "Generate HCK data failed";
+		byte b = 0;
+		hck = new byte[32];
+		b = QLIB_SIMLOCK_crypto_run_pbkdf2_algorithm(phoneHandle, ck, (ushort)ck.Length, salt, (ushort)salt.Length, iterations, hck, 32u);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_UploadHexFile(uint hResourceContext, string sFileName, string sSPC, byte bClearErrorLog, byte bOverrideModelCheck, byte bSkipReset, byte bUseCustomArmProg, byte bUploadArmProg, byte bbDoAutoRestoreBackup, string sAutoRestoreBackupName);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_UploadMultiImage(uint hResourceContext, string sPartitionFileName, string sOTBPL_FileName, string sPBL_FileName, string sQCSBL_FileName, string sQCSBL_HeaderName, string sOEMSBL_FileName, string sOEMSBL_HeaderName, string sModemFileName, string sModemHeaderName, string sAppsFileName, string sAppsHeaderName, string sAppsBlFileName, string sAppsBlHeaderFileName, byte bOverridePrtnTable, byte bUseTrustedMode, string sSPC, byte bClearErrorLog, string sStorageFile, byte bOverrideModelCheck, byte bSkipReset, byte bUseCustomArmprg, int iDloadArmprg, int iDownloadBitMask);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_UploadSB2MultiImage(uint hResourceContext, string sPartitionFileName, string sDeviceBootLoader_FileName, string sQFailSafeBOotLoader_FileName, string sOSBootLoader_FileName, string sModem_FileName, string sApps_FileName, string sAppsBootLoader_FileName, string sWinMobile_FileName, string sDSP1FileName, string sDSP2FileName, string sMBR_FileName, string sADSP_FileName, string sTrustZone, string sROFS1, string sROFS2, string sROFS3, byte bUseEmergDL, byte bOverridePrtnTable, byte bUseTrustedMode, string sSPC, byte bClearErrorLog, string sStorageFile, byte bOverrideModelCheck, byte bSkipReset, byte bUseCustomArmprg, int iDloadArmprg);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern void QLIB_QPHONEMS_UploadSBMultiImage_ConfigureCallBack(uint handle, QPHONEMSCBSWDownloadHandlerCallBack pSWDLCallBack);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_UploadSB1MultiImage(uint hResourceContext, string sARMPRG_FileName, string sPartitionFileName, string sPriBootLoader_FileName, string sQCSecBootLoader_FileName, string sQCSecBootLoaderHeader_FileName, string sOEMSecBootLoader_FileName, string sOEMSecBootLoaderHeader_FileName, string sModemFile_FileName, string sModemFileHeader_FileName, string sAppsFile_FileName, string sAppsFileHeader_FileName, string sAppsBootLoaderFile_FileName, string sAppsBootLoaderFileHeader_FileName, string sWinMobile_FileName, string sDSP1_FileName, string sMBR_FileName, string sADSP_FileName, string sCefsModem_FileName, byte bOverridePrtnTable, byte bUseTrustedMode, byte bSkipGoToDownload, uint iSleepTimeToDOWNLOADmode, uint iSleepTimeToGOcommand, ref uint iErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_UploadSB2MultiImage(uint hResourceContext, string sARMPRG_FileName, string sPartitionFileName, string sDeviceBootLoader_FileName, string sQFailSafeBOotLoader_FileName, string sOSBootLoader_FileName, string sModem_FileName, string sApps_FileName, string sAppsBootLoader_FileName, string sWinMobile_FileName, string sDSP1FileName, string sDSP2FileName, string sMBR_FileName, string sADSP_FileName, string sTrustZone, string sROFS1, string sROFS2, string sROFS3, string sCefsModem_FileName, byte bOverridePrtnTable, byte bUseTrustedMode, byte bSkipGoToDownload, uint iSleepTimeToDOWNLOADmode, uint iSleepTimeToGOcommand, ref uint iErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_SwitchToDownloadMode(uint hResourceContext, uint iSleepTimeToDownloadMode, ref uint iErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_SwitchToDownloadMode_OptionalValidation(uint hResourceContext, uint iSleepTimeToDownloadMode, bool bool_0, ref uint iErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_Sahara_SetImageTransferMode(uint hResourceContext, ref uint version, uint timeout);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_DLoad_SendNop(uint hResourceContext, uint timeoutInMilliSecs);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_UploadEmmcUserParitionImage(uint hResourceContext, string sARMPRG_FileName, string sEmmcUserPartitionImage, byte bUseTrustedMode, byte bSkipGoToDownload, uint iSleepTimeToDOWNLOADmode, uint iSleepTimeToGOcommand, ref uint iErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_SetupStrmDlRetries(uint hResourceContext, uint iSleepTimeToRetryHello, uint iMaxTriesToHello, uint iSleepTimeToRetryNop, uint iMaxTreisToNop);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_SetFactoryToken(uint hResourceContext, string sToken);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_StrmDownload_Reset(uint hResourceContext, uint timeoutSeconds);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_AbortSW_DownloadOperation(uint hResourceContext);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_GetLastSoftwareDownloadErrorInfo(uint hResourceContext, ref byte bErrorOccurred, byte[] sErrorMessage, int iMaxStringLength);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_StartFactoryImageDownload(uint hResourceContext, string sFileName, byte bUseCustomArmPrg, uint iDloadArmprg);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_DLoad_EraseEMMC(uint hResourceContext, int timeoutSeconds, int Sector, int NoOfSectors);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_Sahara_FlashProgrammer(uint hResourceContext, string pArmPrgPath);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern void QLIB_QPHONEMS_SaharaConfigureCallback(uint hResourceContext, QPHONEMSCBSWDownloadHandlerCallBack pSWDLCallBack);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_DownloadUserPartitions(uint hResourceContext, string pArmPrgPath, string pPartitionPath, ref SWDL_UserPartitionList pPartitionList, byte bOverridePartitionTable, byte bUseTrustedMode, byte bSkipGoToDownload, uint iSleepTimeToDOWNLOADmode, uint iSleepTimeToGOCommand, ref uint iErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_UploadNORImage(uint hResourceContext, string sARMPRG_FileName, string sMBNFileName, byte bSkipGoToDownload, byte bDownloadReset, uint iSleepTimeToDOWNLOADmode, uint iSleepTimeToGOcommand, ref uint iErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_UploadEmmcUserParitionImageWithCDT(uint hResourceContext, string sARMPRG_FileName, string sCDTRawProgramXml, string sCDTPatchXml, string sEmmcUserPartitionImage, byte bUseTrustedMode, uint iSleepTimeToDOWNLOADmode, uint iSleepTimeToGOcommand, byte bEraseCDTFirst, uint iEraseTimeout, byte byte_1, ref uint iErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern void QLIB_QPHONEMS_FireHoseConfigureCallback(uint handle, QPHONEMSCBSWDownloadHandlerCallBack pSWDLCallBack);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_FireHoseNOP(uint handle);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_FireHoseConfigure(uint handle, string MaxPayloadSizeInBytes, string memory_name, string target_name, string AckPacketNumber, bool bSpecifyMaxPayloadSizeToTargetInBytes, bool bUseSkipWriteAttr, bool bUseAlwaysValidateAttr, bool bUseVerboseAttr, bool bUseAckRawDataEveryNumPackets);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_FirehoseSetConfig_CommaDelimitedSkipFiles(uint handle, string skipFiles);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_UploadEmmcImage_FireHose(uint handle, string rawprogramfile, string patchfile, ref float imageSizeInMB, ref float throughput);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_UploadEmmcImages_FireHose(uint handle, ref SWDL_eMMC_UserPartitionList pPartitionList, ref float imageSizeInMB, ref float throughput);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_UploadEmmcMetaBuildImage_FireHose(uint hResourceContext, ref SWDL_eMMC_MetaBuild_ContentFileList searchFileList, ref float imageSizeInMB, ref float throughput);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_PatchEmmcImage_FireHose(uint hResourceContext, string patchfile);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_ExecuteCommandXML_FireHose(uint hResourceContext, string commandfile);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_UploadEmmcSingleImage_FireHose(uint hResourceContext, uint physicalPartitionNumber, string startSector, uint numPartitionSectors, uint sectorSizeInBytes, string imagefile, ref float imageSizeInMB, ref float throughput);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_ReadEmmcDataBlock_FireHose(uint hResourceContext, uint physicalPartitionNumber, string startSector, uint numPartitionSectors, uint sectorSizeInBytes, string imagefile, ref float imageSizeInMB, ref float throughput);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_EnableVIP_FireHose(uint handle, uint maxDigestTableSize, string signedDigestTable, string chainedDigestTable);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_EnableDryRun_FireHose(uint handle, uint maxDigestTableSize, string digestTableToSign, string chainedDigestTable);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_BreakDownRawDigestTable_FireHose(uint handle, string binaryDigestTable);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_EnableSkipStorageInit_FireHose(uint handle, bool enabled);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_EnableReadDataValidation_FireHose(uint handle, byte mode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_EnableDataLogToFile_FireHose(uint handle, bool enabled);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_SetSendDataDelay_FireHose(uint handle, int timeinMilliSeconds);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_FireHosePower(uint handle, string Action);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_FireHosePower_WithDelay(uint handle, string Action, uint DelayInSeconds);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_FireHoseErase(uint handle, string DriveNumber, uint timeout);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_FireHoseSetBootableStorageDrive(uint handle, string DriveNumber);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_HashFileSHA256(uint handle, string FilePath, int SectorSizeInByte, long Offset, long Length, StringBuilder Digest);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_FireHoseSetBuildValidationDigest(uint handle, ref SWDL_UserPartitionHashList pDigestList);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_FireHoseGetDigest(uint handle, int PhysicalPartitionNumber, int StartSector, int SectorSizeInByte, int NumPartitionSectors, StringBuilder Digest);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_FireHoseGetStorageInfo(uint handle, string DriveNumber, StringBuilder info);
+
+	[DllImport("eMMCDownload.dll", SetLastError = true)]
+	private static extern byte QEMMCLib_UploadEmmcImage(string rawProgramFileName, string patchFileName, string imageDirectory, string driveName, bool enableValidation, ref uint iErrorCode, Delegate4 pSWDLEMMCCallback, string skipFiles = "");
+
+	[DllImport("eMMCDownload.dll", SetLastError = true)]
+	private static extern byte QEMMCLib_UploadEmmcImageWithValidation(string rawProgramFileName, string patchFileName, string imageDirectory, string driveName, ref uint iErrorCode, Delegate4 pSWDLEMMCCallback, string skipFiles = "");
+
+	[DllImport("eMMCDownload.dll", SetLastError = true)]
+	private static extern byte QEMMCLib_ReadEmmcImage(string rawProgramFileName, string patchFileName, string imageDirectory, string driveName, string targetFolder, ref uint iErrorCode, Delegate4 pSWDLEMMCCallback);
+
+	[DllImport("eMMCDownload.dll", SetLastError = true)]
+	private static extern byte QEMMCLib_FireHoseOpenPort(uint portNo, Delegate4 pSWDLEMMCCallback);
+
+	[DllImport("eMMCDownload.dll", SetLastError = true)]
+	private static extern byte QEMMCLib_FireHoseNOP(Delegate4 pSWDLEMMCCallback);
+
+	[DllImport("eMMCDownload.dll", SetLastError = true)]
+	private static extern byte QEMMCLib_FireHoseConfigure(string MaxPayloadSizeInBytes, string memory_name, string target_name, string AckPacketNumber, bool bUseAckRawDataAttr, bool bUseSkipWriteAttr, bool bUseAlwaysValidateAttr, bool bUseVerboseAttr, bool bUseAckRawDataEveryNumPackets, Delegate4 pSWDLEMMCCallback);
+
+	[DllImport("eMMCDownload.dll", SetLastError = true)]
+	private static extern byte QEMMCLib_SetSendDataDelay_FireHose(int timeinMilliSeconds, Delegate4 pSWDLEMMCCallback);
+
+	[DllImport("eMMCDownload.dll", SetLastError = true)]
+	private static extern byte QEMMCLib_EnableReadDataValidation_FireHose(bool enabled, Delegate4 pSWDLEMMCCallback);
+
+	[DllImport("eMMCDownload.dll", SetLastError = true)]
+	private static extern byte QEMMCLib_UploadEmmcImage_FireHose(string rawprogramfile, string patchfile, ref float imageSizeInMB, ref float throughput, Delegate4 pSWDLEMMCCallback, string skipFiles = "");
+
+	[DllImport("eMMCDownload.dll", SetLastError = true)]
+	private static extern byte QEMMCLib_FireHoseClosePort(Delegate4 pSWDLEMMCCallback);
+
+	public void StartFactoryImageDownload(string sFileName, byte bUseCustomArmPrg, uint iDloadArmprg)
+	{
+		string text = "Failed to IndexOf the factory image file: ";
+		string message = "Failed to upload the Factory Image";
+		byte b = 0;
+		try
+		{
+			if (File.Exists(sFileName))
+			{
+				b = QLIB_StartFactoryImageDownload(phoneHandle, sFileName, bUseCustomArmPrg, iDloadArmprg);
+				if (b != 1)
+				{
+					throw new Exception(message);
+				}
+				return;
+			}
+			throw new Exception(text + sFileName);
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+	}
+
+	public void EraseEMMCSectors(int Timeout, int Sector, int NoOfSectors)
+	{
+		string message = "Failed to Erase data";
+		byte b = 0;
+		b = QLIB_QPHONEMS_DLoad_EraseEMMC(phoneHandle, Timeout, Sector, NoOfSectors);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_SaharaArmPrgDownload(string sFileName)
+	{
+		string message = "Unable to download Flash Programmer using Sahara Protocol";
+		byte b = 0;
+		QLIB_QPHONEMS_UploadSBMultiImage_ConfigureCallBack(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+		b = QLIB_QPHONEMS_Sahara_FlashProgrammer(phoneHandle, sFileName);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_DownloadUserPartitions(string pArmPrgPath, string sPartitionTableFileName, string PartitionName1, string PartitionFile1, string PartitionName2, string PartitionFile2, string PartitionName3, string PartitionFile3, string PartitionName4, string PartitionFile4, string PartitionName5, string PartitionFile5, string PartitionName6, string PartitionFile6, string PartitionName7, string PartitionFile7, string PartitionName8, string PartitionFile8, string PartitionName9, string PartitionFile9, string PartitionName10, string PartitionFile10, string PartitionName11, string PartitionFile11, string PartitionName12, string PartitionFile12, string PartitionName13, string PartitionFile13, string PartitionName14, string PartitionFile14, string PartitionName15, string PartitionFile15, int NumberOfPartitionFiles)
+	{
+		string message = "The phonehandle for the phone object is null";
+		string text = "Failed to download the partition files onto the device because the phonehandle = ";
+		byte b = 0;
+		SWDL_UserPartitionList pPartitionList = new SWDL_UserPartitionList
+		{
+			swdl_userpartitionentry = new SWDL_UserPartitionEntry[15]
+		};
+		pPartitionList.swdl_userpartitionentry[0].sPartitionName = PartitionName1;
+		pPartitionList.swdl_userpartitionentry[0].sPartitionMBNPath = PartitionFile1;
+		pPartitionList.swdl_userpartitionentry[1].sPartitionName = PartitionName2;
+		pPartitionList.swdl_userpartitionentry[1].sPartitionMBNPath = PartitionFile2;
+		pPartitionList.swdl_userpartitionentry[2].sPartitionName = PartitionName3;
+		pPartitionList.swdl_userpartitionentry[2].sPartitionMBNPath = PartitionFile3;
+		pPartitionList.swdl_userpartitionentry[3].sPartitionName = PartitionName4;
+		pPartitionList.swdl_userpartitionentry[3].sPartitionMBNPath = PartitionFile4;
+		pPartitionList.swdl_userpartitionentry[4].sPartitionName = PartitionName5;
+		pPartitionList.swdl_userpartitionentry[4].sPartitionMBNPath = PartitionFile5;
+		pPartitionList.swdl_userpartitionentry[5].sPartitionName = PartitionName6;
+		pPartitionList.swdl_userpartitionentry[5].sPartitionMBNPath = PartitionFile6;
+		pPartitionList.swdl_userpartitionentry[6].sPartitionName = PartitionName7;
+		pPartitionList.swdl_userpartitionentry[6].sPartitionMBNPath = PartitionFile7;
+		pPartitionList.swdl_userpartitionentry[7].sPartitionName = PartitionName8;
+		pPartitionList.swdl_userpartitionentry[7].sPartitionMBNPath = PartitionFile8;
+		pPartitionList.swdl_userpartitionentry[8].sPartitionName = PartitionName9;
+		pPartitionList.swdl_userpartitionentry[8].sPartitionMBNPath = PartitionFile9;
+		pPartitionList.swdl_userpartitionentry[9].sPartitionName = PartitionName10;
+		pPartitionList.swdl_userpartitionentry[9].sPartitionMBNPath = PartitionFile10;
+		pPartitionList.swdl_userpartitionentry[10].sPartitionName = PartitionName11;
+		pPartitionList.swdl_userpartitionentry[10].sPartitionMBNPath = PartitionFile11;
+		pPartitionList.swdl_userpartitionentry[11].sPartitionName = PartitionName12;
+		pPartitionList.swdl_userpartitionentry[11].sPartitionMBNPath = PartitionFile12;
+		pPartitionList.swdl_userpartitionentry[12].sPartitionName = PartitionName13;
+		pPartitionList.swdl_userpartitionentry[12].sPartitionMBNPath = PartitionFile13;
+		pPartitionList.swdl_userpartitionentry[13].sPartitionName = PartitionName14;
+		pPartitionList.swdl_userpartitionentry[13].sPartitionMBNPath = PartitionFile14;
+		pPartitionList.swdl_userpartitionentry[14].sPartitionName = PartitionName15;
+		pPartitionList.swdl_userpartitionentry[14].sPartitionMBNPath = PartitionFile15;
+		pPartitionList.iNumOfPartitionEntry = NumberOfPartitionFiles;
+		byte bOverridePartitionTable = 1;
+		byte bUseTrustedMode = 1;
+		byte bSkipGoToDownload = 1;
+		uint iErrorCode = 0u;
+		if ((long)phoneHandle != 0L)
+		{
+			QLIB_QPHONEMS_UploadSBMultiImage_ConfigureCallBack(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_DownloadUserPartitions(phoneHandle, pArmPrgPath, sPartitionTableFileName, ref pPartitionList, bOverridePartitionTable, bUseTrustedMode, bSkipGoToDownload, 500u, 500u, ref iErrorCode);
+			if (b != 1)
+			{
+				throw new Exception(text + phoneHandle);
+			}
+			return;
+		}
+		throw new Exception(message);
+	}
+
+	public void QPHONEMS_UploadNORImage(string sARMPRG_FileName, string sMBNFileName, byte bSkipGoToDownload, byte bDownloadReset, int iSleepTimeToDOWNLOADmode, int iSleepTimeToGOcommand, ref uint iErrorCode)
+	{
+		string message = "Failed to program the NOR Image to the phone.";
+		iErrorCode = 0u;
+		byte b = 0;
+		QLIB_QPHONEMS_UploadSBMultiImage_ConfigureCallBack(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+		b = QLIB_QPHONEMS_UploadNORImage(phoneHandle, sARMPRG_FileName, sMBNFileName, bSkipGoToDownload, bDownloadReset, (byte)iSleepTimeToDOWNLOADmode, (byte)iSleepTimeToGOcommand, ref iErrorCode);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_UploadEmmcUserParitionImageWithCDT(string sARMPRG_FileName, string sRawProgramXml, string sPatchXml, string sEmmcUserPartitionImage, byte bUseTrustedMode, int iSleepTimeToDOWNLOADmode, int iSleepTimeToGOcommand, byte bEraseCDTFirst, uint iEraseTimeout, byte byte_1, ref uint iErrorCode)
+	{
+		string message = "Failed to program the eMMC User Partition Image with CDT to the phone.";
+		iErrorCode = 0u;
+		byte b = 0;
+		QLIB_QPHONEMS_UploadSBMultiImage_ConfigureCallBack(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+		b = QLIB_QPHONEMS_UploadEmmcUserParitionImageWithCDT(phoneHandle, sARMPRG_FileName, sRawProgramXml, sPatchXml, sEmmcUserPartitionImage, bUseTrustedMode, (byte)iSleepTimeToDOWNLOADmode, (byte)iSleepTimeToGOcommand, bEraseCDTFirst, iEraseTimeout, byte_1, ref iErrorCode);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_SetFireHoseLibSrc(bool bool_0)
+	{
+		if (!bool_0)
+		{
+			eFireHoseLibSrc = FireHoseLibSrc.FIREHOSE_LIB_EMMCDL;
+		}
+		else
+		{
+			eFireHoseLibSrc = FireHoseLibSrc.FIREHOSE_LIB_QMSL;
+		}
+	}
+
+	public void QPHONEMS_FireHoseNOP()
+	{
+		string message = "Failed to send Firehose NOP to the phone.";
+		byte b = 0;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_FireHoseNOP(phoneHandle);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+		}
+		else
+		{
+			b = QEMMCLib_FireHoseNOP(swdownloadEMMCloghandlerCallBack_delegate);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+		}
+	}
+
+	public void QPHONEMS_FireHoseConfigure(string MaxPayloadSizeInBytes, string memory_name, string target_name, string AckPacketNumber, bool bUseSpecifiedMaxPayloadSizeInBytes, bool bUseSkipWriteAttr, bool bUseAlwaysValidateAttr, bool bUseVerboseAttr, bool bUseAckRawDataEveryNumPackets)
+	{
+		string message = "Failed to configure the device in Firehose mode";
+		byte b = 0;
+		if (eFireHoseLibSrc == FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			b = QEMMCLib_FireHoseConfigure(MaxPayloadSizeInBytes, memory_name, target_name, AckPacketNumber, bUseSpecifiedMaxPayloadSizeInBytes, bUseSkipWriteAttr, bUseAlwaysValidateAttr, bUseVerboseAttr, bUseAckRawDataEveryNumPackets, swdownloadEMMCloghandlerCallBack_delegate);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+			return;
+		}
+		QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+		b = QLIB_QPHONEMS_FireHoseConfigure(phoneHandle, MaxPayloadSizeInBytes, memory_name, target_name, AckPacketNumber, bUseSpecifiedMaxPayloadSizeInBytes, bUseSkipWriteAttr, bUseAlwaysValidateAttr, bUseVerboseAttr, bUseAckRawDataEveryNumPackets);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_FirehoseSetConfig_CommaDelimitedSkipFiles(string skipFiles)
+	{
+		string message = "Failed to set comma delimited skip files.";
+		string message2 = "The function != supportted in EMMCDownload DLL.";
+		byte b = 0;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_FirehoseSetConfig_CommaDelimitedSkipFiles(phoneHandle, skipFiles);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+			return;
+		}
+		throw new Exception(message2);
+	}
+
+	public void QPHONEMS_UploadEmmcImage_FireHose(string rawprogramfile, string patchfile, ref float imageSizeInMB, ref float throughput)
+	{
+		string skipFiles = "";
+		string message = "Failed to Upload the emmc images to the phone using Firehose.";
+		byte b = 0;
+		if (eFireHoseLibSrc == FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			b = QEMMCLib_UploadEmmcImage_FireHose(rawprogramfile, patchfile, ref imageSizeInMB, ref throughput, swdownloadEMMCloghandlerCallBack_delegate, skipFiles);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+			return;
+		}
+		QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+		b = QLIB_QPHONEMS_UploadEmmcImage_FireHose(phoneHandle, rawprogramfile, patchfile, ref imageSizeInMB, ref throughput);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_UploadEmmcImages_FireHose(string rawprogramfile1, string patchfile1, string rawprogramfile2, string patchfile2, string rawprogramfile3, string patchfile3, string rawprogramfile4, string patchfile4, string rawprogramfile5, string patchfile5, string rawprogramfile6, string patchfile6, string rawprogramfile7, string patchfile7, string rawprogramfile8, string patchfile8, string rawprogramfile9, string patchfile9, string rawprogramfile10, string string_0, ref float imageSizeInMB, ref float throughput, int NumberOfFiles)
+	{
+		string message = "Failed to Upload the emmc images to the phone using Firehose.";
+		string message2 = "The function != supportted in EMMCDownload DLL.";
+		SWDL_eMMC_UserPartitionList pPartitionList = new SWDL_eMMC_UserPartitionList
+		{
+			swdl_eMMC_userpartitionentry = new SWDL_eMMC_UserPartitionEntry[10]
+		};
+		pPartitionList.swdl_eMMC_userpartitionentry[0].sRawProgramFileName = rawprogramfile1;
+		pPartitionList.swdl_eMMC_userpartitionentry[0].sPatchFileName = patchfile1;
+		pPartitionList.swdl_eMMC_userpartitionentry[1].sRawProgramFileName = rawprogramfile2;
+		pPartitionList.swdl_eMMC_userpartitionentry[1].sPatchFileName = patchfile2;
+		pPartitionList.swdl_eMMC_userpartitionentry[2].sRawProgramFileName = rawprogramfile3;
+		pPartitionList.swdl_eMMC_userpartitionentry[2].sPatchFileName = patchfile3;
+		pPartitionList.swdl_eMMC_userpartitionentry[3].sRawProgramFileName = rawprogramfile4;
+		pPartitionList.swdl_eMMC_userpartitionentry[3].sPatchFileName = patchfile4;
+		pPartitionList.swdl_eMMC_userpartitionentry[4].sRawProgramFileName = rawprogramfile5;
+		pPartitionList.swdl_eMMC_userpartitionentry[4].sPatchFileName = patchfile5;
+		pPartitionList.swdl_eMMC_userpartitionentry[5].sRawProgramFileName = rawprogramfile6;
+		pPartitionList.swdl_eMMC_userpartitionentry[5].sPatchFileName = patchfile6;
+		pPartitionList.swdl_eMMC_userpartitionentry[6].sRawProgramFileName = rawprogramfile7;
+		pPartitionList.swdl_eMMC_userpartitionentry[6].sPatchFileName = patchfile7;
+		pPartitionList.swdl_eMMC_userpartitionentry[7].sRawProgramFileName = rawprogramfile8;
+		pPartitionList.swdl_eMMC_userpartitionentry[7].sPatchFileName = patchfile8;
+		pPartitionList.swdl_eMMC_userpartitionentry[8].sRawProgramFileName = rawprogramfile9;
+		pPartitionList.swdl_eMMC_userpartitionentry[8].sPatchFileName = patchfile9;
+		pPartitionList.swdl_eMMC_userpartitionentry[9].sRawProgramFileName = rawprogramfile10;
+		pPartitionList.swdl_eMMC_userpartitionentry[9].sPatchFileName = string_0;
+		pPartitionList.iNumOfPartitionEntry = NumberOfFiles;
+		byte b = 0;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_UploadEmmcImages_FireHose(phoneHandle, ref pPartitionList, ref imageSizeInMB, ref throughput);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+			return;
+		}
+		throw new Exception(message2);
+	}
+
+	private string AdjustPathsToWindows(string path)
+	{
+		string oldValue = "/";
+		string newValue = "\\";
+		return path.Replace(oldValue, newValue);
+	}
+
+	private string CombineSourcePathWithFile(string sourcePath, string path, string file)
+	{
+		string newValue = "";
+		string value = ".";
+		string oldValue = ".\\";
+		sourcePath = AdjustPathsToWindows(sourcePath);
+		if (!path.StartsWith(value))
+		{
+			path = AdjustPathsToWindows(path);
+			return Path.Combine(path, file);
+		}
+		path = path.Replace(oldValue, newValue);
+		path = AdjustPathsToWindows(path);
+		return Path.Combine(sourcePath, path, file);
+	}
+
+	private string CombineSourcePathWithFile(string path, string file)
+	{
+		string text = "\\";
+		return path + text + file;
+	}
+
+	public void QPHONEMS_UploadEmmcMetaBuildContent_FireHose(SWDL_eMMC_MetaBuild_ContentFileList tBuildContent, ref float imageSizeInMB, ref float throughput)
+	{
+		string message = "Failed to download META build using FireHose";
+		string message2 = "The function != supportted in EMMCDownload DLL.";
+		byte b = 0;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_UploadEmmcMetaBuildImage_FireHose(phoneHandle, ref tBuildContent, ref imageSizeInMB, ref throughput);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+			return;
+		}
+		throw new Exception(message2);
+	}
+
+	public void QPHONEMS_PatchEmmcImage_FireHose(string patchfile)
+	{
+		string message = "Failed to patch image using FireHose";
+		string message2 = "The function != supportted in EMMCDownload DLL.";
+		byte b = 0;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_PatchEmmcImage_FireHose(phoneHandle, patchfile);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+			return;
+		}
+		throw new Exception(message2);
+	}
+
+	public void QPHONEMS_ExecuteCommandXML_FireHose(string commandfile)
+	{
+		string message = "Failed to execute FireHose command";
+		string message2 = "The function != supportted in EMMCDownload DLL.";
+		byte b = 0;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_ExecuteCommandXML_FireHose(phoneHandle, commandfile);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+			return;
+		}
+		throw new Exception(message2);
+	}
+
+	public void QPHONEMS_UploadEmmcSingleImage_FireHose(uint physicalPartitionNumber, string startSector, uint numPartitionSectors, uint sectorSizeInBytes, string imagefile, ref float imageSizeInMB, ref float throughput)
+	{
+		string message = "Failed to download single image using FireHose";
+		string message2 = "The function != supportted in EMMCDownload DLL.";
+		byte b = 0;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_UploadEmmcSingleImage_FireHose(phoneHandle, physicalPartitionNumber, startSector, numPartitionSectors, sectorSizeInBytes, imagefile, ref imageSizeInMB, ref throughput);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+			return;
+		}
+		throw new Exception(message2);
+	}
+
+	public void QPHONEMS_ReadEmmcDataBlock_FireHose(uint physicalPartitionNumber, string startSector, uint numPartitionSectors, uint sectorSizeInBytes, string imagefile, ref float imageSizeInMB, ref float throughput)
+	{
+		string message = "Failed to read data block using FireHose";
+		string message2 = "The function != supportted in EMMCDownload DLL.";
+		byte b = 0;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_ReadEmmcDataBlock_FireHose(phoneHandle, physicalPartitionNumber, startSector, numPartitionSectors, sectorSizeInBytes, imagefile, ref imageSizeInMB, ref throughput);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+			return;
+		}
+		throw new Exception(message2);
+	}
+
+	public void QPHONEMS_EnableVIP_FireHose(uint maxDigestTableSize, string signedDigestTable, string chainedDigestTable)
+	{
+		string message = "Failed to enable vip for the phone using FireHose";
+		byte b = 0;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_EnableVIP_FireHose(phoneHandle, maxDigestTableSize, signedDigestTable, chainedDigestTable);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+		}
+		else if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_EnableDryRun_FireHose(uint maxDigestTableSize, string digestTableToSign, string chainedDigestTable)
+	{
+		string message = "Failed to enable dry run for the phone using FireHose";
+		byte b = 0;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_EnableDryRun_FireHose(phoneHandle, maxDigestTableSize, digestTableToSign, chainedDigestTable);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+		}
+		else if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_BreakDownRawDigestTable_FireHose(uint handle, string binaryDigestTable)
+	{
+		string message = "Failed to break down raw digest table";
+		byte b = 0;
+		bool flag;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_BreakDownRawDigestTable_FireHose(phoneHandle, binaryDigestTable);
+			flag = b != 1;
+		}
+		else
+		{
+			flag = b != 1;
+		}
+		if (flag)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_EnableSkipStorageInit_FireHose(bool enabled)
+	{
+		string message = "Failed to enable skip storage init for the phone using FireHose";
+		string message2 = "The function != supportted in EMMCDownload DLL.";
+		byte b = 0;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_EnableSkipStorageInit_FireHose(phoneHandle, enabled);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+			return;
+		}
+		throw new Exception(message2);
+	}
+
+	public void QPHONEMS_EnableReadDataValidation_FireHose(byte mode)
+	{
+		string message = "Invalid validation mode";
+		string message2 = "Failed to enable read data validation for the phone using FireHose";
+		byte b = 0;
+		if (eFireHoseLibSrc == FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			b = QEMMCLib_EnableReadDataValidation_FireHose(Convert.ToBoolean(mode), swdownloadEMMCloghandlerCallBack_delegate);
+			if (b != 1)
+			{
+				throw new Exception(message2);
+			}
+			return;
+		}
+		QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+		if (mode <= 5)
+		{
+			b = QLIB_QPHONEMS_EnableReadDataValidation_FireHose(phoneHandle, mode);
+			if (b != 1)
+			{
+				throw new Exception(message2);
+			}
+			return;
+		}
+		if (mode == byte.MaxValue)
+		{
+			b = QLIB_QPHONEMS_EnableReadDataValidation_FireHose(phoneHandle, mode);
+			if (b != 1)
+			{
+				throw new Exception(message2);
+			}
+			return;
+		}
+		throw new Exception(message);
+	}
+
+	public void QPHONEMS_EnableDataLogToFile_FireHose(bool enabled)
+	{
+		string message = "Failed to enable read data validation for the phone using FireHose";
+		byte b = 0;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_EnableDataLogToFile_FireHose(phoneHandle, enabled);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+		}
+		else
+		{
+			b = 1;
+		}
+	}
+
+	public void QPHONEMS_SetSendDataDelay_FireHose(int timeinMilliSeconds)
+	{
+		string message = "Failed to set the send data delay for the phone using FireHose";
+		byte b = 0;
+		if (eFireHoseLibSrc == FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			b = QEMMCLib_SetSendDataDelay_FireHose(timeinMilliSeconds, swdownloadEMMCloghandlerCallBack_delegate);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+			return;
+		}
+		QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+		b = QLIB_QPHONEMS_SetSendDataDelay_FireHose(phoneHandle, timeinMilliSeconds);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_FireHosePower(string Action)
+	{
+		string message = "Failed to set the send data delay for the phone using FireHose";
+		byte b = 0;
+		if (eFireHoseLibSrc == FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+			return;
+		}
+		QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+		b = QLIB_QPHONEMS_FireHosePower(phoneHandle, Action);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_FireHosePower_WithDelay(string Action, uint DelayInSeconds)
+	{
+		string message = "Failed to execute power command to the phone using FireHose";
+		byte b = 0;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_FireHosePower_WithDelay(phoneHandle, Action, DelayInSeconds);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+		}
+		else if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_FireHoseErase(string DriverNumber, uint timeout)
+	{
+		string message = "Failed to erase eMMC using FireHose";
+		byte b = 0;
+		bool flag;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_FireHoseErase(phoneHandle, DriverNumber, timeout);
+			flag = b != 1;
+		}
+		else
+		{
+			flag = b != 1;
+		}
+		if (flag)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_FireHoseSetBootableStorageDrive(string DriverNumber)
+	{
+		string message = "Failed to erase eMMC using FireHose";
+		byte b = 0;
+		if (eFireHoseLibSrc == FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+			return;
+		}
+		QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+		b = QLIB_QPHONEMS_FireHoseSetBootableStorageDrive(phoneHandle, DriverNumber);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_HashFileSHA256(string FilePath, int SectorSizeInByte, long Offset, long Length, ref string SHA256)
+	{
+		string message = "Failed to erase eMMC using FireHose";
+		byte b = 0;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			StringBuilder stringBuilder = new StringBuilder(65);
+			b = QLIB_QPHONEMS_HashFileSHA256(phoneHandle, FilePath, SectorSizeInByte, Offset, Length, stringBuilder);
+			if (b != 1)
+			{
+				if (b != 1)
+				{
+					throw new Exception(message);
+				}
+				return;
+			}
+			SHA256 = stringBuilder.ToString();
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+		}
+		else if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_FireHoseSetBuildValidationDigest(SWDL_UserPartitionHashList pDigestList)
+	{
+		string message = "Failed to erase eMMC using FireHose";
+		byte b = 0;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_FireHoseSetBuildValidationDigest(phoneHandle, ref pDigestList);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+		}
+		else if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_FireHoseGetDigest(int PhysicalPartitionNumber, int StartSector, int SectorSizeInByte, int NumPartitionSectors, ref string Digest)
+	{
+		string message = "Failed to get digest using FireHose";
+		byte b = 0;
+		if (eFireHoseLibSrc == FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+			return;
+		}
+		QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+		StringBuilder stringBuilder = new StringBuilder(65);
+		b = QLIB_QPHONEMS_FireHoseGetDigest(phoneHandle, PhysicalPartitionNumber, StartSector, SectorSizeInByte, NumPartitionSectors, stringBuilder);
+		if (b == 1)
+		{
+			Digest = stringBuilder.ToString();
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+		}
+		else if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_FireHoseGetStorageInfo(string DriveNumber, ref string StorageInfomation)
+	{
+		string message = "Failed to get storage information using FireHose";
+		byte b = 0;
+		if (eFireHoseLibSrc != FireHoseLibSrc.FIREHOSE_LIB_EMMCDL)
+		{
+			QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			StringBuilder stringBuilder = new StringBuilder(2048);
+			b = QLIB_QPHONEMS_FireHoseGetStorageInfo(phoneHandle, DriveNumber, stringBuilder);
+			if (b != 1)
+			{
+				if (b != 1)
+				{
+					throw new Exception(message);
+				}
+				return;
+			}
+			StorageInfomation = stringBuilder.ToString();
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+		}
+		else if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void UploadHexFile(string sdirectoryName, string sFileName, string sSPC, byte bClearErrorLog, byte bOverrideModelCheck, byte bSkipReset, byte bUseCustomArmProg, byte bUploadArmProg, byte bDoAutoRestoreBackup, string sAutoRestoreBackupName)
+	{
+		string text = "Directory : ";
+		string text2 = " does not exists";
+		string message = "Failed to upload the hex file";
+		byte b = 0;
+		swDirectoryName = sdirectoryName;
+		if (Directory.Exists(swDirectoryName))
+		{
+			sFileName = Path.Combine(sdirectoryName, sFileName);
+			b = QLIB_UploadHexFile(phoneHandle, sFileName, sSPC, bClearErrorLog, bOverrideModelCheck, bSkipReset, bUseCustomArmProg, bUploadArmProg, bDoAutoRestoreBackup, sAutoRestoreBackupName);
+			if (b != 1)
+			{
+				throw new Exception(message);
+			}
+			return;
+		}
+		throw new Exception(text + swDirectoryName + text2);
+	}
+
+	public void UPloadMultiImage(string sPartitionFileName, string sOTBPL_FileName, string sPBL_FileName, string sQCSBL_FileName, string sQCSBL_HeaderName, string sOEMSBL_FileName, string sOEMSBL_HeaderName, string sModemFileName, string sModemHeaderName, string sAppsFileName, string sAppsHeaderName, string sAppsBlFileName, string sAppsBlHeaderFileName, byte bOverridePrtnTable, byte bUseTrustedMode, string sSPC, byte bClearErrorLog, string sStorageFile, byte bOverrideModelCheck, byte bSkipReset, byte bUseCustomArmprg, int iDloadArmprg, int iDownloadBitMask)
+	{
+		string exceptionMessage = "Failed to program the Multi Image";
+		byte b = 0;
+		iDownloadBitMask = 0;
+		if (File.Exists(sPartitionFileName))
+		{
+			iDownloadBitMask++;
+		}
+		if (File.Exists(sOTBPL_FileName))
+		{
+			iDownloadBitMask += 1024;
+		}
+		if (File.Exists(sPBL_FileName))
+		{
+			iDownloadBitMask += 2;
+		}
+		if (File.Exists(sQCSBL_FileName))
+		{
+			iDownloadBitMask += 4;
+		}
+		if (File.Exists(sOEMSBL_FileName))
+		{
+			iDownloadBitMask += 16;
+		}
+		if (File.Exists(sOEMSBL_HeaderName))
+		{
+			iDownloadBitMask += 32;
+		}
+		if (File.Exists(sModemFileName))
+		{
+			iDownloadBitMask += 64;
+		}
+		if (File.Exists(sModemHeaderName))
+		{
+			iDownloadBitMask += 128;
+		}
+		if (File.Exists(sAppsFileName))
+		{
+			iDownloadBitMask += 2048;
+		}
+		if (File.Exists(sAppsHeaderName))
+		{
+			iDownloadBitMask += 4096;
+		}
+		b = QLIB_UploadMultiImage(phoneHandle, sPartitionFileName, sOTBPL_FileName, sPBL_FileName, sQCSBL_FileName, sQCSBL_HeaderName, sOEMSBL_FileName, sOEMSBL_HeaderName, sModemFileName, sModemHeaderName, sAppsFileName, sAppsHeaderName, sAppsBlFileName, sAppsBlHeaderFileName, bOverridePrtnTable, bUseTrustedMode, sSPC, bClearErrorLog, sStorageFile, bOverrideModelCheck, bSkipReset, bUseCustomArmprg, iDloadArmprg, iDownloadBitMask);
+		if (b != 1)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+	}
+
+	public void method_12(string sdirectoryname, string spartitionfileName, string sdeviceBootLoader_filename, string sqfailsafebootloader_filename, string sosbootloader_filename, string smodem_filename, string sapps_filename, string sappsbootloader_filename, string swinmobile_filename, string sdsp1filename, string sdsp2filename, string smbr_filename, string sadsp_filename, byte bUseEmergDL, byte bOverridePrtnTable, byte bUseTrustedMode, string sSPC, byte bClearErrorLog, string sstoragefile, byte bOverrideModelCheck, byte bSkipReset, byte bUseCustomArmprg, int iDloadArmprg)
+	{
+		string text = "Directory : ";
+		string text2 = " does not exist";
+		string text3 = "";
+		string exceptionMessage = "Failed to program the Multi Image";
+		byte b = 0;
+		swDirectoryName = sdirectoryname;
+		sPartitionFileName = spartitionfileName;
+		sDeviceBootLoader_FileName = sdeviceBootLoader_filename;
+		sQFailSafeBOotLoader_FileName = sqfailsafebootloader_filename;
+		sOSBootLoader_FileName = sosbootloader_filename;
+		sModem_FileName = smodem_filename;
+		sApps_FileName = sapps_filename;
+		sAppsBootLoader_FileName = sappsbootloader_filename;
+		sWinMobile_FileName = swinmobile_filename;
+		sDSP1FileName = sdsp1filename;
+		sDSP2FileName = sdsp2filename;
+		sMBR_FileName = smbr_filename;
+		sADSP_FileName = sadsp_filename;
+		sStorageFile = sstoragefile;
+		if (Directory.Exists(swDirectoryName))
+		{
+			ConcatinateAndVerifyFilesFor_UploadSB2MultiImage();
+			b = QLIB_UploadSB2MultiImage(phoneHandle, sPartitionFileName, sDeviceBootLoader_FileName, sQFailSafeBOotLoader_FileName, sOSBootLoader_FileName, sModem_FileName, sApps_FileName, sAppsBootLoader_FileName, sWinMobile_FileName, sDSP1FileName, sDSP2FileName, sMBR_FileName, sADSP_FileName, text3, text3, text3, text3, bUseEmergDL, bOverridePrtnTable, bUseTrustedMode, sSPC, bClearErrorLog, sStorageFile, bOverrideModelCheck, bSkipReset, bUseCustomArmprg, iDloadArmprg);
+			if (b != 1)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+			return;
+		}
+		throw new Exception(text + swDirectoryName + text2);
+	}
+
+	public void QPHONEMS_UploadSB1MultiImage(string sdirectoryname, string sarmprg_filename, string spartitionfilename, string spribootloader_filename, string sqcsecbootloader_filename, string sqcsecbootloaderheader_filename, string soemsecbootloader_filename, string somsecbootloaderheader_filename, string smodemfile_filename, string smodemfileheader_filename, string sappsfile_filename, string sappsfileheader_filename, string sappsbootloaderfile_filename, string sappsbootloaderfileheader_filename, string swinmobile_filename, string sdsp1_filename, string smbr_filename, string sadsp_filename, string scefsmodem_filename, byte bOverridePrtnTable, byte bUseTrustedMode, byte bSkipGoToDownload, int iSleepTimeToDOWNLOADmode, int iSleepTimeToGOcommand, ref uint iErrorCode)
+	{
+		string text = "Directory : ";
+		string text2 = " does not exist";
+		string text3 = "Failed to program the QLIB_QPHONEMS_UploadSB1MultiImage: ErrorCode";
+		byte b = 0;
+		sARMPRGFileName = sarmprg_filename;
+		swDirectoryName = sdirectoryname;
+		sPartitionFileName = spartitionfilename;
+		sPriBootLoader_FileName = spribootloader_filename;
+		sQCSecBootLoader_FileName = sqcsecbootloader_filename;
+		sQCSecBootLoaderHeader_FileName = sqcsecbootloaderheader_filename;
+		sOEMSecBootLoader_FileName = soemsecbootloader_filename;
+		sOEMSecBootLoaderHeader_FileName = somsecbootloaderheader_filename;
+		sModem_FileName = smodemfile_filename;
+		sModemFileHeader_FileName = smodemfileheader_filename;
+		sApps_FileName = sappsfile_filename;
+		sAppsFileHeader_FileName = sappsfileheader_filename;
+		sAppsBootLoader_FileName = sappsbootloaderfile_filename;
+		sAppsBootLoaderFileHeader_FileName = sappsbootloaderfileheader_filename;
+		sWinMobile_FileName = swinmobile_filename;
+		sDSP1FileName = sdsp1_filename;
+		sMBR_FileName = smbr_filename;
+		sADSP_FileName = sadsp_filename;
+		sCefsModem_FileName = scefsmodem_filename;
+		if (Directory.Exists(swDirectoryName))
+		{
+			ConcatinateAndVerifyFIlesFor_QPHONEMS_UploadSB1MultiImage();
+			QLIB_QPHONEMS_UploadSBMultiImage_ConfigureCallBack(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+			b = QLIB_QPHONEMS_UploadSB1MultiImage(phoneHandle, sARMPRGFileName, sPartitionFileName, sPriBootLoader_FileName, sQCSecBootLoader_FileName, sQCSecBootLoaderHeader_FileName, sOEMSecBootLoader_FileName, sOEMSecBootLoaderHeader_FileName, sModem_FileName, sModemFileHeader_FileName, sApps_FileName, sAppsFileHeader_FileName, sAppsBootLoader_FileName, sAppsBootLoaderFileHeader_FileName, sWinMobile_FileName, sDSP1FileName, sMBR_FileName, sADSP_FileName, sCefsModem_FileName, bOverridePrtnTable, bUseTrustedMode, bSkipGoToDownload, (uint)iSleepTimeToDOWNLOADmode, (uint)iSleepTimeToGOcommand, ref iErrorCode);
+			if (b != 1)
+			{
+				throw new PhoneException(text3 + iErrorCode);
+			}
+			return;
+		}
+		throw new Exception(text + swDirectoryName + text2);
+	}
+
+	public void QPHONEMS_UploadSB2MultiImage(string sdirectoryname, string sarmprg_filename, string spartitionfilename, string sdevicebootloader_filename, string sqfailsafebootloader_filename, string sosbootloader_filename, string smodem_filename, string sapps_filename, string sappsbootloader_filename, string swinmobile_filename, string sdsp1filename, string sdsp2filename, string smbr_filename, string sadsp_filename, string strustzone, string srofs1, string srofs2, string srofs3, string scefsModem_filename, byte bOverridePrtnTable, byte bUseTrustedMode, byte bSkipGoToDownload, int iSleepTimeToDOWNLOADmode, int iSleepTimeToGOcommand, ref uint iErrorCode)
+	{
+		string text = "Directory : ";
+		string text2 = " does not exist";
+		object value = null;
+		string text3 = "Failed to program the QLIB_QPHONEMS_UploadSB2MultiImage: ErrorCode";
+		byte b = 0;
+		swDirectoryName = sdirectoryname;
+		sPartitionFileName = spartitionfilename;
+		sDeviceBootLoader_FileName = sdevicebootloader_filename;
+		sQFailSafeBOotLoader_FileName = sqfailsafebootloader_filename;
+		sOSBootLoader_FileName = sosbootloader_filename;
+		sModem_FileName = smodem_filename;
+		sApps_FileName = sapps_filename;
+		sAppsBootLoader_FileName = sappsbootloader_filename;
+		sWinMobile_FileName = swinmobile_filename;
+		sDSP1FileName = sdsp1filename;
+		sDSP2FileName = sdsp2filename;
+		sMBR_FileName = smbr_filename;
+		sADSP_FileName = sadsp_filename;
+		sARMPRGFileName = sarmprg_filename;
+		sTrustZone = strustzone;
+		sROFS1 = srofs1;
+		sROFS2 = srofs2;
+		sROFS3 = srofs3;
+		sCefsModem_FileName = scefsModem_filename;
+		if (!Directory.Exists(swDirectoryName))
+		{
+			throw new Exception(text + swDirectoryName + text2);
+		}
+		ConcatinateAndVerifyFilesFor_QPHONEMS_UploadSB2MultiImage();
+		QLIB_QPHONEMS_UploadSBMultiImage_ConfigureCallBack(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+		sMBR_FileName = CSharpImpl.__Assign(ref sADSP_FileName, CSharpImpl.__Assign(ref sTrustZone, CSharpImpl.__Assign(ref sROFS1, CSharpImpl.__Assign(ref sROFS2, CSharpImpl.__Assign(ref sROFS3, (string)value)))));
+		b = QLIB_QPHONEMS_UploadSB2MultiImage(phoneHandle, sARMPRGFileName, sPartitionFileName, sDeviceBootLoader_FileName, sQFailSafeBOotLoader_FileName, sOSBootLoader_FileName, sModem_FileName, sApps_FileName, sAppsBootLoader_FileName, sWinMobile_FileName, sDSP1FileName, sDSP2FileName, sMBR_FileName, sADSP_FileName, sTrustZone, sROFS1, sROFS2, sROFS3, sCefsModem_FileName, bOverridePrtnTable, bUseTrustedMode, bSkipGoToDownload, (uint)iSleepTimeToDOWNLOADmode, (uint)iSleepTimeToGOcommand, ref iErrorCode);
+		if (b != 1)
+		{
+			throw new PhoneException(text3 + iErrorCode);
+		}
+	}
+
+	public void QPHONEMS_SwitchToDownloadMode(int iSleepTimeToDownloadMode, ref uint iErrorCode)
+	{
+		string message = "Failed to get the device in download mode";
+		byte b = 0;
+		b = QLIB_QPHONEMS_SwitchToDownloadMode(phoneHandle, (uint)iSleepTimeToDownloadMode, ref iErrorCode);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_SwitchToDownloadMode_OptionalValidation(int iSleepTimeToDownloadMode, bool bool_0, ref uint iErrorCode)
+	{
+		string message = "Failed to get the device in download mode";
+		byte b = 0;
+		b = QLIB_QPHONEMS_SwitchToDownloadMode_OptionalValidation(phoneHandle, (uint)iSleepTimeToDownloadMode, bool_0, ref iErrorCode);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_Sahara_SetImageTransferMode(ref ulong version, int SaharaHelloRead_Timeout)
+	{
+		string message = "Failed to Sahara device into Image Transfer Mode";
+		byte b = 0;
+		uint version2 = 0u;
+		QLIB_QPHONEMS_SaharaConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+		b = QLIB_QPHONEMS_Sahara_SetImageTransferMode(phoneHandle, ref version2, (uint)SaharaHelloRead_Timeout);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+		version = version2;
+	}
+
+	public void QPHONEMS_DLoad_SendNop(int timeoutInMilliSecs)
+	{
+		string message = "Failed to send the NOP successfully";
+		byte b = 0;
+		b = QLIB_QPHONEMS_DLoad_SendNop(phoneHandle, (uint)timeoutInMilliSecs);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_UploadEmmcUserParitionImage(string sARMPRG_FileName, string sEmmcUserPartitionImage, byte bUseTrustedMode, byte bSkipGoToDownload, int iSleepTimeToDOWNLOADmode, int iSleepTimeToGOcommand, ref uint iErrorCode)
+	{
+		string message = "Failed to program the Parition Image to the phone.";
+		iErrorCode = 0u;
+		byte b = 0;
+		QLIB_QPHONEMS_UploadSBMultiImage_ConfigureCallBack(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+		b = QLIB_QPHONEMS_UploadEmmcUserParitionImage(phoneHandle, sARMPRG_FileName, sEmmcUserPartitionImage, bUseTrustedMode, bSkipGoToDownload, (byte)iSleepTimeToDOWNLOADmode, (byte)iSleepTimeToGOcommand, ref iErrorCode);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_MassStorageSetParameters(int validationMethod, string skipFiles)
+	{
+		try
+		{
+			massStorageDownload.method_03(validationMethod, skipFiles);
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+	}
+
+	public void QPHONEMS_UploadEmmcImage(string rawProgramFileName, string patchFileName, string imageDirectory, string driveName, bool enableValidation, ref uint iErrorCode)
+	{
+		try
+		{
+			massStorageDownload.method_04(rawProgramFileName, patchFileName, imageDirectory, driveName, enableValidation, ref iErrorCode, swdownloadEMMCloghandlerCallBack_delegate);
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+	}
+
+	public void QPHONEMS_ReadEmmcImage(string rawProgramFileName, string patchFileName, string imageDirectory, string driveName, string targetFolder, ref uint iErrorCode)
+	{
+		string text = "Failed to Read the eMMC image from the phone:  ";
+		byte b = 0;
+		b = QEMMCLib_ReadEmmcImage(rawProgramFileName, patchFileName, imageDirectory, driveName, targetFolder, ref iErrorCode, swdownloadEMMCloghandlerCallBack_delegate);
+		if (b != 1)
+		{
+			throw new Exception(text + iErrorCode);
+		}
+	}
+
+	public void QPHONEMS_StrmDownload_Reset(uint timeoutSeconds)
+	{
+		string message = "Failed to reset the phone while ind download state";
+		byte b = 0;
+		b = QLIB_QPHONEMS_StrmDownload_Reset(phoneHandle, timeoutSeconds);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_SetupStrmDlRetries(int iSleepTimeToRetryHello, int iMaxTriesToHello, int iSleepTimeToRetryNop, int iMaxTriesToNop)
+	{
+		string message = "Failed to setup streaming parameters for retries";
+		byte b = 0;
+		b = QLIB_QPHONEMS_SetupStrmDlRetries(phoneHandle, (uint)iSleepTimeToRetryHello, (uint)iMaxTriesToHello, (uint)iSleepTimeToRetryNop, (uint)iMaxTriesToNop);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_SetFactoryToken(string token)
+	{
+		string message = "Failed to set the token";
+		byte b = 0;
+		b = QLIB_QPHONEMS_SetFactoryToken(phoneHandle, token);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void AbortSwDownloadOperation()
+	{
+		QLIB_AbortSW_DownloadOperation(phoneHandle);
+	}
+
+	public bool GetLastSoftwareDownloadErrorInfo(out string ErrorMessage)
+	{
+		string text = "";
+		sbyte[] array = new sbyte[1024];
+		byte[] array2 = new byte[256];
+		QLIB_GetLastSoftwareDownloadErrorInfo(phoneHandle, array2, array, 100);
+		if (array2[0] != 1)
+		{
+			ErrorMessage = text;
+			return false;
+		}
+		char[] array3 = new char[1024];
+		int num = 0;
+		for (num = 0; num < 1024 && array[num] != 0; num++)
+		{
+			array3[num] = Convert.ToChar(array[num]);
+		}
+		string text2 = new string(array3);
+		ErrorMessage = text2.Substring(0, num);
+		return true;
+	}
+
+	public bool CheckPhoneStatus(int timeoutmilliseconds)
+	{
+		string message = "Phone is in either streaming Download or Diag mode";
+		byte b = 0;
+		b = QLIB_QPHONEMS_DLoad_SendNop(phoneHandle, (uint)timeoutmilliseconds);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+		return true;
+	}
+
+	public void RegisterOnSwDownloadEvent(SwDownloadEventHandler eventFunc, bool removeAll = true)
+	{
+		object onSwDownloadEvent = null;
+		if (!removeAll)
+		{
+			OnSwDownloadEvent += eventFunc;
+			return;
+		}
+		this.m_OnSwDownloadEvent = (SwDownloadEventHandler)onSwDownloadEvent;
+		OnSwDownloadEvent += eventFunc;
+	}
+
+	public void UpdateSwDownloadClient(string information)
+	{
+		this.m_OnSwDownloadEvent?.Invoke(this, information);
+	}
+
+	private void generalSWDownloadHandlerCallBack(IntPtr msgPtr)
+	{
+		string text = "";
+		string text2 = "\r\n\r\nEvent: SWD_downloadEvent";
+		string text3 = "\r\nBlock: ";
+		string text4 = "\r\nAddress: ";
+		string text5 = "\r\nData: ";
+		string text6 = "\r\n\r\nEvent: SWD_nvBackupEvent";
+		string text7 = "\r\nNv Item: ";
+		string text8 = "\r\n\r\nEvent: SWD_doAutoRestore";
+		string text9 = "\r\n\r\n--------------------SWD_reportLoaderStatus Not Implemented-----------------";
+		string text10 = "\r\n\r\n--------------------SWD_bootDownloadStart Not Implemented-----------------";
+		string text11 = "\r\n\r\n--------------------SWD_bootReportLoaderStatus Not Implemented-----------------";
+		string text12 = "\r\n\r\n--------------------SWD_bootDownloadStatus Not Implemented-----------------";
+		string text13 = "\r\n\r\n--------------------SWD_bootDownloadProgress Not Implemented-----------------";
+		string text14 = "\r\n\r\n--------------------SWD_bootDownloadComplete Not Implemented-----------------";
+		string text15 = "\r\n\r\n--------------------SWD_MIReportLoaderStatus Not Implemented-----------------";
+		string text16 = "\r\n\r\n--------------------SWD_MIReportFlashStatus Not Implemented-----------------";
+		string text17 = "\r\n\r\nEvent: SWD_MIStartDownload";
+		string text18 = "\r\nImage Size: ";
+		string text19 = "\r\nImage Type: ";
+		string text20 = "\r\n\r\nEvent: MIDownloadProgress";
+		string text21 = "\r\nBytes Written: ";
+		string text22 = "\r\n\r\nEvent: SWD_MIDownloadComplete";
+		string text23 = "\r\n\r\nEvent: MIDownloadStatus_struct";
+		string text24 = "\r\nDetail Code: ";
+		string text25 = "\r\nStatus: ";
+		string text26 = "\r\nStatus Code ";
+		lock (lockObj)
+		{
+			string text27 = text;
+			byte[] array = new byte[4];
+			try
+			{
+				array[0] = Marshal.ReadByte(msgPtr, 0);
+				array[1] = Marshal.ReadByte(msgPtr, 1);
+				array[2] = Marshal.ReadByte(msgPtr, 2);
+				array[3] = Marshal.ReadByte(msgPtr, 3);
+				switch (BitConverter.ToInt32(array, 0))
+				{
+				case 0:
+				{
+					byte[] array6 = new byte[122];
+					byte[] array7 = new byte[114];
+					Marshal.Copy(msgPtr, array6, 0, 122);
+					Array.Copy(array6, 8, array7, 0, 114);
+					GCHandle gCHandle3 = GCHandle.Alloc(array7, GCHandleType.Pinned);
+					IntPtr ptr3 = gCHandle3.AddrOfPinnedObject();
+					downloadEvent_struct downloadEvent_struct = (downloadEvent_struct)Marshal.PtrToStructure(ptr3, typeof(downloadEvent_struct));
+					text27 = text2;
+					text27 += UpdateStatus(downloadEvent_struct.status);
+					text27 += UpdateError(downloadEvent_struct.error);
+					text27 += UpdatePctComplete(downloadEvent_struct.percentCompleted);
+					text27 = text27 + text3 + downloadEvent_struct.block;
+					text27 = text27 + text4 + downloadEvent_struct.address;
+					string text29 = text;
+					for (int j = 0; j < 100 && downloadEvent_struct.dataString[j] != 0; j++)
+					{
+						text29 += Convert.ToChar(downloadEvent_struct.dataString[j]);
+					}
+					if (text29.Length > 0)
+					{
+						text27 = text27 + text5 + text29;
+					}
+					gCHandle3.Free();
+					UpdateSwDownloadClient(text27);
+					break;
+				}
+				case 1:
+				{
+					byte[] array4 = new byte[118];
+					byte[] array5 = new byte[110];
+					Marshal.Copy(msgPtr, array4, 0, 118);
+					Array.Copy(array4, 8, array5, 0, 110);
+					GCHandle gCHandle2 = GCHandle.Alloc(array5, GCHandleType.Pinned);
+					IntPtr ptr2 = gCHandle2.AddrOfPinnedObject();
+					nvBackupEvent_struct nvBackupEvent_struct = (nvBackupEvent_struct)Marshal.PtrToStructure(ptr2, typeof(nvBackupEvent_struct));
+					text27 = text6;
+					text27 += UpdateStatus(nvBackupEvent_struct.status);
+					text27 += UpdateError(nvBackupEvent_struct.error);
+					text27 += UpdatePctComplete(nvBackupEvent_struct.percentCompleted);
+					text27 = text27 + text7 + nvBackupEvent_struct.nvItem;
+					string text28 = text;
+					for (int i = 0; i < 100 && nvBackupEvent_struct.dataString[i] != 0; i++)
+					{
+						text28 += Convert.ToChar(nvBackupEvent_struct.dataString[i]);
+					}
+					if (text28.Length > 0)
+					{
+						text27 = text27 + text5 + text28;
+					}
+					gCHandle2.Free();
+					UpdateSwDownloadClient(text27);
+					break;
+				}
+				case 2:
+					text27 = text8;
+					UpdateSwDownloadClient(text27);
+					break;
+				case 3:
+					text27 = text9;
+					break;
+				case 4:
+					text27 = text10;
+					break;
+				case 5:
+					text27 = text11;
+					break;
+				case 6:
+					text27 = text12;
+					break;
+				case 7:
+					text27 = text13;
+					break;
+				case 8:
+					text27 = text14;
+					break;
+				case 9:
+					text27 = text15;
+					break;
+				case 10:
+					text27 = text16;
+					break;
+				case 11:
+				{
+					byte[] array10 = new byte[16];
+					byte[] array11 = new byte[8];
+					Marshal.Copy(msgPtr, array10, 0, 16);
+					Array.Copy(array10, 8, array11, 0, 8);
+					GCHandle gCHandle5 = GCHandle.Alloc(array11, GCHandleType.Pinned);
+					IntPtr ptr5 = gCHandle5.AddrOfPinnedObject();
+					MIStartDownload_struct mIStartDownload_struct = (MIStartDownload_struct)Marshal.PtrToStructure(ptr5, typeof(MIStartDownload_struct));
+					text27 = text17;
+					text27 = text27 + text18 + mIStartDownload_struct.imageSize;
+					text27 = text27 + text19 + mIStartDownload_struct.imageType;
+					gCHandle5.Free();
+					UpdateSwDownloadClient(text27);
+					break;
+				}
+				case 12:
+				{
+					byte[] array8 = new byte[12];
+					byte[] array9 = new byte[4];
+					Marshal.Copy(msgPtr, array8, 0, 12);
+					Array.Copy(array8, 8, array9, 0, 4);
+					GCHandle gCHandle4 = GCHandle.Alloc(array9, GCHandleType.Pinned);
+					IntPtr ptr4 = gCHandle4.AddrOfPinnedObject();
+					MIDownloadProgress_struct mIDownloadProgress_struct = (MIDownloadProgress_struct)Marshal.PtrToStructure(ptr4, typeof(MIDownloadProgress_struct));
+					text27 = text20;
+					text27 = text27 + text21 + mIDownloadProgress_struct.bytesWritten;
+					gCHandle4.Free();
+					UpdateSwDownloadClient(text27);
+					break;
+				}
+				case 13:
+					text27 = text22;
+					UpdateSwDownloadClient(text27);
+					break;
+				case 14:
+				{
+					byte[] array2 = new byte[16];
+					byte[] array3 = new byte[8];
+					Marshal.Copy(msgPtr, array2, 0, 16);
+					Array.Copy(array2, 8, array3, 0, 8);
+					GCHandle gCHandle = GCHandle.Alloc(array3, GCHandleType.Pinned);
+					IntPtr ptr = gCHandle.AddrOfPinnedObject();
+					MIDownloadStatus_struct mIDownloadStatus_struct = (MIDownloadStatus_struct)Marshal.PtrToStructure(ptr, typeof(MIDownloadStatus_struct));
+					text27 = text23;
+					text27 = text27 + text24 + mIDownloadStatus_struct.detailCode;
+					string msg = text;
+					DLmsg dLmsg = new DLmsg();
+					dLmsg.getMsg(mIDownloadStatus_struct.statusCode, out msg);
+					text27 = ((msg.Length > 0) ? (text27 + text25 + msg) : (text27 + text26 + mIDownloadStatus_struct.statusCode));
+					gCHandle.Free();
+					UpdateSwDownloadClient(text27);
+					break;
+				}
+				}
+			}
+			catch (Exception ex)
+			{
+				throw ex;
+			}
+		}
+	}
+
+	public void EnableSwDownloadMessagesCallback(bool enableSwDownloadCallBacks)
+	{
+		object obj = null;
+		if (!enableSwDownloadCallBacks)
+		{
+			QLIB_ConfigureCallBacks(phoneHandle, 0u, (GeneralSWDownloadHandlerCallBackType)obj, (asyncHandlerCallBack)obj);
+		}
+		else
+		{
+			QLIB_ConfigureCallBacks(phoneHandle, 0u, generalSWDownloadHandlerCallBack_delegate, asyncHandlerCB);
+		}
+	}
+
+	private void qphoneEMSCBSWDownloadHandlerCallBack(uint handle, IntPtr msgPtr, ushort iMsgSize)
+	{
+		lock (lockQhoneEMSCB)
+		{
+			try
+			{
+				byte[] array = new byte[iMsgSize];
+				Marshal.Copy(msgPtr, array, 0, iMsgSize);
+				UTF8Encoding uTF8Encoding = new UTF8Encoding();
+				string information = uTF8Encoding.GetString(array);
+				UpdateSwDownloadClient(information);
+			}
+			catch (Exception ex)
+			{
+				throw ex;
+			}
+		}
+	}
+
+	private bool swdownloademmcLogHandlerCallBack(IntPtr msgPtr, int MsgSize)
+	{
+		try
+		{
+			byte[] array = new byte[MsgSize];
+			Marshal.Copy(msgPtr, array, 0, MsgSize);
+			UTF8Encoding uTF8Encoding = new UTF8Encoding();
+			string information = uTF8Encoding.GetString(array);
+			UpdateSwDownloadClient(information);
+			return true;
+		}
+		catch (Exception ex)
+		{
+			throw ex;
+		}
+	}
+
+	private string UpdateStatus(uint status)
+	{
+		string text = "";
+		string text2 = "\r\nStatus: ";
+		string text3 = "\r\nStatus Code ";
+		string msg = text;
+		DLmsg dLmsg = new DLmsg();
+		string text4 = text;
+		dLmsg.getMsg(status, out msg);
+		if (msg.Length <= 0)
+		{
+			return text4 + text3 + status;
+		}
+		return text4 + text2 + msg;
+	}
+
+	private string UpdateError(uint error)
+	{
+		string text = "";
+		string text2 = "\r\nError: ";
+		string text3 = text;
+		DLmsg dLmsg = new DLmsg();
+		string text4 = text;
+		if ((ulong)error <= 0uL)
+		{
+			return text4;
+		}
+		text3 = text;
+		dLmsg.getMsg(error, out text3);
+		if (text3.Length > 0)
+		{
+			return text4 + text2 + text3;
+		}
+		return text4 + text2 + error;
+	}
+
+	private string UpdatePctComplete(uint complete)
+	{
+		string text = "";
+		string text2 = "\r\n%Complete: ";
+		string text3 = "\r\n%Complete: Un-Defined";
+		string text4 = text;
+		if ((long)complete <= 100L)
+		{
+			return text4 + text2 + complete;
+		}
+		return text4 + text3;
+	}
+
+	private void ConcatinateAndVerifyFilesFor_UploadSB2MultiImage()
+	{
+		//Error decoding local variables: Signature type sequence must have at least one element.
+		ConcatinateAndVerifyFiles(ref sPartitionFileName);
+		ConcatinateAndVerifyFiles(ref sDeviceBootLoader_FileName);
+		ConcatinateAndVerifyFiles(ref sQFailSafeBOotLoader_FileName);
+		ConcatinateAndVerifyFiles(ref sOSBootLoader_FileName);
+		ConcatinateAndVerifyFiles(ref sModem_FileName);
+		ConcatinateAndVerifyFiles(ref sApps_FileName);
+		ConcatinateAndVerifyFiles(ref sAppsBootLoader_FileName);
+		ConcatinateAndVerifyFiles(ref sWinMobile_FileName);
+		ConcatinateAndVerifyFiles(ref sDSP1FileName);
+		ConcatinateAndVerifyFiles(ref sDSP2FileName);
+		ConcatinateAndVerifyFiles(ref sMBR_FileName);
+		ConcatinateAndVerifyFiles(ref sADSP_FileName);
+		ConcatinateAndVerifyFiles(ref sStorageFile);
+	}
+
+	private void ConcatinateAndVerifyFilesFor_QPHONEMS_UploadSB2MultiImage()
+	{
+		//Error decoding local variables: Signature type sequence must have at least one element.
+		ConcatinateAndVerifyFiles(ref sARMPRGFileName);
+		ConcatinateAndVerifyFiles(ref sPartitionFileName);
+		ConcatinateAndVerifyFiles(ref sDeviceBootLoader_FileName);
+		ConcatinateAndVerifyFiles(ref sQFailSafeBOotLoader_FileName);
+		ConcatinateAndVerifyFiles(ref sOSBootLoader_FileName);
+		ConcatinateAndVerifyFiles(ref sModem_FileName);
+		ConcatinateAndVerifyFiles(ref sApps_FileName);
+		ConcatinateAndVerifyFiles(ref sAppsBootLoader_FileName);
+		ConcatinateAndVerifyFiles(ref sWinMobile_FileName);
+		ConcatinateAndVerifyFiles(ref sDSP1FileName);
+		ConcatinateAndVerifyFiles(ref sDSP2FileName);
+		ConcatinateAndVerifyFiles(ref sMBR_FileName);
+		ConcatinateAndVerifyFiles(ref sADSP_FileName);
+		ConcatinateAndVerifyFiles(ref sTrustZone);
+		ConcatinateAndVerifyFiles(ref sROFS1);
+		ConcatinateAndVerifyFiles(ref sROFS2);
+		ConcatinateAndVerifyFiles(ref sROFS3);
+		ConcatinateAndVerifyFiles(ref sCefsModem_FileName);
+	}
+
+	private void ConcatinateAndVerifyFIlesFor_QPHONEMS_UploadSB1MultiImage()
+	{
+		//Error decoding local variables: Signature type sequence must have at least one element.
+		ConcatinateAndVerifyFiles(ref sARMPRGFileName);
+		ConcatinateAndVerifyFiles(ref sPartitionFileName);
+		ConcatinateAndVerifyFiles(ref sPriBootLoader_FileName);
+		ConcatinateAndVerifyFiles(ref sQCSecBootLoader_FileName);
+		ConcatinateAndVerifyFiles(ref sQCSecBootLoaderHeader_FileName);
+		ConcatinateAndVerifyFiles(ref sOEMSecBootLoader_FileName);
+		ConcatinateAndVerifyFiles(ref sOEMSecBootLoaderHeader_FileName);
+		ConcatinateAndVerifyFiles(ref sModem_FileName);
+		ConcatinateAndVerifyFiles(ref sModemFileHeader_FileName);
+		ConcatinateAndVerifyFiles(ref sApps_FileName);
+		ConcatinateAndVerifyFiles(ref sAppsFileHeader_FileName);
+		ConcatinateAndVerifyFiles(ref sAppsBootLoader_FileName);
+		ConcatinateAndVerifyFiles(ref sAppsBootLoaderFileHeader_FileName);
+		ConcatinateAndVerifyFiles(ref sWinMobile_FileName);
+		ConcatinateAndVerifyFiles(ref sDSP1FileName);
+		ConcatinateAndVerifyFiles(ref sMBR_FileName);
+		ConcatinateAndVerifyFiles(ref sADSP_FileName);
+		ConcatinateAndVerifyFiles(ref sCefsModem_FileName);
+	}
+
+	private void ConcatinateAndVerifyFiles(ref string fileName)
+	{
+		object objB = null;
+		string text = "Failed to IndexOf the file: ";
+		if (!object.Equals(fileName, objB) && fileName.Length > 0)
+		{
+			fileName = Path.Combine(swDirectoryName, fileName);
+			if (!File.Exists(fileName))
+			{
+				throw new Exception(text + fileName);
+			}
+		}
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern bool QLIB_FTM_RF_ANT_TUNER_SET_TUNER_PROPERTIES(uint hResourceContext, ushort version, byte antennaNum, byte updateType, byte tunecodeSize, [MarshalAs(UnmanagedType.LPArray)] byte[] pTunecodeBytes, byte impedanceScenario, byte apertureScenario, byte maatMode, byte atScenario);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern bool QLIB_FTM_RF_ANT_TUNER_SET_ALL_TUNER_PROPERTIES(uint hResourceContext, ushort version, byte updateType);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern bool QLIB_FTM_RF_ANT_TUNER_GET_TUNER_STATUS(uint hResourceContext, ushort version, byte source, ref byte numAntennas, [MarshalAs(UnmanagedType.LPArray)] byte[] TunerStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern bool QLIB_FTM_RFFE_GET_TUNER_STATUS(uint hResourceContext, ushort version, byte source, ref byte numAntennas, [MarshalAs(UnmanagedType.LPArray)] byte[] tunerStatus_ant0, [MarshalAs(UnmanagedType.LPArray)] byte[] tunerCodeDataAnt0, [MarshalAs(UnmanagedType.LPArray)] byte[] tunerCodeMappingAnt0, [MarshalAs(UnmanagedType.LPArray)] byte[] tunerStatus_ant1, [MarshalAs(UnmanagedType.LPArray)] byte[] tunerCodeDataAnt1, [MarshalAs(UnmanagedType.LPArray)] byte[] tunerCodeMappingAnt1, [MarshalAs(UnmanagedType.LPArray)] byte[] tunerStatus_ant2, [MarshalAs(UnmanagedType.LPArray)] byte[] tunerCodeDataAnt2, [MarshalAs(UnmanagedType.LPArray)] byte[] tunerCodeMappingAnt2, [MarshalAs(UnmanagedType.LPArray)] byte[] tunerStatus_ant3, [MarshalAs(UnmanagedType.LPArray)] byte[] tunerCodeDataAnt3, [MarshalAs(UnmanagedType.LPArray)] byte[] tunerCodeMappingAnt3);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern bool QLIB_FTM_RFFE_READWRITE_CMD(uint hResourceContext, byte iExtMode, byte iReadWrite, byte iChannel, byte iSlave, ushort iAddress, ref byte iData, byte iHalfSpeed);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern bool QLIB_FTM_RFFE_GET_DEVICE_SETTING(uint hResourceContext, ref structDeviceSettingRequest pDeviceSettingRequest, ref byte iNumDevices, ref structDeviceSettingResponse pDeviceTransactions, ref int iFTM_Error_Code);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_GET_RF_PATH_INFORMATION(uint hResourceContext, byte[] request, byte[] response);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern bool QLIB_FTM_GET_RF_PATH_INFORMATION_EXPANDED(uint hResourceContext, ref structRFPathInformationRequest request, ref structRFPathInformationResponse response);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_UNIFIED_TX_RX_CAL_PATH_INFORMATION(uint hResourceContext, [MarshalAs(UnmanagedType.LPArray)] byte[] request, [MarshalAs(UnmanagedType.LPArray)] byte[] response);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_RF_TEST_CMD_QUERY_RECOMMENDED_RADIO_ALLOCATION(uint hResourceContext, [MarshalAs(UnmanagedType.LPArray)] byte[] request, [MarshalAs(UnmanagedType.LPArray)] byte[] response, ref uint errorCode, ref uint specificErrorCode);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPST_DetectSaharaMode(uint hResourceContext);
+
+	public bool RFFESetTunerProperties(int antennaNumber, byte[] cmdBytes, eTunerCmd updateType = eTunerCmd.FTM_SET_TUNER_ENABLE_TUNE_CODE_OVERRIDE, byte impedanceScenario = 0, byte apertureScenario = 0, byte maatMode = 0, byte atScenario = 0)
+	{
+		//Error decoding local variables: Signature type sequence must have at least one element.
+		return QLIB_FTM_RF_ANT_TUNER_SET_TUNER_PROPERTIES(phoneHandle, 0, Convert.ToByte(antennaNumber), (byte)updateType, 8, cmdBytes, impedanceScenario, apertureScenario, maatMode, atScenario);
+	}
+
+	public bool RFFESetAllTunerProperties(eAllTunerCmd updateType)
+	{
+		return QLIB_FTM_RF_ANT_TUNER_SET_ALL_TUNER_PROPERTIES(phoneHandle, 0, (byte)updateType);
+	}
+
+	public bool RFFEGetTunerStatusForAllAntenna(ref byte antNum, ref StructGetTunerStatusInfoArray tunerStatus)
+	{
+		int num = 0;
+		object obj = null;
+		bool flag = true;
+		ushort version = 0;
+		byte source = 0;
+		int num2 = Marshal.SizeOf(typeof(StructGetTunerStatusInfoArray));
+		byte[] array = new byte[num2];
+		if (array != obj)
+		{
+			int i = 0;
+			for (int num3 = num2 - 1; i <= num3; i++)
+			{
+				Marshal.WriteByte(array, i, 0);
+			}
+			try
+			{
+				flag = QLIB_FTM_RF_ANT_TUNER_GET_TUNER_STATUS(phoneHandle, version, source, ref antNum, array);
+				IntPtr intPtr = Marshal.AllocHGlobal(num2);
+				Marshal.Copy(array, 0, intPtr, num2);
+				tunerStatus = (StructGetTunerStatusInfoArray)Marshal.PtrToStructure(intPtr, typeof(StructGetTunerStatusInfoArray));
+				Marshal.FreeHGlobal(intPtr);
+			}
+			catch
+			{
+				flag = (byte)num != 0;
+			}
+			return flag;
+		}
+		return false;
+	}
+
+	public bool method_13(ref structTunerStatus[] statusBytes)
+	{
+		bool flag = true;
+		ushort version = 0;
+		uint piPhoneMode = 0u;
+		QLIB_GetPhoneOperatingMode(phoneHandle, ref piPhoneMode);
+		byte source = 0;
+		byte numAntennas = 4;
+		structTunerStatus[] array = new structTunerStatus[4];
+		byte[] array2 = new byte[12];
+		byte[] array3 = new byte[8];
+		byte[] array4 = new byte[8];
+		byte[] array5 = new byte[12];
+		byte[] array6 = new byte[8];
+		byte[] array7 = new byte[8];
+		byte[] array8 = new byte[12];
+		byte[] array9 = new byte[8];
+		byte[] array10 = new byte[8];
+		byte[] array11 = new byte[12];
+		byte[] array12 = new byte[8];
+		byte[] array13 = new byte[8];
+		for (int i = 0; i <= 3; i++)
+		{
+			array[i] = new structTunerStatus();
+		}
+		flag = QLIB_FTM_RFFE_GET_TUNER_STATUS(phoneHandle, version, source, ref numAntennas, array2, array3, array4, array5, array6, array7, array8, array9, array10, array11, array12, array13);
+		if (numAntennas != 0)
+		{
+			byte[] array14 = new byte[12];
+			byte[] array15 = new byte[8];
+			byte[] array16 = new byte[8];
+			for (byte b = 0; b <= 3; b++)
+			{
+				switch (b)
+				{
+				case 0:
+					array14 = array2;
+					array15 = array3;
+					array16 = array4;
+					break;
+				case 1:
+					array14 = array5;
+					array15 = array6;
+					array16 = array7;
+					break;
+				case 2:
+					array14 = array8;
+					array15 = array9;
+					array16 = array10;
+					break;
+				case 3:
+					array14 = array11;
+					array15 = array12;
+					array16 = array13;
+					break;
+				}
+				array[b].ant_num = array14[0];
+				array[b].tuner_mgr_type = array14[1];
+				array[b].impedance_tx_algo_type = array14[2];
+				array[b].tune_code_size = array14[3];
+				array[b].device_state = array14[4];
+				array[b].aperture_tx_algo_type = array14[5];
+				array[b].rx_algo_type = array14[6];
+				array[b].charge_pump_status = array14[7];
+				for (int j = 0; j <= 7; j++)
+				{
+					array[b].tune_code_data[j] = array15[j];
+					array[b].tune_code_mapping[j] = array16[j];
+				}
+				array[b].impedance_scenario = array14[9];
+				array[b].aperture_scenario = array14[10];
+				array[b].asdiv_position = array14[11];
+				statusBytes = array;
+			}
+		}
+		else
+		{
+			flag = false;
+		}
+		return flag;
+	}
+
+	public string RFFEGetTunecodeString(byte tunecodeSize, byte[] tunecodeBytes)
+	{
+		string text = "";
+		string result = "Tunecode Size = 0";
+		string text2 = " ";
+		string text3 = text;
+		if (tunecodeSize != 0)
+		{
+			byte b = 0;
+			byte b2 = (byte)(tunecodeSize - 1);
+			if (0 > b2)
+			{
+				return text3;
+			}
+			bool flag = b != 0;
+			int num = 867816362;
+			while (true)
+			{
+				_ = num ^ -576608386;
+				if (flag)
+				{
+					break;
+				}
+				text3 = (text3 + (double)(int)tunecodeBytes[b]).ToString();
+				b++;
+				if (b > b2)
+				{
+					return text3;
+				}
+				flag = b != 0;
+				num = 867816362;
+			}
+			int num2 = 227823773;
+			while (true)
+			{
+				_ = num2 ^ -576608386;
+				text3 += text2;
+				text3 = (text3 + (double)(int)tunecodeBytes[b]).ToString();
+				while (true)
+				{
+					b++;
+					if (b <= b2)
+					{
+						if (flag = b != 0)
+						{
+							break;
+						}
+						text3 = (text3 + (double)(int)tunecodeBytes[b]).ToString();
+						continue;
+					}
+					return text3;
+				}
+				num2 = 227823773;
+			}
+		}
+		return result;
+	}
+
+	public int RFFETunerReadWriteCmd(bool Write, byte iSlave, ushort iAddress, byte iChannel, ref string Data)
+	{
+		int num = 16;
+		int result = 0;
+		byte iHalfSpeed = 0;
+		byte iExtMode = 0;
+		byte iData = 0;
+		byte b = Convert.ToByte(Write);
+		if (b == 0)
+		{
+			iData = Convert.ToByte(Data);
+		}
+		try
+		{
+			QLIB_FTM_RFFE_READWRITE_CMD(phoneHandle, iExtMode, b, iChannel, iSlave, iAddress, ref iData, iHalfSpeed);
+		}
+		catch (Exception)
+		{
+		}
+		Data = Convert.ToString(iData, num);
+		return result;
+	}
+
+	public int RFFETunerGetDeviceSetting(ref structDeviceSettingRequest DeviceSettingRequest, ref structDeviceSettingResponse DeviceSettingResponse, ref byte NumDevices)
+	{
+		int iFTM_Error_Code = 0;
+		QLIB_FTM_RFFE_GET_DEVICE_SETTING(phoneHandle, ref DeviceSettingRequest, ref NumDevices, ref DeviceSettingResponse, ref iFTM_Error_Code);
+		return iFTM_Error_Code;
+	}
+
+	public RFCardInfo RFFEGetRFCardInfo(string hardwareID)
+	{
+		string text = "C:\\Program Files (x86)\\Qualcomm\\QDART\\Databases\\QTunerConfiguration\\QTunerRFCards.xml";
+		RFCardInfo rFCardInfo = new RFCardInfo();
+		string filename = text;
+		rFCardInfo.LoadData(filename);
+		return rFCardInfo;
+	}
+
+	public bool RFFEGetSupportedBandsFromThePhone(TECHNOLOGY_FAMILY_TYPE tech, int Antenna, ref ulong[] supportedBands)
+	{
+		QueryPhoneForTunerBCConfig(tech);
+		int count = TunerBandClassConfig[Antenna].bandList.Count;
+		int i = 0;
+		for (int num = count - 1; i <= num; i++)
+		{
+			supportedBands[i] = TunerBandClassConfig[Antenna].bandList[i];
+		}
+		return true;
+	}
+
+	public void QueryPhoneForTunerBCConfig(TECHNOLOGY_FAMILY_TYPE techType)
+	{
+		AntennaBCConfig[] array = new AntennaBCConfig[4];
+		bool flag = false;
+		structRFPathInformationRequest request = new structRFPathInformationRequest();
+		new structRFPathInformationResponse();
+		if (techType == TECHNOLOGY_FAMILY_TYPE.TECHNOLOGY_1xEVDO)
+		{
+			techType = TECHNOLOGY_FAMILY_TYPE.TECHNOLOGY_CDMA;
+		}
+		request.band = ushort.MaxValue;
+		request.technology = Convert.ToByte((int)techType);
+		request.subBand = 0;
+		request.version = 1;
+		structRFPathInformationResponse[] array2 = new structRFPathInformationResponse[60];
+		int i = 0;
+		for (int num = array2.Length - 1; i <= num; i++)
+		{
+			array2[i] = new structRFPathInformationResponse();
+			array2[i].responsePayload.version0 = new structRFPathInformationPacketVersion0[12400];
+			array2[i].responsePayload.version1 = new structRFPathInformationPacketVersion1[12400];
+		}
+		int num2 = 0;
+		while (!flag)
+		{
+			QLIB_FTM_GET_RF_PATH_INFORMATION_EXPANDED(phoneHandle, ref request, ref array2[num2]);
+			flag = Convert.ToBoolean(array2[num2].responseHeader.isLastPacket);
+			num2++;
+		}
+		structRFPathInformationResponse[] array3 = array2;
+		structRFPathInformationResponse[] array4 = array3;
+		foreach (structRFPathInformationResponse structRFPathInformationResponse in array4)
+		{
+			int k = 0;
+			for (int num3 = structRFPathInformationResponse.responsePayload.numberofPackets - 1; k <= num3; k++)
+			{
+				for (int l = 0; l <= 3; l++)
+				{
+					if (array[l].antNum == structRFPathInformationResponse.responsePayload.version1[k].antennaNumber)
+					{
+						array[l].bandList.Add(structRFPathInformationResponse.responsePayload.version1[k].band);
+					}
+				}
+			}
+		}
+		TunerBandClassConfig = array;
+	}
+
+	private byte[] genReqByteArrayForGetRFPath(structRFPathInformationRequest req)
+	{
+		byte[] array = new byte[5];
+		int num = 0;
+		num = 1;
+		array[0] = req.technology;
+		byte[] bytes = BitConverter.GetBytes(req.band);
+		int i = 0;
+		for (int num2 = bytes.Length - 1; i <= num2; i++)
+		{
+			array[Math.Min(Interlocked.Increment(ref num), num - 1)] = bytes[i];
+		}
+		array[Math.Min(Interlocked.Increment(ref num), num - 1)] = req.subBand;
+		array[num] = req.version;
+		return array;
+	}
+
+	private void UpdatePacketBasedOnDifferentVersion(ushort packetVersion, ref structRFPathInformationPacket singlePacket, byte[] outArray, ref int flagIndex)
+	{
+		switch (packetVersion)
+		{
+		case 0:
+			singlePacket.version0.band = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version0.subBand = outArray[Math.Min(Interlocked.Increment(ref flagIndex), flagIndex - 1)];
+			singlePacket.version0.signalPath = BitConverter.ToUInt32(outArray, flagIndex);
+			flagIndex += 4;
+			singlePacket.version0.rfmDevice = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version0.antennaPath = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version0.reserved = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version0.associatedSignalPath = BitConverter.ToUInt32(outArray, flagIndex);
+			flagIndex += 4;
+			singlePacket.version0.ushort_0 = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version0.associatedantennaPath = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version0.associatedreserved = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version0.nvcontainer = outArray[Math.Min(Interlocked.Increment(ref flagIndex), flagIndex - 1)];
+			singlePacket.version0.rfmPathType = outArray[Math.Min(Interlocked.Increment(ref flagIndex), flagIndex - 1)];
+			singlePacket.version0.actionType = outArray[Math.Min(Interlocked.Increment(ref flagIndex), flagIndex - 1)];
+			flagIndex += 17;
+			break;
+		case 1:
+			singlePacket.version1.band = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version1.subBand = outArray[Math.Min(Interlocked.Increment(ref flagIndex), flagIndex - 1)];
+			singlePacket.version1.signalPath = BitConverter.ToUInt32(outArray, flagIndex);
+			flagIndex += 4;
+			singlePacket.version1.rfmDevice = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version1.antennaPath = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version1.ip2cal_cfg_bitmask = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version1.associatedRxSignalPath = BitConverter.ToUInt32(outArray, flagIndex);
+			flagIndex += 4;
+			singlePacket.version1.associatedRxRFMDevice = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version1.associatedRxAntennaPath = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version1.sigpathcapability = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version1.nvcontainer = outArray[Math.Min(Interlocked.Increment(ref flagIndex), flagIndex - 1)];
+			singlePacket.version1.rfmPathType = outArray[Math.Min(Interlocked.Increment(ref flagIndex), flagIndex - 1)];
+			singlePacket.version1.txrxcalaction = outArray[Math.Min(Interlocked.Increment(ref flagIndex), flagIndex - 1)];
+			singlePacket.version1.calibrationreferenceSignalPath = BitConverter.ToUInt32(outArray, flagIndex);
+			flagIndex += 4;
+			singlePacket.version1.associatedTxSignalPath = BitConverter.ToUInt32(outArray, flagIndex);
+			flagIndex += 4;
+			singlePacket.version1.associatedTxRFMDevice = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version1.associatedTxAntennaPath = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version1.uniquePathNumber = BitConverter.ToUInt16(outArray, flagIndex);
+			flagIndex += 2;
+			singlePacket.version1.antennaConfigState = outArray[Math.Min(Interlocked.Increment(ref flagIndex), flagIndex - 1)];
+			singlePacket.version1.rxrsbcalaction = outArray[Math.Min(Interlocked.Increment(ref flagIndex), flagIndex - 1)];
+			singlePacket.version1.antennaNumber = outArray[Math.Min(Interlocked.Increment(ref flagIndex), flagIndex - 1)];
+			break;
+		}
+	}
+
+	private structFtmUnifiedTxRxPathInfoResponse genStructGETRfPathRspFromRspArray(byte[] outArray)
+	{
+		structFtmUnifiedTxRxPathInfoResponse result = default(structFtmUnifiedTxRxPathInfoResponse);
+		int num = 0;
+		result.errorstatus = BitConverter.ToUInt32(outArray, 0);
+		num = 4;
+		result.version = BitConverter.ToUInt32(outArray, 4);
+		num = 8;
+		result.numberofbands = BitConverter.ToUInt16(outArray, 8);
+		num = 10;
+		result.bandData = new structFtmUnifiedTxRxPathInfoBandData[result.numberofbands];
+		int i = 0;
+		for (int num2 = result.numberofbands - 1; i <= num2; i++)
+		{
+			int num3 = 0;
+			result.bandData[i].band = BitConverter.ToUInt16(outArray, num);
+			num += 2;
+			result.bandData[i].sub_band = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+			result.bandData[i].startFreqKHz = BitConverter.ToUInt32(outArray, num);
+			num += 4;
+			result.bandData[i].uint_0 = BitConverter.ToUInt32(outArray, num);
+			num += 4;
+			result.bandData[i].num_of_paths = BitConverter.ToUInt16(outArray, num);
+			num += 2;
+			result.bandData[i].version0Data = new structFtmUnifiedTxRxPathInfoVersion0[result.bandData[i].num_of_paths];
+			int j = 0;
+			for (int num4 = result.bandData[i].num_of_paths - 1; j <= num4; j++)
+			{
+				result.bandData[i].version0Data[j].pathID = BitConverter.ToUInt16(outArray, num);
+				num += 2;
+				result.bandData[i].version0Data[j].rfmpath.rfmDevice = BitConverter.ToUInt16(outArray, num);
+				num += 2;
+				result.bandData[i].version0Data[j].rfmpath.sigPath = BitConverter.ToUInt16(outArray, num);
+				num += 2;
+				result.bandData[i].version0Data[j].rfmpath.antennaSwitchPath = BitConverter.ToUInt16(outArray, num);
+				num += 2;
+				result.bandData[i].version0Data[j].rfmpath.beamId = BitConverter.ToUInt16(outArray, num);
+				num += 2;
+				result.bandData[i].version0Data[j].rfmpath.pllId = BitConverter.ToUInt16(outArray, num);
+				num += 2;
+				num3 = CSharpImpl.__Assign(ref result.bandData[i].version0Data[j].numberofassociatedRxPaths, outArray[Math.Min(Interlocked.Increment(ref num), num - 1)]);
+				result.bandData[i].version0Data[j].associatedRxpaths = new ushort[num3];
+				int k = 0;
+				for (int num5 = num3 - 1; k <= num5; k++)
+				{
+					result.bandData[i].version0Data[j].associatedRxpaths[k] = BitConverter.ToUInt16(outArray, num);
+					num += 2;
+				}
+				num += 2 * (8 - num3);
+				num3 = CSharpImpl.__Assign(ref result.bandData[i].version0Data[j].numberofassociatedTxPaths, outArray[Math.Min(Interlocked.Increment(ref num), num - 1)]);
+				result.bandData[i].version0Data[j].associatedTxpaths = new ushort[num3];
+				int l = 0;
+				for (int num6 = num3 - 1; l <= num6; l++)
+				{
+					result.bandData[i].version0Data[j].associatedTxpaths[l] = BitConverter.ToUInt16(outArray, num);
+					num += 2;
+				}
+				num += 2 * (8 - num3);
+				result.bandData[i].version0Data[j].antenna_number = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+				result.bandData[i].version0Data[j].antenna_config_state = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+				result.bandData[i].version0Data[j].tx_rx_calaction = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+				result.bandData[i].version0Data[j].path_type = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+				result.bandData[i].version0Data[j].signal_pathcapability = BitConverter.ToUInt32(outArray, num);
+				num += 4;
+				num3 = CSharpImpl.__Assign(ref result.bandData[i].version0Data[j].num_ndr_states, outArray[Math.Min(Interlocked.Increment(ref num), num - 1)]);
+				result.bandData[i].version0Data[j].ndrStateInfo = new ndr_state_info[num3];
+				int m = 0;
+				for (int num7 = num3 - 1; m <= num7; m++)
+				{
+					result.bandData[i].version0Data[j].ndrStateInfo[m].ndrstate = BitConverter.ToUInt16(outArray, num);
+					num += 2;
+					result.bandData[i].version0Data[j].ndrStateInfo[m].tx_rx_calaction = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+					result.bandData[i].version0Data[j].ndrStateInfo[m].numberofBWtoCalibrate = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+					result.bandData[i].version0Data[j].ndrStateInfo[m].calBW = new byte[result.bandData[i].version0Data[j].ndrStateInfo[m].numberofBWtoCalibrate];
+					int n = 0;
+					for (int num8 = result.bandData[i].version0Data[j].ndrStateInfo[m].numberofBWtoCalibrate - 1; n <= num8; n++)
+					{
+						result.bandData[i].version0Data[j].ndrStateInfo[m].calBW[n] = outArray[num];
+						num++;
+					}
+					num += 4 - result.bandData[i].version0Data[j].ndrStateInfo[m].numberofBWtoCalibrate;
+					result.bandData[i].version0Data[j].ndrStateInfo[m].startFreqKHz = BitConverter.ToUInt32(outArray, num);
+					num += 4;
+					result.bandData[i].version0Data[j].ndrStateInfo[m].uint_0 = BitConverter.ToUInt32(outArray, num);
+					num += 4;
+				}
+				num += 16 * (32 - result.bandData[i].version0Data[j].num_ndr_states);
+			}
+			num += 567 * (1000 - result.bandData[i].num_of_paths);
+			result.bandData[i].num_of_idc_types = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+			int num9 = num + 140012;
+			result.bandData[i].idc_path_info = new structidc_cal_path_info[result.bandData[i].num_of_idc_types];
+			int num10 = 0;
+			for (int num11 = result.bandData[i].num_of_idc_types - 1; num10 <= num11; num10++)
+			{
+				result.bandData[i].idc_path_info[num10].idc_type = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+				num3 = CSharpImpl.__Assign(ref result.bandData[i].idc_path_info[num10].idc_cal_info.no_of_entries, BitConverter.ToUInt16(outArray, num));
+				num += 2;
+				result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry = new structFtm_unified_idc_cal_path_prop[num3];
+				int num12 = 0;
+				for (int num13 = num3 - 1; num12 <= num13; num12++)
+				{
+					result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].rfm_path_idx = BitConverter.ToUInt16(outArray, num);
+					num += 2;
+					result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].valid_bw_cnt = BitConverter.ToUInt16(outArray, num);
+					num += 2;
+					result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].bw_bitmask = BitConverter.ToUInt32(outArray, num);
+					num += 4;
+					result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].valid_xfmr_bw_cnt = BitConverter.ToUInt16(outArray, num);
+					num += 2;
+					result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].xfmr_bw_bitmask = BitConverter.ToUInt32(outArray, num);
+					num += 4;
+					result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].freq_arr_size = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+					result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].freq_array = new uint[result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].freq_arr_size];
+					int num14 = 0;
+					for (int num15 = result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].freq_arr_size - 1; num14 <= num15; num14++)
+					{
+						result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].freq_array[num14] = BitConverter.ToUInt32(outArray, num);
+						num += 4;
+					}
+					num += 4 * (5 - result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].freq_arr_size);
+				}
+				num += 35 * (1000 - num3);
+			}
+			num = num9;
+		}
+		return result;
+	}
+
+	public void FTM_GET_RF_PATH_INFORMATION(ref structRFPathInformationRequest req, ref structFtmUnifiedTxRxPathInfoResponse rsp)
+	{
+		object structure = null;
+		string exceptionMessage = "QLIB_FTM_GET_RF_PATH_INFORMATION failed!";
+		int num = Marshal.SizeOf(structure);
+		int num2 = num * 12400;
+		int num3 = num2 + 4;
+		int num4 = num3 + 4;
+		byte[] array = new byte[num4];
+		byte[] request = genReqByteArrayForGetRFPath(req);
+		try
+		{
+			if (QLIB_FTM_GET_RF_PATH_INFORMATION(phoneHandle, request, array) == 0)
+			{
+				throw new PhoneException(exceptionMessage);
+			}
+		}
+		catch (Exception ex)
+		{
+			throw new PhoneException(ex.Message);
+		}
+		rsp = genStructGETRfPathRspFromRspArray(array);
+	}
+
+	private structFtmUnifiedTxRxPathInfoResponse genStructGetUnifiedRfPathRspFromRspArray(byte[] outArray)
+	{
+		structFtmUnifiedTxRxPathInfoResponse result = default(structFtmUnifiedTxRxPathInfoResponse);
+		int num = 0;
+		result.errorstatus = BitConverter.ToUInt32(outArray, 0);
+		num = 4;
+		result.version = BitConverter.ToUInt32(outArray, 4);
+		num = 8;
+		result.numberofbands = BitConverter.ToUInt16(outArray, 8);
+		num = 10;
+		result.bandData = new structFtmUnifiedTxRxPathInfoBandData[result.numberofbands];
+		int i = 0;
+		for (int num2 = result.numberofbands - 1; i <= num2; i++)
+		{
+			int num3 = 0;
+			result.bandData[i].band = BitConverter.ToUInt16(outArray, num);
+			num += 2;
+			result.bandData[i].sub_band = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+			result.bandData[i].startFreqKHz = BitConverter.ToUInt32(outArray, num);
+			num += 4;
+			result.bandData[i].uint_0 = BitConverter.ToUInt32(outArray, num);
+			num += 4;
+			result.bandData[i].num_of_paths = BitConverter.ToUInt16(outArray, num);
+			num += 2;
+			result.bandData[i].version0Data = new structFtmUnifiedTxRxPathInfoVersion0[result.bandData[i].num_of_paths];
+			int j = 0;
+			for (int num4 = result.bandData[i].num_of_paths - 1; j <= num4; j++)
+			{
+				result.bandData[i].version0Data[j].pathID = BitConverter.ToUInt16(outArray, num);
+				num += 2;
+				result.bandData[i].version0Data[j].rfmpath.rfmDevice = BitConverter.ToUInt16(outArray, num);
+				num += 2;
+				result.bandData[i].version0Data[j].rfmpath.sigPath = BitConverter.ToUInt16(outArray, num);
+				num += 2;
+				result.bandData[i].version0Data[j].rfmpath.antennaSwitchPath = BitConverter.ToUInt16(outArray, num);
+				num += 2;
+				result.bandData[i].version0Data[j].rfmpath.beamId = BitConverter.ToUInt16(outArray, num);
+				num += 2;
+				result.bandData[i].version0Data[j].rfmpath.pllId = BitConverter.ToUInt16(outArray, num);
+				num += 2;
+				num3 = CSharpImpl.__Assign(ref result.bandData[i].version0Data[j].numberofassociatedRxPaths, outArray[Math.Min(Interlocked.Increment(ref num), num - 1)]);
+				result.bandData[i].version0Data[j].associatedRxpaths = new ushort[num3];
+				int k = 0;
+				for (int num5 = num3 - 1; k <= num5; k++)
+				{
+					result.bandData[i].version0Data[j].associatedRxpaths[k] = BitConverter.ToUInt16(outArray, num);
+					num += 2;
+				}
+				num += 2 * (8 - num3);
+				num3 = CSharpImpl.__Assign(ref result.bandData[i].version0Data[j].numberofassociatedTxPaths, outArray[Math.Min(Interlocked.Increment(ref num), num - 1)]);
+				result.bandData[i].version0Data[j].associatedTxpaths = new ushort[num3];
+				int l = 0;
+				for (int num6 = num3 - 1; l <= num6; l++)
+				{
+					result.bandData[i].version0Data[j].associatedTxpaths[l] = BitConverter.ToUInt16(outArray, num);
+					num += 2;
+				}
+				num += 2 * (8 - num3);
+				result.bandData[i].version0Data[j].antenna_number = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+				result.bandData[i].version0Data[j].antenna_config_state = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+				result.bandData[i].version0Data[j].tx_rx_calaction = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+				result.bandData[i].version0Data[j].path_type = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+				result.bandData[i].version0Data[j].signal_pathcapability = BitConverter.ToUInt32(outArray, num);
+				num += 4;
+				num3 = CSharpImpl.__Assign(ref result.bandData[i].version0Data[j].num_ndr_states, outArray[Math.Min(Interlocked.Increment(ref num), num - 1)]);
+				result.bandData[i].version0Data[j].ndrStateInfo = new ndr_state_info[num3];
+				int m = 0;
+				for (int num7 = num3 - 1; m <= num7; m++)
+				{
+					result.bandData[i].version0Data[j].ndrStateInfo[m].ndrstate = BitConverter.ToUInt16(outArray, num);
+					num += 2;
+					result.bandData[i].version0Data[j].ndrStateInfo[m].tx_rx_calaction = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+					result.bandData[i].version0Data[j].ndrStateInfo[m].numberofBWtoCalibrate = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+					result.bandData[i].version0Data[j].ndrStateInfo[m].calBW = new byte[result.bandData[i].version0Data[j].ndrStateInfo[m].numberofBWtoCalibrate];
+					int n = 0;
+					for (int num8 = result.bandData[i].version0Data[j].ndrStateInfo[m].numberofBWtoCalibrate - 1; n <= num8; n++)
+					{
+						result.bandData[i].version0Data[j].ndrStateInfo[m].calBW[n] = outArray[num];
+						num++;
+					}
+					num += 4 - result.bandData[i].version0Data[j].ndrStateInfo[m].numberofBWtoCalibrate;
+					result.bandData[i].version0Data[j].ndrStateInfo[m].startFreqKHz = BitConverter.ToUInt32(outArray, num);
+					num += 4;
+					result.bandData[i].version0Data[j].ndrStateInfo[m].uint_0 = BitConverter.ToUInt32(outArray, num);
+					num += 4;
+				}
+				num += 16 * (32 - result.bandData[i].version0Data[j].num_ndr_states);
+			}
+			num += 567 * (1000 - result.bandData[i].num_of_paths);
+			result.bandData[i].num_of_idc_types = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+			int num9 = num + 140012;
+			result.bandData[i].idc_path_info = new structidc_cal_path_info[result.bandData[i].num_of_idc_types];
+			int num10 = 0;
+			for (int num11 = result.bandData[i].num_of_idc_types - 1; num10 <= num11; num10++)
+			{
+				result.bandData[i].idc_path_info[num10].idc_type = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+				num3 = CSharpImpl.__Assign(ref result.bandData[i].idc_path_info[num10].idc_cal_info.no_of_entries, BitConverter.ToUInt16(outArray, num));
+				num += 2;
+				result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry = new structFtm_unified_idc_cal_path_prop[num3];
+				int num12 = 0;
+				for (int num13 = num3 - 1; num12 <= num13; num12++)
+				{
+					result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].rfm_path_idx = BitConverter.ToUInt16(outArray, num);
+					num += 2;
+					result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].valid_bw_cnt = BitConverter.ToUInt16(outArray, num);
+					num += 2;
+					result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].bw_bitmask = BitConverter.ToUInt32(outArray, num);
+					num += 4;
+					result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].valid_xfmr_bw_cnt = BitConverter.ToUInt16(outArray, num);
+					num += 2;
+					result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].xfmr_bw_bitmask = BitConverter.ToUInt32(outArray, num);
+					num += 4;
+					result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].freq_arr_size = outArray[Math.Min(Interlocked.Increment(ref num), num - 1)];
+					result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].freq_array = new uint[result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].freq_arr_size];
+					int num14 = 0;
+					for (int num15 = result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].freq_arr_size - 1; num14 <= num15; num14++)
+					{
+						result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].freq_array[num14] = BitConverter.ToUInt32(outArray, num);
+						num += 4;
+					}
+					num += 4 * (5 - result.bandData[i].idc_path_info[num10].idc_cal_info.idc_path_entry[num12].freq_arr_size);
+				}
+				num += 35 * (1000 - num3);
+			}
+			num = num9;
+		}
+		return result;
+	}
+
+	public void FTM_GET_UNIFIED_RF_PATH_INFORMATION(ref structFTM_RF_TEST_PROPERTY_DATA_BULK req, ref structFtmUnifiedTxRxPathInfoResponse rsp)
+	{
+		object obj = null;
+		string exceptionMessage = "Unable to allocate sufficient memory for QLIB_FTM_UNIFIED_TX_RX_CAL_PATH_INFORMATION command response!";
+		string exceptionMessage2 = "QLIB_FTM_UNIFIED_TX_RX_CAL_PATH_INFORMATION failed!";
+		byte[] array = new byte[43835622];
+		if (array == obj)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		byte[] request = genReqByteArrayForGetUnifiedRFPath(req);
+		if (QLIB_FTM_UNIFIED_TX_RX_CAL_PATH_INFORMATION(phoneHandle, request, array) == 0)
+		{
+			throw new PhoneException(exceptionMessage2);
+		}
+		rsp = genStructGetUnifiedRfPathRspFromRspArray(array);
+	}
+
+	private byte[] genReqByteArrayForGetUnifiedRFPath(structFTM_RF_TEST_PROPERTY_DATA_BULK req)
+	{
+		byte[] array = new byte[64];
+		int location = 0;
+		byte[] bytes = BitConverter.GetBytes(req.num_properties);
+		int i = 0;
+		for (int num = bytes.Length - 1; i <= num; i++)
+		{
+			array[Math.Min(Interlocked.Increment(ref location), location - 1)] = bytes[i];
+		}
+		int j = 0;
+		for (int num2 = (int)((long)req.num_properties - 1L); j <= num2; j++)
+		{
+			bytes = BitConverter.GetBytes(req.propertyData[j].type);
+			int k = 0;
+			for (int num3 = bytes.Length - 1; k <= num3; k++)
+			{
+				array[Math.Min(Interlocked.Increment(ref location), location - 1)] = bytes[k];
+			}
+			bytes = BitConverter.GetBytes(req.propertyData[j].value);
+			int l = 0;
+			for (int num4 = bytes.Length - 1; l <= num4; l++)
+			{
+				array[Math.Min(Interlocked.Increment(ref location), location - 1)] = bytes[l];
+			}
+		}
+		return array;
+	}
+
+	public void FTM_QUERY_RECOMMENDED_RADIO_ALLOCATION(ref structFTM_RF_TEST_PROPERTY_DATA_PACK request, ref structFTM_RF_TEST_PROPERTY_DATA_PACK response, ref uint errorCode, ref uint specificErrorCode)
+	{
+		string exceptionMessage = "Query recommended radio allocation failed.";
+		byte[] array = new byte[Marshal.SizeOf(typeof(structFTM_RF_TEST_PROPERTY_DATA_PACK))];
+		byte[] array2 = new byte[Marshal.SizeOf(typeof(structFTM_RF_TEST_PROPERTY_DATA_PACK))];
+		IntPtr intPtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(structFTM_RF_TEST_PROPERTY_DATA_PACK)));
+		Marshal.StructureToPtr((object)request, intPtr, fDeleteOld: false);
+		Marshal.Copy(intPtr, array2, 0, Marshal.SizeOf(typeof(structFTM_RF_TEST_PROPERTY_DATA_PACK)));
+		Marshal.FreeHGlobal(intPtr);
+		if (QLIB_FTM_RF_TEST_CMD_QUERY_RECOMMENDED_RADIO_ALLOCATION(phoneHandle, array2, array, ref errorCode, ref specificErrorCode) == 0)
+		{
+			throw new PhoneException(exceptionMessage);
+		}
+		IntPtr intPtr2 = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(structFTM_RF_TEST_PROPERTY_DATA_PACK)));
+		Marshal.Copy(array, 0, intPtr2, Marshal.SizeOf(typeof(structFTM_RF_TEST_PROPERTY_DATA_PACK)));
+		response = (structFTM_RF_TEST_PROPERTY_DATA_PACK)Marshal.PtrToStructure(intPtr2, typeof(structFTM_RF_TEST_PROPERTY_DATA_PACK));
+		Marshal.FreeHGlobal(intPtr2);
+	}
+
+	public bool QPST_DetectSaharaMode()
+	{
+		if (QLIB_QPST_DetectSaharaMode(phoneHandle) != 0)
+		{
+			return true;
+		}
+		return false;
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_WP7_WRITE_PVK(uint hResourceContext, string pPVK_FileName, ref uint iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_WP7_COMMIT_DPP(uint hResourceContext, ref uint iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_WP7_SWITCH_OFF_FTM(uint hResourceContext, ref uint iStatus);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_WP7_CHECK_DPP_WRITTEN(uint hResourceContext, ref uint iDPP_Written);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_WP7_WRITE_DPP_Buffer(uint hResourceContext, string nonPvkDppBufferFile, ref uint iStatus);
+
+	public bool WP7_WRITE_PVK(string pVK_FileName, ref uint iStatus)
+	{
+		byte b = QLIB_WP7_WRITE_PVK(phoneHandle, pVK_FileName, ref iStatus);
+		if (b == 1)
+		{
+			return true;
+		}
+		return false;
+	}
+
+	public bool WP7_WRITE_DPP_Buffer(string nonPvkDppBufferFile, ref uint iStatus)
+	{
+		byte b = QLIB_WP7_WRITE_DPP_Buffer(phoneHandle, nonPvkDppBufferFile, ref iStatus);
+		if (b == 1)
+		{
+			return true;
+		}
+		return false;
+	}
+
+	public bool WP7_COMMIT_DPP(ref uint iStatus)
+	{
+		byte b = QLIB_WP7_COMMIT_DPP(phoneHandle, ref iStatus);
+		if (b == 1)
+		{
+			return true;
+		}
+		return false;
+	}
+
+	public bool WP7_SWITCH_OFF_FTM(ref uint iStatus)
+	{
+		byte b = QLIB_WP7_SWITCH_OFF_FTM(phoneHandle, ref iStatus);
+		if (b != 1)
+		{
+			return false;
+		}
+		return true;
+	}
+
+	public bool WP7_CHECK_DPP_WRITTEN(ref uint iDPP_Written)
+	{
+		byte b = QLIB_WP7_CHECK_DPP_WRITTEN(phoneHandle, ref iDPP_Written);
+		if (b != 1)
+		{
+			return false;
+		}
+		return true;
+	}
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_FFUToRawProgram(uint handle, QPHONEMSCBSWDownloadHandlerCallBack pSWDLCallBack, string string_0, string ImagePath);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_UploadEmmcImage_FireHose_NoPatch(uint handle, string rawprogramfile, ref float imageSizeInMB, ref float throughput, bool Read_Rawprogram_Toptobottom);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_FireHosePatch(uint handle, string patchfile);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_QPHONEMS_SwitchToEDL(uint handle);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_FUSE_CHECK(uint handle, byte[] sData, ref uint iFTM_Error_Code);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_PROVISION_FILE(uint handle, string sFileName, ref ushort sFile_DPP_Type, ref uint iFTM_ERROR_CODE);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_PROVISION_SSD(uint handle, string sFileName, ref uint iFTM_ERROR_CODE);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_PROVISION_HDCP_CEK(uint handle, string sFileName, ref uint iFTM_ERROR_CODE);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_PROVISION_HDCP_DATA(uint handle, string sFileName, ref uint iFTM_ERROR_CODE);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_PROVISION_OPM_PUB(uint handle, string sFileName, ref uint iFTM_ERROR_CODE);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_PROVISION_OPM_PRIV(uint handle, string sFileName, ref uint iFTM_ERROR_CODE);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_GET_DEVICE_UNIQUE_ID(uint handle, byte[] ovk_variable, ref uint iFTM_ERROR_CODE);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_PROVISION_OVK_HASH(uint handle, string sFileName, ref uint iFTM_ERROR_CODE);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_LOCK_DEVICE(uint handle, ref uint iFTM_ERROR_CODE);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_VALIDATE_PROVISIONED_FILE(uint handle, string sFileName, ushort sFile_DPP_Type, ref uint iFTM_ERROR_CODE);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_READ_PROVISIONED_FILE(uint handle, ushort sFile_DPP_Type, string sRemoteFileName, string sLocalFileName, ref uint iFTM_Error_Code);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_REGISTRY_READ(uint handle, string sKeyValuePath, ushort sKeyType, ref uint iFTM_ERROR_CODE, ref ushort sSize, byte[] sData);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_SHUTDOWN(uint handle, ushort sStichyCharging, ref uint iFTM_ERROR_CODE);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_FACTORY_RESET(uint handle, ref uint iFTM_ERROR_CODE);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_PROVISION_HDCP_HDMI_V1(uint handle, string sKeyFile, string sDpsFile, ref uint iFTM_ERROR_CODE);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_PROVISION_HDCP_HDMI_V2(uint handle, string sKeyFile, string sDpsFile, ref uint iFTM_ERROR_CODE);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_VALIDATE_HDCP_HDMI_V1(uint handle, ref uint iFTM_ERROR_CODE);
+
+	[DllImport("\\Data\\bin\\AdanChell.dll", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+	private static extern byte QLIB_FTM_WP_VALIDATE_HDCP_HDMI_V2(uint handle, ref uint iFTM_ERROR_CODE);
+
+	public void QPHONEMS_FFUToRawProgram(string string_0, string ImagePath)
+	{
+		string message = "Failed to breakdown the FFU file ";
+		byte b = 0;
+		b = QLIB_QPHONEMS_FFUToRawProgram(phoneHandle, qphoneDwonloadHandlerCallBack_delegate, string_0, ImagePath);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_UploadEmmcImage_FireHose_NoPatch(string rawprogramfile, ref float imageSizeInMB, ref float throughput, bool Read_Rawprogram_Toptobottom)
+	{
+		string message = "Failed to Upload the emmc images to the phone using Firehose.";
+		byte b = 0;
+		QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+		b = QLIB_QPHONEMS_UploadEmmcImage_FireHose_NoPatch(phoneHandle, rawprogramfile, ref imageSizeInMB, ref throughput, Read_Rawprogram_Toptobottom);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_FireHosePatch(string patchfile)
+	{
+		string message = "Failed to Upload the emmc images to the phone using Firehose.";
+		byte b = 0;
+		QLIB_QPHONEMS_FireHoseConfigureCallback(phoneHandle, qphoneDwonloadHandlerCallBack_delegate);
+		b = QLIB_QPHONEMS_FireHosePatch(phoneHandle, patchfile);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void QPHONEMS_SwitchToEDL()
+	{
+		string message = "Failed to Switch to Emergency Download mode";
+		byte b = 0;
+		b = QLIB_QPHONEMS_SwitchToEDL(phoneHandle);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_FUSE_CHECK(byte[] sData, ref uint iFTM_Error_Code)
+	{
+		string message = "Failed to provision the FTM_WP_FUSE_CHECK command";
+		byte b = 0;
+		b = QLIB_FTM_WP_FUSE_CHECK(phoneHandle, sData, ref iFTM_Error_Code);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_PROVISION_FILE(string sFileName, ref ushort sFile_DPP_Type, ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to provision the FTM_WP_PROVISION_FILE command";
+		byte b = 0;
+		b = QLIB_FTM_WP_PROVISION_FILE(phoneHandle, sFileName, ref sFile_DPP_Type, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_PROVISION_SSD(string sFileName, ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to provision the FTM_WP_PROVISION_SSD command";
+		byte b = 0;
+		b = QLIB_FTM_WP_PROVISION_SSD(phoneHandle, sFileName, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_PROVISION_HDCP_CEK(string sFileName, ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to provision the FTM_WP_PROVISION_HDCP_CEK command";
+		byte b = 0;
+		b = QLIB_FTM_WP_PROVISION_HDCP_CEK(phoneHandle, sFileName, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_PROVISION_HDCP_DATA(string sFileName, ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to provision the FTM_WP_PROVISION_HDCP_DATA command";
+		byte b = 0;
+		b = QLIB_FTM_WP_PROVISION_HDCP_DATA(phoneHandle, sFileName, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_PROVISION_OPM_PUB(string sFileName, ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to provision the FTM_WP_PROVISION_OPM_PUB command";
+		byte b = 0;
+		b = QLIB_FTM_WP_PROVISION_OPM_PUB(phoneHandle, sFileName, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_PROVISION_OPM_PRIV(string sFileName, ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to provision the FTM_WP_PROVISION_OPM_PUB command";
+		byte b = 0;
+		b = QLIB_FTM_WP_PROVISION_OPM_PRIV(phoneHandle, sFileName, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_GET_DEVICE_UNIQUE_ID(byte[] ovk_variable, ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to provision the FTM_WP_GET_DEVICE_UNIQUE_ID command";
+		byte b = 0;
+		b = QLIB_FTM_WP_GET_DEVICE_UNIQUE_ID(phoneHandle, ovk_variable, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_PROVISION_OVK_HASH(string sFileName, ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to provision the FTM_WP_PROVISION_OVK_HASH command";
+		byte b = 0;
+		b = QLIB_FTM_WP_PROVISION_OVK_HASH(phoneHandle, sFileName, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_LOCK_DEVICE(ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to provision the FTM_WP_LOCK_DEVICE command";
+		byte b = 0;
+		b = QLIB_FTM_WP_LOCK_DEVICE(phoneHandle, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_VALIDATE_PROVISIONED_FILE(string sFileName, ushort sFile_DPP_Type, ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to execute FTM_WP_VALIDATE_PROVISIONED_FILE command";
+		byte b = 0;
+		b = QLIB_FTM_WP_VALIDATE_PROVISIONED_FILE(phoneHandle, sFileName, sFile_DPP_Type, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_READ_PROVISIONED_FILE(ushort sFile_DPP_Type, string sRemoteFileName, string sLocalFileName, ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to execute FTM_WP_READ_PROVISIONED_FILE command";
+		byte b = 0;
+		b = QLIB_FTM_WP_READ_PROVISIONED_FILE(phoneHandle, sFile_DPP_Type, sRemoteFileName, sLocalFileName, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_REGISTRY_READ(string sKeyValuePath, ushort sKeyType, ref uint iFTM_ERROR_CODE, ref ushort sSize, ref string sData)
+	{
+		string text = "";
+		string message = "Failed to execute FTM_WP_REGISTRY_READ command";
+		sData = text;
+		byte b = 0;
+		byte[] array = new byte[4096];
+		b = QLIB_FTM_WP_REGISTRY_READ(phoneHandle, sKeyValuePath, sKeyType, ref iFTM_ERROR_CODE, ref sSize, array);
+		if (b == 1)
+		{
+			for (int i = 0; i < sSize && array[i] != 0; i++)
+			{
+				sData += Convert.ToString(Convert.ToChar(array[i]));
+			}
+			return;
+		}
+		throw new Exception(message);
+	}
+
+	public void FTM_WP_SHUTDOWN(ushort sStichyCharging, ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to execute FTM_WP_SHUTDOWN command";
+		byte b = 0;
+		b = QLIB_FTM_WP_SHUTDOWN(phoneHandle, sStichyCharging, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_FACTORY_RESET(ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to execute FTM_WP_FACTORY_RESET command";
+		byte b = 0;
+		b = QLIB_FTM_WP_FACTORY_RESET(phoneHandle, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_PROVISION_HDCP_HDMI_V1(string sKeyFile, string sDpsFile, ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to execute FTM_WP_PROVISION_HDCP_HDMI_V1 command";
+		byte b = 0;
+		b = QLIB_FTM_WP_PROVISION_HDCP_HDMI_V1(phoneHandle, sKeyFile, sDpsFile, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_PROVISION_HDCP_HDMI_V2(string sKeyFile, string sDpsFile, ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to execute FTM_WP_PROVISION_HDCP_HDMI_V2 command";
+		byte b = 0;
+		b = QLIB_FTM_WP_PROVISION_HDCP_HDMI_V2(phoneHandle, sKeyFile, sDpsFile, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_VALIDATE_HDCP_HDMI_V1(ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to execute FTM_WP_VALIDATE_HDCP_HDMI_V1 command";
+		byte b = 0;
+		b = QLIB_FTM_WP_VALIDATE_HDCP_HDMI_V1(phoneHandle, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public void FTM_WP_VALIDATE_HDCP_HDMI_V2(ref uint iFTM_ERROR_CODE)
+	{
+		string message = "Failed to execute FTM_WP_VALIDATE_HDCP_HDMI_V2 command";
+		byte b = 0;
+		b = QLIB_FTM_WP_VALIDATE_HDCP_HDMI_V2(phoneHandle, ref iFTM_ERROR_CODE);
+		if (b != 1)
+		{
+			throw new Exception(message);
+		}
+	}
+
+	public static int method_01(int arg_01, int arg_02)
+	{
+		return arg_01 ^ arg_02;
+	}
+
+	public static void E2C75()
+	{
+	}
+}
